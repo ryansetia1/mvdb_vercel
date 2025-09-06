@@ -1,0 +1,1 @@
+File tidak diperlukan lagi - implementasi sudah ada di UnifiedApp.tsx

@@ -1,0 +1,16 @@
+      {/* Create/Edit Dialog */}
+      <GroupFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        editingGroup={editingGroup}
+        formData={formData}
+        onInputChange={handleInputChange}
+        onSubmit={handleSubmit}
+        isLoading={isLoading}
+        availableActresses={actresses}
+        groupActresses={editingGroup ? groupMembers : []}
+        accessToken={accessToken}
+      />
+    </div>
+  )
+}

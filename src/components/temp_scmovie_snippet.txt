@@ -1,0 +1,10 @@
+            {contentState.mode === 'scMovieDetail' && contentState.data && (
+              <SCMovieDetailContent
+                scMovie={contentState.data}
+                onBack={handleBack}
+                onEdit={handleEditSCMovie}
+                accessToken={accessToken}
+                onMovieSelect={handleMovieSelect}
+                onProfileSelect={handleProfileSelect}
+              />
+            )}

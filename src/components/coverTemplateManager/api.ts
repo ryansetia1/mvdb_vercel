@@ -1,0 +1,432 @@
+import { CoverTemplateGroup } from './constants'
+import { projectId, publicAnonKey } from '../../utils/supabase/info'
+
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
+
+// Helper untuk mendapatkan auth headers
+const getAuthHeaders = (accessToken: string) => ({
+  'Authorization': `Bearer ${accessToken}`,
+  'Content-Type': 'application/json'
+})
+
+// Fetch semua template groups
+export const fetchTemplateGroups = async (accessToken: string): Promise<CoverTemplateGroup[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/template-groups`, {
+      headers: getAuthHeaders(accessToken)
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch template groups: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.groups || []
+  } catch (error) {
+    console.error('Error fetching template groups:', error)
+    throw error
+  }
+}
+
+// Fetch default template untuk studio atau type tertentu
+export const fetchDefaultTemplate = async (
+  accessToken: string,
+  options: {
+    studio?: string
+    type?: string
+  }
+): Promise<CoverTemplateGroup | null> => {
+  try {
+    const params = new URLSearchParams()
+    if (options.studio) params.append('studio', options.studio)
+    if (options.type) params.append('type', options.type)
+    
+    const response = await fetch(`${API_BASE_URL}/template-groups/default?${params.toString()}`, {
+      headers: getAuthHeaders(accessToken)
+    })
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null // No default template found
+      }
+      throw new Error(`Failed to fetch default template: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.template || null
+  } catch (error) {
+    console.error('Error fetching default template:', error)
+    throw error
+  }
+}
+
+// Save template group (create atau update)
+export const saveTemplateGroup = async (
+  accessToken: string, 
+  group: CoverTemplateGroup
+): Promise<CoverTemplateGroup> => {
+  try {
+    const url = group.id 
+      ? `${API_BASE_URL}/template-groups/${group.id}`
+      : `${API_BASE_URL}/template-groups`
+    
+    const method = group.id ? 'PUT' : 'POST'
+    
+    const response = await fetch(url, {
+      method,
+      headers: getAuthHeaders(accessToken),
+      body: JSON.stringify(group)
+    })
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to save template group: ${response.status} ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorMessage
+        console.error('Save template group error response:', errorData)
+      } catch (jsonError) {
+        console.error('Error parsing error response:', jsonError)
+        // Fall back to text response
+        try {
+          const errorText = await response.text()
+          errorMessage = errorText || errorMessage
+          console.error('Save template group error text:', errorText)
+        } catch (textError) {
+          console.error('Error reading error response as text:', textError)
+        }
+      }
+      throw new Error(errorMessage)
+    }
+    
+    const data = await response.json()
+    return data.group
+  } catch (error) {
+    console.error('Error saving template group:', error)
+    throw error
+  }
+}
+
+// Delete template group
+export const deleteTemplateGroup = async (
+  accessToken: string, 
+  groupId: string
+): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/template-groups/${groupId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(accessToken)
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Failed to delete template group: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Error deleting template group:', error)
+    throw error
+  }
+}
+
+// Apply template group ke movies dengan progress tracking
+export const applyTemplateGroup = async (
+  accessToken: string, 
+  group: CoverTemplateGroup,
+  onProgress?: (progress: { processed: number; total: number; status: string; currentMovie?: string }) => void
+): Promise<{ updatedCount: number; affectedMovies: string[] }> => {
+  try {
+    // Validate group has required fields
+    if (!group.id) {
+      throw new Error('Template group ID is required')
+    }
+    
+    if (!group.templateUrl) {
+      throw new Error('Template URL is required')
+    }
+    
+    if ((!group.applicableTypes || group.applicableTypes.length === 0) && 
+        (!group.applicableStudios || group.applicableStudios.length === 0)) {
+      throw new Error('At least one applicable type or studio is required')
+    }
+
+    const progressKey = `apply_progress_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    console.log('=== API Apply Template Debug ===')
+    console.log('Template Group data being sent:', {
+      id: group.id,
+      name: group.name,
+      templateUrl: group.templateUrl,
+      applicableTypes: group.applicableTypes,
+      isDefault: group.isDefault,
+      progressKey,
+      url: `${API_BASE_URL}/template-groups/${group.id}/apply`
+    })
+    
+    console.log('Request payload:', {
+      templateUrl: group.templateUrl,
+      galleryTemplate: group.galleryTemplate,
+      applicableTypes: group.applicableTypes,
+      applicableStudios: group.applicableStudios,
+      progressKey
+    })
+    
+    // Start progress polling if callback provided
+    let progressInterval: number | null = null
+    if (onProgress) {
+      progressInterval = window.setInterval(async () => {
+        try {
+          const progressResponse = await fetch(`${API_BASE_URL}/progress/${progressKey}`, {
+            headers: getAuthHeaders(accessToken)
+          })
+          
+          if (progressResponse.ok) {
+            const { progress } = await progressResponse.json()
+            if (progress && progress.status === 'processing') {
+              onProgress(progress)
+            } else if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+              if (progressInterval) {
+                clearInterval(progressInterval)
+                progressInterval = null
+              }
+              if (progress.status === 'completed') {
+                onProgress(progress)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Progress polling error:', error)
+        }
+      }, 500) // Poll every 500ms
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/template-groups/${group.id}/apply`, {
+        method: 'POST',
+        headers: getAuthHeaders(accessToken),
+        body: JSON.stringify({
+          templateUrl: group.templateUrl,
+          galleryTemplate: group.galleryTemplate,
+          applicableTypes: group.applicableTypes,
+          applicableStudios: group.applicableStudios,
+          progressKey
+        })
+      })
+      
+      console.log('Apply template response status:', response.status)
+      
+      // Clear progress polling
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to apply template group: ${response.status} ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (jsonError) {
+          console.error('Error parsing error response:', jsonError)
+        }
+        throw new Error(errorMessage)
+      }
+      
+      const data = await response.json()
+      console.log('Apply template response data:', data)
+      
+      // Final progress update
+      if (onProgress) {
+        onProgress({ 
+          processed: data.updatedCount, 
+          total: data.updatedCount, 
+          status: 'completed' 
+        })
+      }
+      
+      return {
+        updatedCount: data.updatedCount || 0,
+        affectedMovies: data.affectedMovies || []
+      }
+    } catch (error) {
+      // Clear progress polling on error
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      throw error
+    }
+  } catch (error) {
+    console.error('Error applying template group:', error)
+    // Re-throw with more context
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Network error when applying template group. Please check your connection and try again. Original error: ${error.message}`)
+    }
+    throw error
+  }
+}
+
+// Fetch movie types dari database
+export const fetchMovieTypes = async (accessToken: string): Promise<string[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/movie-types`, {
+      headers: getAuthHeaders(accessToken)
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch movie types: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.types || []
+  } catch (error) {
+    console.error('Error fetching movie types:', error)
+    throw error
+  }
+}
+
+// Fetch movie studios dari database
+export const fetchMovieStudios = async (accessToken: string): Promise<string[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/movie-studios`, {
+      headers: getAuthHeaders(accessToken)
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch movie studios: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.studios || []
+  } catch (error) {
+    console.error('Error fetching movie studios:', error)
+    throw error
+  }
+}
+
+// Enhanced debug function untuk test API connectivity
+export const testApiConnectivity = async (accessToken: string): Promise<{
+  isConnected: boolean
+  details: {
+    healthCheck: boolean
+    authentication: boolean
+    error?: string
+    responseTime?: number
+  }
+}> => {
+  const startTime = Date.now()
+  
+  try {
+    console.log('=== API Connectivity Test ===')
+    console.log('Project ID:', projectId)
+    console.log('API Base URL:', API_BASE_URL)
+    console.log('Access Token:', accessToken ? `Present (${accessToken.substring(0, 20)}...)` : 'Missing')
+    
+    // Test 1: Basic health check (no auth required)
+    console.log('1. Testing basic health check...')
+    let healthResponse
+    try {
+      healthResponse = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      console.log('Health check response status:', healthResponse.status)
+      console.log('Health check response headers:', Object.fromEntries(healthResponse.headers.entries()))
+      
+      if (healthResponse.ok) {
+        const healthData = await healthResponse.json()
+        console.log('Health check response data:', healthData)
+      } else {
+        const healthError = await healthResponse.text()
+        console.log('Health check error response:', healthError)
+      }
+    } catch (healthError) {
+      console.error('Health check fetch error:', healthError)
+      throw new Error(`Health check failed: ${healthError.message}`)
+    }
+    
+    // Test 2: Authenticated endpoint
+    console.log('2. Testing authenticated endpoint...')
+    let authResponse
+    try {
+      authResponse = await fetch(`${API_BASE_URL}/health-auth`, {
+        method: 'GET',
+        headers: getAuthHeaders(accessToken)
+      })
+      
+      console.log('Auth test response status:', authResponse.status)
+      
+      if (authResponse.ok) {
+        const authData = await authResponse.json()
+        console.log('Auth test successful:', authData)
+      } else {
+        const authError = await authResponse.text()
+        console.log('Auth test error response:', authError)
+      }
+    } catch (authError) {
+      console.error('Auth test fetch error:', authError)
+    }
+    
+    const responseTime = Date.now() - startTime
+    console.log('Total response time:', responseTime + 'ms')
+    console.log('=== End API Connectivity Test ===')
+    
+    const isHealthy = healthResponse?.ok || false
+    const isAuthenticated = authResponse?.ok || false
+    
+    return {
+      isConnected: isHealthy && isAuthenticated,
+      details: {
+        healthCheck: isHealthy,
+        authentication: isAuthenticated,
+        responseTime,
+        error: !isHealthy ? `Health check failed with status: ${healthResponse?.status} ${healthResponse?.statusText}` :
+               !isAuthenticated ? `Authentication failed with status: ${authResponse?.status} ${authResponse?.statusText}` : undefined
+      }
+    }
+    
+  } catch (error) {
+    const responseTime = Date.now() - startTime
+    console.error('API connectivity test failed:', error)
+    
+    return {
+      isConnected: false,
+      details: {
+        healthCheck: false,
+        authentication: false,
+        responseTime,
+        error: error.message
+      }
+    }
+  }
+}
+
+// Alternative API endpoint test using public anon key
+export const testApiWithAnonKey = async (): Promise<boolean> => {
+  try {
+    console.log('Testing API with public anon key...')
+    
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    console.log('Anon key test response status:', response.status)
+    
+    if (response.ok) {
+      const data = await response.json()
+      console.log('Anon key test successful:', data)
+      return true
+    } else {
+      const errorText = await response.text()
+      console.log('Anon key test failed:', errorText)
+      return false
+    }
+    
+  } catch (error) {
+    console.error('Anon key test error:', error)
+    return false
+  }
+}
