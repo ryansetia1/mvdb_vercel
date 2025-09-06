@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useMemo, useEffect } from 'react'
 import { Movie } from '../../utils/movieApi'
 import { MasterDataItem, castMatchesQuery } from '../../utils/masterDataApi'
@@ -78,6 +79,8 @@ export function MoviesContent({
   const [localStudioFilter, setLocalStudioFilter] = useState('all')
   const [localSeriesFilter, setLocalSeriesFilter] = useState('all')
   const [localTypeFilter, setLocalTypeFilter] = useState('all')
+  const [isRandomized, setIsRandomized] = useState(false)
+  const [randomMovies, setRandomMovies] = useState<Movie[]>([])
 
   // Determine which state to use
   const currentPage = externalFilters?.currentPage ?? localCurrentPage
@@ -254,6 +257,27 @@ export function MoviesContent({
   const totalPages = Math.ceil(filteredAndSortedMovies.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedMovies = filteredAndSortedMovies.slice(startIndex, startIndex + itemsPerPage)
+
+  // Fungsi shuffle array
+  function shuffleArray(array: Movie[]) {
+    const arr = [...array]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
+  }
+
+  // Handler randomize
+  const handleRandomize = () => {
+    setRandomMovies(shuffleArray(filteredAndSortedMovies))
+    setIsRandomized(true)
+  }
+  // Handler reset
+  const handleResetRandom = () => {
+    setIsRandomized(false)
+    setRandomMovies([])
+  }
 
   // Keyboard navigation for pagination
   useEffect(() => {
@@ -461,10 +485,13 @@ export function MoviesContent({
     )
   }
 
+  // Ganti paginatedMovies agar pakai randomMovies jika randomized
+  const moviesToShow = isRandomized ? randomMovies.slice(startIndex, startIndex + itemsPerPage) : paginatedMovies
+
   return (
     <div className="space-y-6">
       {/* Filters and Sort */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg">
+      <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg relative">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
@@ -564,6 +591,19 @@ export function MoviesContent({
           </SelectContent>
         </Select>
 
+        {/* Tombol Randomize di pojok kanan */}
+        <div className="ml-auto">
+          {isRandomized ? (
+            <Button variant="outline" size="sm" onClick={handleResetRandom}>
+              Reset
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleRandomize}>
+              Randomize
+            </Button>
+          )}
+        </div>
+
         {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={clearFilters}>
             <X className="h-4 w-4 mr-2" />
@@ -599,7 +639,7 @@ export function MoviesContent({
 
       {/* Movies Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-        {paginatedMovies.map((movie) => (
+        {moviesToShow.map((movie) => (
           <MovieCard
             key={movie.id}
             movie={movie}

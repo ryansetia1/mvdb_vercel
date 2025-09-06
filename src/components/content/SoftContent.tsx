@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Input } from '../ui/input'
@@ -102,7 +103,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
   return (
     <div className="space-y-6">
       {/* Local Search - only show if no global search is active */}
-      {!searchQuery && (
+      {/* {!searchQuery && (
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -122,7 +123,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
             </Button>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Active Filters Indicator */}
       <FilterIndicator

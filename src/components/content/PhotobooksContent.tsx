@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
@@ -204,7 +205,8 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
       />
 
       {/* Search - Only show if no external searchQuery */}
-      {!searchQuery && (
+      {/* Search bar kecil di bawah ini dihapus agar hanya search bar utama yang dipakai */}
+      {/* {!searchQuery && (
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -216,7 +218,7 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
             />
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Loading State */}
       {isLoading && (

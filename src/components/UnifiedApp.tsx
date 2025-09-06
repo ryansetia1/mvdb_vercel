@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -468,10 +469,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
   }
 
+  // 2. Ubah handlePhotobookSelect agar menerima Photobook (bukan string)
   const handlePhotobookSelect = (photobook: Photobook) => {
-    // Save current state to history before navigating to photobook detail
     setNavigationHistory(prev => [...prev, contentState])
-    
     setContentState({
       mode: 'photobookDetail',
       title: photobook.titleEn || photobook.titleJp || 'Photobook Details',
@@ -814,6 +814,14 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActiveNavItem('') // Clear active nav item for search mode
   }
 
+  // Tambahkan fungsi pembungkus untuk ProfileContent
+  const handlePhotobookSelectProfile = (photobookId: string) => {
+    const photobook = photobooks.find(p => p.id === photobookId)
+    if (photobook) {
+      handlePhotobookSelect(photobook)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -976,7 +984,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <div className="hidden md:flex items-center gap-1">
                 {customNavItems.map((item, index) => (
                   <DraggableCustomNavItem
-                    key={item.id}
                     item={item}
                     index={index}
                     activeNavItem={activeNavItem}
@@ -991,10 +998,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
           )}
 
           {/* Third Row: Search Bar + Advanced Search - Centered */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 py-3 px-4">
+          <div className="w-full flex flex-col md:flex-row items-center justify-center py-3 px-4">
             {/* Search Bar Container */}
-            <div className="w-full max-w-2xl">
-              <div className="relative">
+            <div className="flex w-full max-w-4xl mx-auto gap-3">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
                 <Input
                   placeholder="Search movies, actors, actresses..."
@@ -1013,18 +1020,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                   </Button>
                 )}
               </div>
+              {/* Advanced Search Button */}
+              <Button
+                variant="outline"
+                size="default"
+                onClick={handleAdvancedSearch}
+                className="flex items-center gap-2 h-12 px-6 flex-shrink-0 w-48"
+              >
+                <Filter className="h-4 w-4" />
+                Advanced Search
+              </Button>
             </div>
-
-            {/* Advanced Search Button */}
-            <Button
-              variant="outline"
-              size="default"
-              onClick={handleAdvancedSearch}
-              className="flex items-center gap-2 h-12 px-6 flex-shrink-0 w-full md:w-auto"
-            >
-              <Filter className="h-4 w-4" />
-              Advanced Search
-            </Button>
           </div>
         </div>
       </header>
@@ -1113,6 +1119,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <PhotobooksContent
                 accessToken={accessToken}
                 onPhotobookSelect={handlePhotobookSelect}
+                searchQuery={searchQuery}
               />
             )}
 
@@ -1232,9 +1239,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 accessToken={accessToken}
                 onBack={handleBack}
                 onMovieSelect={handleMovieSelect}
-                onSCMovieSelect={handleSCMovieSelect}
-                onPhotobookSelect={handlePhotobookSelect}
-                onGroupSelect={handleGroupSelect}
+                onSCMovieSelect={undefined}
+                onPhotobookSelect={handlePhotobookSelectProfile}
+                onGroupSelect={undefined}
                 onEditProfile={handleEditProfile}
               />
             )}
@@ -1249,6 +1256,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onProfileSelect={handleProfileSelect}
                 actorName={contentState.data.actorName}
                 actressName={contentState.data.actressName}
+                accessToken={accessToken}
               />
             )}
 
