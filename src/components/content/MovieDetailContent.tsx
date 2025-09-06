@@ -25,7 +25,7 @@ import { MovieEditingForm } from './movieDetail/MovieEditingForm'
 import { MovieBasicInfoEdit } from './movieDetail/MovieBasicInfoEdit'
 import { MovieCastEdit } from './movieDetail/MovieCastEdit'
 import { MovieLinksEdit } from './movieDetail/MovieLinksEdit'
-import { LinkedMoviesSection } from './movieDetail/LinkedMoviesSection'
+import { LinkedMoviesCard } from './movieDetail/LinkedMoviesCard'
 
 interface MovieDetailContentProps {
   movie: Movie
@@ -638,17 +638,12 @@ export function MovieDetailContent({
 
             {/* Linked Movies */}
             {currentMovie.id && (
-              <Card>
-                <CardContent className="p-6">
-                  <LinkedMoviesSection
-                    movieId={currentMovie.id}
-                    accessToken={accessToken}
-                    onMovieSelect={onMovieSelect}
-                  />
-                </CardContent>
-              </Card>
+              <LinkedMoviesCard
+                movieId={currentMovie.id}
+                accessToken={accessToken}
+                onMovieSelect={onMovieSelect}
+              />
             )}
-
             {/* Watch & Download */}
             <Card className="group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
