@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, ChevronLeft, ChevronRight, Copy, ExternalLink, User } from 'lucide-react'
@@ -631,8 +631,6 @@ export function ModernLightbox({
               className="select-none"
               style={{
                 // Remove max-width/max-height constraints that prevent scaling
-                maxWidth: 'none',
-                maxHeight: 'none',
                 width: 'auto',
                 height: 'auto',
                 // Set initial size to fit viewport when zoom = 1
