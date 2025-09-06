@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, ChevronLeft, ChevronRight, Copy, ExternalLink, User } from 'lucide-react'
@@ -636,8 +636,6 @@ export function ModernLightbox({
                 width: 'auto',
                 height: 'auto',
                 // Set initial size to fit viewport when zoom = 1
-                maxWidth: zoom === 1 ? '100vw' : 'none',
-                maxHeight: zoom === 1 ? '100vh' : 'none',
                 objectFit: 'contain',
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
