@@ -4,6 +4,7 @@
   import path from 'path';
 
   export default defineConfig({
+    base: '/',
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
@@ -14,10 +15,8 @@
         'react-resizable-panels@2.1.7': 'react-resizable-panels',
         'react-hook-form@7.55.0': 'react-hook-form',
         'react-day-picker@8.10.1': 'react-day-picker',
-        'npm:@supabase': 'npm:',
         'next-themes@0.4.6': 'next-themes',
         'lucide-react@0.487.0': 'lucide-react',
-        'jsr:@supabase': 'jsr:',
         'input-otp@1.4.2': 'input-otp',
         'figma:asset/f4288eeb39c0707261cc3daac4a2c51cf7c81a47.png': path.resolve(__dirname, './src/assets/f4288eeb39c0707261cc3daac4a2c51cf7c81a47.png'),
         'embla-carousel-react@8.6.0': 'embla-carousel-react',
@@ -57,6 +56,14 @@
       outDir: 'build',
       sourcemap: false,
       minify: 'terser',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          },
+        },
+      },
     },
     server: {
       port: 3000,
