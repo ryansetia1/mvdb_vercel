@@ -2,7 +2,7 @@
  * GalleryWithSave - Simple wrapper untuk gallery dengan fitur save dan load
  */
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { EnhancedGallery } from './EnhancedGallery'
@@ -11,7 +11,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback'
 import { savedGalleryApi, type SavedGalleryData } from '../utils/savedGalleryApi'
 import { RefreshCw, Database, Clock, Eye, Loader2 } from 'lucide-react'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface GalleryWithSaveProps {
   galleryTemplate: string
@@ -188,45 +188,53 @@ export function GalleryWithSave({
           {savedData.urls.map((url, index) => (
             <div
               key={index}
-              className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group cursor-pointer transition-all duration-200 hover:shadow-lg"
-              onClick={() => {
-                console.log('Saved gallery image clicked:', index)
-                setLightboxIndex(index)
-                setLightboxOpen(true)
-              }}
+              className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative cursor-pointer"
             >
               <img
                 src={url}
                 alt={`Gallery image ${index + 1}`}
-                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
                 loading="lazy"
+                onClick={() => {
+                  console.log('Saved gallery image clicked:', index)
+                  setLightboxIndex(index)
+                  setLightboxOpen(true)
+                }}
               />
               
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <Eye className="h-6 w-6 text-white" />
-                </div>
-              </div>
-
-              {/* Image number badge */}
-              <div className="absolute top-2 left-2">
-                <Badge variant="secondary" className="text-xs">
+              {/* Image number badge - always visible */}
+              <div className="absolute top-2 left-2 z-10">
+                <Badge variant="secondary" className="text-xs bg-black/70 text-white border-none">
                   {index + 1}
                 </Badge>
               </div>
               
-              {/* Gallery Image Favorite Button */}
+              {/* Simple hover overlay with click action */}
+              <div 
+                className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors duration-200 flex items-center justify-center opacity-0 hover:opacity-100"
+                onClick={() => {
+                  setLightboxIndex(index)
+                  setLightboxOpen(true)
+                }}
+              >
+                <div className="bg-white/90 rounded-full p-2 shadow-lg">
+                  <Eye className="h-5 w-5 text-gray-700" />
+                </div>
+              </div>
+              
+              {/* Gallery Image Favorite Button - simplified */}
               {accessToken && movieData && (
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <SimpleFavoriteButton
-                    type="image"
-                    itemId={url}
-                    sourceId={movieData.id || ''}
-                    size="sm"
-                    variant="ghost"
-                    className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
-                  />
+                <div className="absolute bottom-2 right-2 z-10">
+                  <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+                    <SimpleFavoriteButton
+                      type="image"
+                      itemId={url}
+                      sourceId={movieData.id || ''}
+                      size="sm"
+                      variant="ghost"
+                      className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                    />
+                  </div>
                 </div>
               )}
             </div>

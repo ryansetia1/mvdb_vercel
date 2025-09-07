@@ -112,7 +112,7 @@ export function MovieCard({
           movie={movie}
           onClick={onClick}
           showHoverEffect={true}
-          className="group" // Enable hover effects
+          className="" // Remove nested group class to prevent conflicts
           maxHeight="max-h-[200px]" // Reasonable max height for card layout
           showFavoriteButton={true}
           accessToken={accessToken}

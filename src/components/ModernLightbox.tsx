@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, ChevronLeft, ChevronRight, Copy, ExternalLink, User } from 'lucide-react'
 import { copyToClipboard } from '../utils/clipboard'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface LightboxMetadata {
   sourceType?: 'movie' | 'photobook'
@@ -241,81 +241,40 @@ export function ModernLightbox({
     setIsDragging(false)
   }
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     setIsDownloading(true)
     try {
-      // First try to fetch the image as blob to bypass CORS issues
-      const response = await fetch(src, {
-        mode: 'cors',
-        cache: 'no-cache'
-      })
+      // Simple and reliable - open in new tab
+      const link = document.createElement('a')
+      link.href = src
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.download = '' // This will suggest download if server supports it
       
-      if (response.ok) {
-        // If fetch is successful, create blob and download
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        
-        // Extract file extension from src or use jpg as default
-        const fileExtension = src.split('.').pop()?.toLowerCase() || 'jpg'
-        const fileName = alt ? `${alt.replace(/[^a-z0-9\s]/gi, '_')}.${fileExtension}` : `image.${fileExtension}`
-        
-        const link = document.createElement('a')
-        link.href = url
-        link.download = fileName
-        link.style.display = 'none'
-        
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        
-        // Clean up the blob URL
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url)
-        }, 1000)
-        
-        console.log('Image downloaded successfully:', fileName)
-        toast.success('Image downloaded successfully!')
-      } else {
-        // If fetch fails, fallback to direct link download
-        throw new Error('Fetch failed')
-      }
+      // Add some attributes that might help with download
+      const fileExtension = src.split('.').pop()?.toLowerCase() || 'jpg'
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      const suggestedName = alt 
+        ? `${alt.replace(/[^a-z0-9\s]/gi, '_')}_${timestamp}.${fileExtension}` 
+        : `image_${timestamp}.${fileExtension}`
+      
+      link.download = suggestedName
+      
+      // Trigger the link
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      console.log('Image opened in new tab for download:', suggestedName)
+      toast.success('Image opened in new tab. You can save it from there!')
+      
     } catch (error) {
-      console.warn('Blob download failed, trying direct download:', error)
-      
-      // Fallback: try direct download
-      try {
-        const link = document.createElement('a')
-        link.href = src
-        const fileExtension = src.split('.').pop()?.toLowerCase() || 'jpg'
-        link.download = alt ? `${alt.replace(/[^a-z0-9\s]/gi, '_')}.${fileExtension}` : `image.${fileExtension}`
-        link.target = '_blank'
-        link.rel = 'noopener noreferrer'
-        
-        // Set specific attributes to force download
-        link.setAttribute('download', link.download)
-        
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        
-        console.log('Direct download attempted:', link.download)
-        toast.success('Download started. Check your downloads folder.')
-      } catch (fallbackError) {
-        console.error('Direct download also failed:', fallbackError)
-        
-        // Final fallback: open in new tab with download suggestion
-        const newWindow = window.open(src, '_blank')
-        if (newWindow) {
-          newWindow.focus()
-        } else {
-          toast.error('Download blocked by browser. Please allow popups and try again, or right-click the image and select "Save As".')
-        }
-      }
+      console.error('Download error:', error)
+      toast.error('Failed to open image. Please right-click the image and save manually.')
     } finally {
-      // Reset download state after a short delay
       setTimeout(() => {
         setIsDownloading(false)
-      }, 1000)
+      }, 500)
     }
     resetControlsTimer()
   }
@@ -383,10 +342,6 @@ export function ModernLightbox({
 
   if (!isOpen) return null
 
-  console.log('=== ModernLightbox Rendering ===')
-  console.log('Metadata received:', metadata)
-  console.log('Actresses in metadata:', metadata?.actresses)
-  console.log('Source title:', metadata?.sourceTitle)
 
   return (
     <AnimatePresence>
