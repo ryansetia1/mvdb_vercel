@@ -130,7 +130,18 @@ export function MovieForm({ movie, onSave, onCancel, accessToken }: MovieFormPro
   // Handler functions
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value }
+      
+      // Try to apply templates when dmcode or studio changes
+      if (name === 'dmcode' || name === 'studio') {
+        setTimeout(() => {
+          tryApplyTemplates(newData)
+        }, 100) // Small delay to ensure state is updated
+      }
+      
+      return newData
+    })
   }
 
   const handleCheckboxChange = (name: string, checked: boolean) => {

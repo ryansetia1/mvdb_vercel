@@ -1780,6 +1780,85 @@ app.delete('/make-server-e0516fcf/template-groups/:id', async (c) => {
   }
 })
 
+// Get default template for studio or type
+app.get('/make-server-e0516fcf/template-groups/default', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const studio = c.req.query('studio')
+    const type = c.req.query('type')
+    
+    console.log('=== Fetch Default Template Debug ===')
+    console.log('Studio query:', studio)
+    console.log('Type query:', type)
+    
+    if (!studio && !type) {
+      return c.json({ error: 'Either studio or type parameter is required' }, 400)
+    }
+
+    // Get all template groups
+    const results = await kv.getByPrefix('template_group:')
+    const groups = results.map(item => item.value)
+    
+    console.log('Total template groups found:', groups.length)
+    
+    // Find default template
+    let defaultTemplate = null
+    
+    // Priority 1: Studio template with isDefault=true
+    if (studio) {
+      console.log('Searching for studio template:', studio)
+      defaultTemplate = groups.find(group => 
+        group.isDefault && 
+        group.applicableStudios && 
+        group.applicableStudios.some(s => s.toLowerCase() === studio.toLowerCase())
+      )
+      if (defaultTemplate) {
+        console.log('✅ Found studio default template:', defaultTemplate.name)
+      } else {
+        console.log('❌ No studio default template found for:', studio)
+      }
+    }
+    
+    // Priority 2: Type template with isDefault=true (if no studio template found)
+    if (!defaultTemplate && type) {
+      console.log('Searching for type template:', type)
+      defaultTemplate = groups.find(group => 
+        group.isDefault && 
+        group.applicableTypes && 
+        group.applicableTypes.some(t => t.toLowerCase() === type.toLowerCase())
+      )
+      if (defaultTemplate) {
+        console.log('✅ Found type default template:', defaultTemplate.name)
+      } else {
+        console.log('❌ No type default template found for:', type)
+      }
+    }
+    
+    if (!defaultTemplate) {
+      console.log('❌ No default template found for criteria')
+      return c.json({ template: null })
+    }
+    
+    console.log('📋 Returning default template:', {
+      name: defaultTemplate.name,
+      templateUrl: defaultTemplate.templateUrl,
+      galleryTemplate: defaultTemplate.galleryTemplate,
+      isDefault: defaultTemplate.isDefault
+    })
+    
+    return c.json({ template: defaultTemplate })
+  } catch (error) {
+    console.error('Get default template error:', error)
+    return c.json({ error: `Get default template error: ${error.message}` }, 500)
+  }
+})
+
 // Apply template group to movies with progress tracking
 app.post('/make-server-e0516fcf/template-groups/:id/apply', async (c) => {
   let progressKey: string | undefined

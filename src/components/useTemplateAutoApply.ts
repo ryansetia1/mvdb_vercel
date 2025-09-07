@@ -37,7 +37,8 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
         type: options.type,
         dmcode: options.dmcode,
         currentCover: options.currentCover,
-        currentGallery: options.currentGallery
+        currentGallery: options.currentGallery,
+        accessToken: accessToken ? 'Present' : 'Missing'
       })
 
       // Skip if no studio or type provided
@@ -102,28 +103,49 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
         appliedFields: []
       }
 
-      // Apply cover template if available and current cover is empty/minimal
+      // Helper function to check if field is empty or contains only placeholder text
+      const isFieldEmpty = (value?: string): boolean => {
+        if (!value || value.trim() === '') return true
+        
+        // Check for common placeholder patterns
+        const placeholderPatterns = [
+          /^https:\/\/example\.com\/\*\/cover\.jpg.*$/i,
+          /^https:\/\/site\.com\/@studio\/\*\/img##\.jpg.*$/i,
+          /^https:\/\/.*\/\*\/.*$/i, // Generic pattern with asterisk
+          /^https:\/\/.*\/@studio\/\*\/.*$/i, // Pattern with @studio
+        ]
+        
+        return placeholderPatterns.some(pattern => pattern.test(value.trim()))
+      }
+
+      // Apply cover template if available and current cover is empty/minimal or contains placeholder
       const shouldApplyCover = defaultTemplate.templateUrl && 
-        (!options.currentCover || options.currentCover.trim() === '')
+        isFieldEmpty(options.currentCover)
       
       if (shouldApplyCover) {
         result.cover = defaultTemplate.templateUrl
         appliedFields.push('cover')
         console.log('✅ Applied cover template:', defaultTemplate.templateUrl)
       } else {
-        console.log('⏭️ Skipping cover template - field not empty or no template URL')
+        console.log('⏭️ Skipping cover template - field not empty or no template URL', {
+          currentCover: options.currentCover,
+          templateUrl: defaultTemplate.templateUrl
+        })
       }
 
-      // Apply gallery template if available and current gallery is empty/minimal
+      // Apply gallery template if available and current gallery is empty/minimal or contains placeholder
       const shouldApplyGallery = defaultTemplate.galleryTemplate && 
-        (!options.currentGallery || options.currentGallery.trim() === '')
+        isFieldEmpty(options.currentGallery)
       
       if (shouldApplyGallery) {
         result.gallery = defaultTemplate.galleryTemplate
         appliedFields.push('gallery')
         console.log('✅ Applied gallery template:', defaultTemplate.galleryTemplate)
       } else {
-        console.log('⏭️ Skipping gallery template - field not empty or no gallery template')
+        console.log('⏭️ Skipping gallery template - field not empty or no gallery template', {
+          currentGallery: options.currentGallery,
+          galleryTemplate: defaultTemplate.galleryTemplate
+        })
       }
 
       result.appliedFields = appliedFields
