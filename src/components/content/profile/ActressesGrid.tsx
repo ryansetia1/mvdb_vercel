@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Movie } from '../../../utils/movieApi'
-import { MasterDataItem, calculateAge, masterDataApi } from '../../../utils/masterDataApi'
+import { MasterDataItem, calculateAge, calculateAgeAtDate, masterDataApi } from '../../../utils/masterDataApi'
 import { Card, CardContent } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { SimpleFavoriteButton } from '../../SimpleFavoriteButton'
@@ -8,7 +8,7 @@ import { PaginationEnhanced } from '../../ui/pagination-enhanced'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Button } from '../../ui/button'
 import { User, Calendar, ImageOff, Filter, Users, Film } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface ActressesGridProps {
   actorName: string
@@ -24,6 +24,12 @@ const sortOptions = [
   { key: 'age-desc', label: 'Age (Old)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 0 },
   { key: 'collaborationCount', label: 'Collaborations (Few)', getValue: (actress: any) => actress.collaborationCount || 0 },
   { key: 'collaborationCount-desc', label: 'Collaborations (Many)', getValue: (actress: any) => actress.collaborationCount || 0 },
+  // New: Age Gap at release date (averaged across collaborations)
+  { key: 'ageGapAvg', label: 'Age Gap (Smallest)', getValue: (actress: any) => (typeof actress.ageGapAvg === 'number' ? actress.ageGapAvg : Number.MAX_SAFE_INTEGER) },
+  { key: 'ageGapAvg-desc', label: 'Age Gap (Largest)', getValue: (actress: any) => (typeof actress.ageGapAvg === 'number' ? actress.ageGapAvg : -1) },
+  // New: Age Gap Max at release date
+  { key: 'ageGapMax', label: 'Age Gap Max (Smallest)', getValue: (actress: any) => (typeof actress.ageGapMax === 'number' ? actress.ageGapMax : Number.MAX_SAFE_INTEGER) },
+  { key: 'ageGapMax-desc', label: 'Age Gap Max (Largest)', getValue: (actress: any) => (typeof actress.ageGapMax === 'number' ? actress.ageGapMax : -1) },
 ]
 
 export function ActressesGrid({ 
@@ -36,15 +42,23 @@ export function ActressesGrid({
   const [itemsPerPage, setItemsPerPage] = useState(24)
   const [sortBy, setSortBy] = useState('collaborationCount-desc')
   const [allActresses, setAllActresses] = useState<MasterDataItem[]>([])
+  const [actorProfile, setActorProfile] = useState<MasterDataItem | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load all actresses data for detailed information
+  // Load all actresses data for detailed information and actor profile (for age gap)
   useEffect(() => {
     const loadActresses = async () => {
       try {
         setIsLoading(true)
-        const actressesData = await masterDataApi.getByType('actress', accessToken)
+        const [actressesData, actorsData] = await Promise.all([
+          masterDataApi.getByType('actress', accessToken),
+          masterDataApi.getByType('actor', accessToken)
+        ])
         setAllActresses(actressesData || [])
+        if (Array.isArray(actorsData)) {
+          const found = actorsData.find((a: MasterDataItem) => a.name === actorName)
+          setActorProfile(found || null)
+        }
       } catch (error) {
         console.error('Error loading actresses:', error)
         toast.error('Failed to load actresses data')
@@ -54,9 +68,9 @@ export function ActressesGrid({
     }
 
     loadActresses()
-  }, [accessToken])
+  }, [accessToken, actorName])
 
-  // Calculate collaborating actresses with their details
+  // Calculate collaborating actresses with their details (including age gap)
   const collaboratingActresses = useMemo(() => {
     if (!movies.length || !allActresses.length) return []
 
@@ -79,24 +93,45 @@ export function ActressesGrid({
       }
     })
 
+    // We compute age gap per collaboration at each movie's release date
+    const actorBirthdate = actorProfile?.birthdate || null
+
     // Match with detailed actress data and create enriched objects
-    const enrichedActresses = []
+    const enrichedActresses: any[] = []
     
     for (const [actressName, collaboration] of actressCollaborations) {
       const actressData = allActresses.find(actress => actress.name === actressName)
+      const actressBirthdate = actressData?.birthdate || null
+      // Compute gaps per movie where releaseDate exists and both birthdates are known
+      const gaps: number[] = []
+      if (actorBirthdate && actressBirthdate) {
+        collaboration.movies.forEach((m) => {
+          if (m.releaseDate) {
+            const actorAgeAt = calculateAgeAtDate(actorBirthdate, m.releaseDate)
+            const actressAgeAt = calculateAgeAtDate(actressBirthdate, m.releaseDate)
+            if (actorAgeAt !== null && actressAgeAt !== null) {
+              gaps.push(Math.abs(actorAgeAt - actressAgeAt))
+            }
+          }
+        })
+      }
+      const ageGapAvg = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : undefined
+      const ageGapMax = gaps.length > 0 ? Math.max(...gaps) : undefined
       
       enrichedActresses.push({
         ...actressData,
         name: actressName, // Ensure we have the name even if actress data not found
         collaborationCount: collaboration.count,
         collaborationMovies: collaboration.movies,
+        ageGapAvg,
+        ageGapMax,
         // If no detailed data found, use default values
         id: actressData?.id || `actress-${actressName}`,
       })
     }
 
     return enrichedActresses
-  }, [movies, allActresses, actorName])
+  }, [movies, allActresses, actorName, actorProfile])
 
   const filteredAndSortedActresses = useMemo(() => {
     let filtered = [...collaboratingActresses]
@@ -304,6 +339,23 @@ export function ActressesGrid({
                     <Users className="h-3 w-3" />
                     <span>{actress.collaborationCount} collaboration{actress.collaborationCount !== 1 ? 's' : ''}</span>
                   </div>
+
+                  {/* Age gap info (based on release dates) */}
+                  {(() => {
+                    const avg = typeof (actress as any).ageGapAvg === 'number' ? (actress as any).ageGapAvg as number : undefined
+                    const max = typeof (actress as any).ageGapMax === 'number' ? (actress as any).ageGapMax as number : undefined
+                    if (avg !== undefined || max !== undefined) {
+                      const parts: string[] = []
+                      if (avg !== undefined) parts.push(`avg ${Math.round(avg)}y`)
+                      if (max !== undefined) parts.push(`max ${Math.round(max)}y`)
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          Gap: {parts.join(', ')}
+                        </p>
+                      )
+                    }
+                    return null
+                  })()}
                   
                   {/* Total movie count if available */}
                   {actress.movieCount !== undefined && actress.movieCount > 0 && (
@@ -315,7 +367,7 @@ export function ActressesGrid({
                   {/* Photo count */}
                   {(() => {
                     // Calculate total unique photos
-                    const allPhotos = []
+                    const allPhotos: string[] = []
                     
                     // Add profilePicture if it exists
                     if (actress.profilePicture?.trim()) {
@@ -329,7 +381,7 @@ export function ActressesGrid({
                     
                     // Add photos from photo array if they exist
                     if (actress.photo && Array.isArray(actress.photo)) {
-                      const validPhotos = actress.photo
+                      const validPhotos: string[] = actress.photo
                         .filter(photo => typeof photo === 'string' && photo.trim())
                         .map(photo => photo.trim())
                       allPhotos.push(...validPhotos)

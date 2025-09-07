@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { MovieThumbnail } from '../../MovieThumbnail'
 import { SCMovieThumbnail } from '../../SCMovieThumbnail'
 import { Movie } from '../../../utils/movieApi'
 import { SCMovie, scMovieApi } from '../../../utils/scMovieApi'
-import { MasterDataItem, calculateAgeAtDate } from '../../../utils/masterDataApi'
+import { MasterDataItem, calculateAgeAtDate, masterDataApi } from '../../../utils/masterDataApi'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { SearchableSelect } from '../../SearchableSelect'
@@ -43,6 +43,12 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
   const [showSeriesGrid, setShowSeriesGrid] = useState<boolean>(true) // Control series grid vs filtered movies view
   const [scMovies, setSCMovies] = useState<SCMovie[]>([])
   const [scMoviesLoading, setSCMoviesLoading] = useState(false)
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [itemsPerPage, setItemsPerPage] = useState<number>(24)
+  // Cast master data for age-gap calculation
+  const [allActresses, setAllActresses] = useState<MasterDataItem[]>([])
+  const [allActors, setAllActors] = useState<MasterDataItem[]>([])
 
   // Get current sort label for display
   const getSortLabel = (value: string) => {
@@ -55,6 +61,8 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
       case 'code_desc': return 'Code (Z-A)'
       case 'age_asc': return 'Age (Youngest)'
       case 'age_desc': return 'Age (Oldest)'
+      case 'ageGapMax_desc': return 'Age Gap (Largest)'
+      case 'ageGapMax_asc': return 'Age Gap (Smallest)'
       default: return 'Sort by...'
     }
   }
@@ -145,6 +153,25 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
     fetchSCMovies()
   }, [accessToken])
 
+  // Load master data for cast (for age-gap per movie)
+  useEffect(() => {
+    const loadCast = async () => {
+      try {
+        if (accessToken) {
+          const [actresses, actors] = await Promise.all([
+            masterDataApi.getByType('actress', accessToken).catch(() => []),
+            masterDataApi.getByType('actor', accessToken).catch(() => [])
+          ])
+          setAllActresses(Array.isArray(actresses) ? actresses : [])
+          setAllActors(Array.isArray(actors) ? actors : [])
+        }
+      } catch {
+        // ignore silently for UI resilience
+      }
+    }
+    loadCast()
+  }, [accessToken])
+
   // Filter SC Movies that feature this person
   const personSCMovies = useMemo(() => {
     if (!scMovies.length) return []
@@ -223,6 +250,37 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
   // Sorting logic - now works on filtered movies
   const sortedMovies = useMemo(() => {
     const moviesCopy = [...filteredMovies]
+
+    // Helper to compute max age gap per movie at release date
+    const computeMaxGap = (movie: Movie): number | null => {
+      if (!movie.releaseDate || !profile?.birthdate) return null
+      if (profile?.type === 'actor' && movie.actress) {
+        const names = movie.actress.split(',').map(n => n.trim()).filter(Boolean)
+        const gaps: number[] = []
+        names.forEach(n => {
+          const info = allActresses.find(a => a.name === n)
+          if (info?.birthdate) {
+            const actorAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+            const actressAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+            if (actorAge !== null && actressAge !== null) gaps.push(Math.abs(actorAge - actressAge))
+          }
+        })
+        return gaps.length ? Math.max(...gaps) : null
+      } else if (profile?.type === 'actress' && movie.actors) {
+        const names = movie.actors.split(',').map(n => n.trim()).filter(Boolean)
+        const gaps: number[] = []
+        names.forEach(n => {
+          const info = allActors.find(a => a.name === n)
+          if (info?.birthdate) {
+            const actressAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+            const actorAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+            if (actorAge !== null && actressAge !== null) gaps.push(Math.abs(actorAge - actressAge))
+          }
+        })
+        return gaps.length ? Math.max(...gaps) : null
+      }
+      return null
+    }
     
     switch (sortBy) {
       case 'releaseDate_desc':
@@ -282,11 +340,55 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
           const ageB = b.releaseDate ? calculateAgeAtDate(profile.birthdate!, b.releaseDate) : 0
           return ageB - ageA // oldest age first
         })
+      case 'ageGapMax_desc':
+        return moviesCopy.sort((a, b) => {
+          const gapA = computeMaxGap(a)
+          const gapB = computeMaxGap(b)
+          const aVal = gapA === null ? -1 : gapA
+          const bVal = gapB === null ? -1 : gapB
+          return bVal - aVal // largest first; nulls last
+        })
+      case 'ageGapMax_asc':
+        return moviesCopy.sort((a, b) => {
+          const gapA = computeMaxGap(a)
+          const gapB = computeMaxGap(b)
+          const aVal = gapA === null ? Number.MAX_SAFE_INTEGER : gapA
+          const bVal = gapB === null ? Number.MAX_SAFE_INTEGER : gapB
+          return aVal - bVal // smallest first; nulls last
+        })
       
       default:
         return moviesCopy
     }
   }, [filteredMovies, sortBy, profile?.birthdate])
+
+  // Pagination helpers and keyboard navigation
+  const totalPages = Math.ceil(sortedMovies.length / itemsPerPage) || 1
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedMovies = sortedMovies.slice(startIndex, startIndex + itemsPerPage)
+
+  useEffect(() => {
+    // Reset to page 1 when data or filters change
+    setCurrentPage(1)
+  }, [sortedMovies.length, activeTab, selectedType, selectedStudio, selectedSeries, selectedTag])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        if (currentPage < totalPages) {
+          e.preventDefault()
+          setCurrentPage(p => Math.min(totalPages, p + 1))
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (currentPage > 1) {
+          e.preventDefault()
+          setCurrentPage(p => Math.max(1, p - 1))
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [currentPage, totalPages])
 
   // Reset selections when changing tabs
   const handleTabChange = (newTab: string) => {
@@ -322,11 +424,62 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
     <>
       {sortedMovies.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {sortedMovies.map((movie) => {
+          {paginatedMovies.map((movie) => {
             // Calculate age at movie release
             const ageAtRelease = profile?.birthdate && movie.releaseDate 
               ? calculateAgeAtDate(profile.birthdate, movie.releaseDate)
               : null
+
+            // Calculate max age gap for multi-cast (actor vs actresses, or actress vs actors)
+            let maxGap: number | null = null
+            let maxGapName: string | null = null
+            if (movie.releaseDate && profile?.birthdate) {
+              if (profile?.type === 'actor' && movie.actress) {
+                const names = movie.actress.split(',').map(n => n.trim()).filter(Boolean)
+                const gaps: { name: string; gap: number }[] = []
+                names.forEach(n => {
+                  const info = allActresses.find(a => a.name === n)
+                  if (info?.birthdate) {
+                    const actorAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+                    const actressAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+                    if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
+                  }
+                })
+                if (gaps.length) {
+                  const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
+                  maxGap = best.gap
+                  // Only show name if multiple actresses
+                  if (names.length > 1) {
+                    // Extract first name (before space or punctuation)
+                    const first = best.name.split(/\s|\(|\[/)[0]
+                    maxGapName = first || best.name
+                  } else {
+                    maxGapName = null
+                  }
+                }
+              } else if (profile?.type === 'actress' && movie.actors) {
+                const names = movie.actors.split(',').map(n => n.trim()).filter(Boolean)
+                const gaps: { name: string; gap: number }[] = []
+                names.forEach(n => {
+                  const info = allActors.find(a => a.name === n)
+                  if (info?.birthdate) {
+                    const actressAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+                    const actorAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+                    if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
+                  }
+                })
+                if (gaps.length) {
+                  const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
+                  maxGap = best.gap
+                  if (names.length > 1) {
+                    const first = best.name.split(/\s|\(|\[/)[0]
+                    maxGapName = first || best.name
+                  } else {
+                    maxGapName = null
+                  }
+                }
+              }
+            }
 
             return (
               <div
@@ -364,15 +517,22 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                     </p>
                   )}
 
-                  {/* Release Date and Age */}
+                  {/* Release Date and Age + Max Gap */}
                   {movie.releaseDate && (
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{new Date(movie.releaseDate).getFullYear()}</span>
-                      {ageAtRelease !== null && (
-                        <span className="text-blue-600 font-medium">
-                          Age {ageAtRelease}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {maxGap !== null && (
+                          <span className="text-amber-600 font-medium" title="Max age gap in this movie">
+                            Gap {Math.round(maxGap)}y{maxGapName ? ` (${maxGapName})` : ''}
+                          </span>
+                        )}
+                        {ageAtRelease !== null && (
+                          <span className="text-blue-600 font-medium">
+                            Age {ageAtRelease}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -401,6 +561,30 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
               : `${name} has not appeared in any movies yet`
             }
           </p>
+        </div>
+      )}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-3 text-sm">
+          <button
+            className="px-3 py-1 rounded border hover:bg-muted disabled:opacity-50"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            aria-label="Previous page (←)"
+          >
+            ← Prev
+          </button>
+          <span>
+            Page {currentPage} / {totalPages}
+          </span>
+          <button
+            className="px-3 py-1 rounded border hover:bg-muted disabled:opacity-50"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            aria-label="Next page (→)"
+          >
+            Next →
+          </button>
         </div>
       )}
     </>
@@ -756,6 +940,18 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                         <div className="flex items-center gap-2">
                           <ArrowDown className="h-3 w-3" />
                           Age (Oldest First)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ageGapMax_desc">
+                        <div className="flex items-center gap-2">
+                          <ArrowDown className="h-3 w-3" />
+                          Age Gap (Largest)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ageGapMax_asc">
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="h-3 w-3" />
+                          Age Gap (Smallest)
                         </div>
                       </SelectItem>
                     </>
