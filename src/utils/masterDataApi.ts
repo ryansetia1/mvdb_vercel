@@ -471,7 +471,7 @@ export function calculateAgeAtDate(birthdate: string, targetDate: string): numbe
   return age >= 0 ? age : null
 }
 
-// Helper function to check if a cast member matches search query including aliases
+// Helper function to check if a cast member matches search query including aliases and reverse name search
 export function castMatchesQuery(castMember: MasterDataItem, query: string): boolean {
   if (!query || !query.trim()) return true
   
@@ -489,6 +489,49 @@ export function castMatchesQuery(castMember: MasterDataItem, query: string): boo
     for (const groupName in castMember.groupData) {
       const groupInfo = castMember.groupData[groupName]
       if (groupInfo.alias?.toLowerCase().includes(searchQuery)) return true
+    }
+  }
+  
+  // Enhanced search with reverse name matching
+  // Check if query matches names in reverse order (e.g., "hatano yui" matches "yui hatano")
+  const checkReverseName = (name: string) => {
+    const nameLower = name.toLowerCase()
+    if (nameLower.includes(searchQuery)) return true
+    
+    // Split both query and name into words
+    const queryWords = searchQuery.split(/\s+/).filter(w => w.length > 0)
+    const nameWords = nameLower.split(/\s+/).filter(w => w.length > 0)
+    
+    if (queryWords.length >= 2 && nameWords.length >= 2) {
+      // Try reverse matching: if query is "hatano yui", check if name contains "yui hatano"
+      const reversedQuery = queryWords.reverse().join(' ')
+      if (nameLower.includes(reversedQuery)) return true
+      
+      // Also try partial reverse matching with individual words
+      const firstQueryWord = queryWords[0]
+      const lastQueryWord = queryWords[queryWords.length - 1]
+      const firstName = nameWords[0]
+      const lastName = nameWords[nameWords.length - 1]
+      
+      // Check if first word of query matches last word of name AND vice versa
+      if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
+        return true
+      }
+    }
+    
+    return false
+  }
+  
+  // Apply reverse name search to all name fields
+  if (castMember.name && checkReverseName(castMember.name)) return true
+  if (castMember.jpname && checkReverseName(castMember.jpname)) return true
+  if (castMember.alias && checkReverseName(castMember.alias)) return true
+  
+  // Apply reverse name search to group-specific aliases
+  if (castMember.groupData) {
+    for (const groupName in castMember.groupData) {
+      const groupInfo = castMember.groupData[groupName]
+      if (groupInfo.alias && checkReverseName(groupInfo.alias)) return true
     }
   }
   
@@ -515,4 +558,35 @@ export function getAllAliases(castMember: MasterDataItem): string[] {
   }
   
   return aliases
+}
+
+// Helper function to check if a movie code matches search query with or without dashes
+export function movieCodeMatchesQuery(movieCode: string | undefined, query: string): boolean {
+  if (!movieCode || !query || !query.trim()) return false
+  
+  const code = movieCode.toLowerCase()
+  const searchQuery = query.toLowerCase().trim()
+  
+  // Direct match
+  if (code.includes(searchQuery)) return true
+  
+  // Remove dashes from movie code and check if query matches
+  const codeWithoutDashes = code.replace(/-/g, '')
+  if (codeWithoutDashes.includes(searchQuery)) return true
+  
+  // Add dashes to query if it doesn't have them and check if it matches the original code
+  // This handles cases where user types "wnzs190" and movie code is "wnzs-190"
+  if (!searchQuery.includes('-')) {
+    // Try different dash positions for common patterns
+    const queryWithDash = searchQuery.replace(/^([a-z]+)(\d+)$/i, '$1-$2')
+    if (queryWithDash !== searchQuery && code.includes(queryWithDash)) return true
+    
+    // Try inserting dashes at various positions for more complex codes
+    for (let i = 2; i <= searchQuery.length - 2; i++) {
+      const dashedQuery = searchQuery.slice(0, i) + '-' + searchQuery.slice(i)
+      if (code.includes(dashedQuery)) return true
+    }
+  }
+  
+  return false
 }

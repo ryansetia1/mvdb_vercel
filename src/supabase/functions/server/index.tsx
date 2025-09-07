@@ -209,6 +209,70 @@ app.delete('/make-server-e0516fcf/movies/:id', async (c) => {
   }
 })
 
+// Helper function for enhanced movie code matching
+const movieCodeMatches = (movieCode, query) => {
+  if (!movieCode || !query) return false
+  
+  const code = movieCode.toLowerCase()
+  const searchQuery = query.toLowerCase()
+  
+  // Direct match
+  if (code.includes(searchQuery)) return true
+  
+  // Remove dashes from movie code and check if query matches
+  const codeWithoutDashes = code.replace(/-/g, '')
+  if (codeWithoutDashes.includes(searchQuery)) return true
+  
+  // Add dashes to query if it doesn't have them and check if it matches the original code
+  if (!searchQuery.includes('-')) {
+    // Try different dash positions for common patterns
+    const queryWithDash = searchQuery.replace(/^([a-z]+)(\d+)$/i, '$1-$2')
+    if (queryWithDash !== searchQuery && code.includes(queryWithDash)) return true
+    
+    // Try inserting dashes at various positions for more complex codes
+    for (let i = 2; i <= searchQuery.length - 2; i++) {
+      const dashedQuery = searchQuery.slice(0, i) + '-' + searchQuery.slice(i)
+      if (code.includes(dashedQuery)) return true
+    }
+  }
+  
+  return false
+}
+
+// Helper function for enhanced cast name matching
+const castNameMatches = (castName, query) => {
+  if (!castName || !query) return false
+  
+  const nameLower = castName.toLowerCase()
+  const queryLower = query.toLowerCase()
+  
+  // Direct match
+  if (nameLower.includes(queryLower)) return true
+  
+  // Reverse name search
+  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
+  const nameWords = nameLower.split(/\s+/).filter(w => w.length > 0)
+  
+  if (queryWords.length >= 2 && nameWords.length >= 2) {
+    // Try reverse matching: if query is "hatano yui", check if name contains "yui hatano"
+    const reversedQuery = [...queryWords].reverse().join(' ')
+    if (nameLower.includes(reversedQuery)) return true
+    
+    // Also try partial reverse matching with individual words
+    const firstQueryWord = queryWords[0]
+    const lastQueryWord = queryWords[queryWords.length - 1]
+    const firstName = nameWords[0]
+    const lastName = nameWords[nameWords.length - 1]
+    
+    // Check if first word of query matches last word of name AND vice versa
+    if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
+      return true
+    }
+  }
+  
+  return false
+}
+
 // Search movies
 app.get('/make-server-e0516fcf/movies/search/:query', async (c) => {
   try {
@@ -218,13 +282,22 @@ app.get('/make-server-e0516fcf/movies/search/:query', async (c) => {
     const filteredMovies = movies
       .map(m => m.value)
       .filter(movie => {
+        // Enhanced movie code matching
+        if (movieCodeMatches(movie.code, query) || movieCodeMatches(movie.dmcode, query)) {
+          return true
+        }
+        
+        // Enhanced cast name matching
+        if (castNameMatches(movie.actress, query) || 
+            castNameMatches(movie.actors, query) || 
+            castNameMatches(movie.director, query)) {
+          return true
+        }
+        
+        // Regular text search for other fields
         const searchableFields = [
-          movie.code,
           movie.titleEn,
           movie.titleJp,
-          movie.actress,
-          movie.actors,
-          movie.director,
           movie.studio,
           movie.series,
           movie.label,
@@ -706,13 +779,22 @@ app.get('/make-server-f3064b20/movies/search/:query', async (c) => {
     const filteredMovies = movies
       .map(m => m.value)
       .filter(movie => {
+        // Enhanced movie code matching
+        if (movieCodeMatches(movie.code, query) || movieCodeMatches(movie.dmcode, query)) {
+          return true
+        }
+        
+        // Enhanced cast name matching
+        if (castNameMatches(movie.actress, query) || 
+            castNameMatches(movie.actors, query) || 
+            castNameMatches(movie.director, query)) {
+          return true
+        }
+        
+        // Regular text search for other fields
         const searchableFields = [
-          movie.code,
           movie.titleEn,
           movie.titleJp,
-          movie.actress,
-          movie.actors,
-          movie.director,
           movie.studio,
           movie.series,
           movie.label,
@@ -1242,8 +1324,8 @@ app.get('/make-server-f3064b20/sc-movies/search/:query', async (c) => {
       .filter(scMovie => 
         scMovie.titleEn?.toLowerCase().includes(query) ||
         scMovie.titleJp?.toLowerCase().includes(query) ||
-        scMovie.cast?.toLowerCase().includes(query) ||
-        scMovie.hcCode?.toLowerCase().includes(query)
+        movieCodeMatches(scMovie.hcCode, query) ||
+        castNameMatches(scMovie.cast, query)
       )
     
     return c.json({ scMovies: filteredSCMovies })
@@ -1377,18 +1459,34 @@ app.get('/make-server-e0516fcf/movies/search/:query', async (c) => {
     
     const filteredMovies = movies
       .map(m => m.value)
-      .filter(movie => 
-        movie.titleEn?.toLowerCase().includes(query) ||
-        movie.titleJp?.toLowerCase().includes(query) ||
-        movie.director?.toLowerCase().includes(query) ||
-        movie.actress?.toLowerCase().includes(query) ||
-        movie.actors?.toLowerCase().includes(query) ||
-        movie.studio?.toLowerCase().includes(query) ||
-        movie.label?.toLowerCase().includes(query) ||
-        movie.tags?.toLowerCase().includes(query) ||
-        movie.code?.toLowerCase().includes(query) ||
-        movie.dmcode?.toLowerCase().includes(query)
-      )
+      .filter(movie => {
+        // Enhanced movie code matching
+        if (movieCodeMatches(movie.code, query) || movieCodeMatches(movie.dmcode, query)) {
+          return true
+        }
+        
+        // Enhanced cast name matching
+        if (castNameMatches(movie.actress, query) || 
+            castNameMatches(movie.actors, query) || 
+            castNameMatches(movie.director, query)) {
+          return true
+        }
+        
+        // Regular text search for other fields
+        const searchableFields = [
+          movie.titleEn,
+          movie.titleJp,
+          movie.studio,
+          movie.series,
+          movie.label,
+          movie.tags,
+          movie.type
+        ]
+        
+        return searchableFields.some(field => 
+          field && field.toLowerCase().includes(query)
+        )
+      })
     
     return c.json({ movies: filteredMovies })
   } catch (error) {
