@@ -24,6 +24,19 @@ export function LinkManager({ label, links, onLinksChange, placeholder }: LinkMa
   const [newUrl, setNewUrl] = useState('')
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
+  
+  // Common titles based on link type - simplified to 3 most used
+  const getCommonTitles = () => {
+    const labelLower = label.toLowerCase()
+    if (labelLower.includes('censored')) {
+      return ['VK', 'Missav', 'Highporn']
+    } else if (labelLower.includes('uncensored')) {
+      return ['VK', 'Missav', 'Highporn']
+    } else if (labelLower.includes('other')) {
+      return ['VK', 'Missav', 'Highporn']
+    }
+    return ['VK', 'Missav', 'Highporn']
+  }
 
   // Parse links from string format
   const parseLinks = (linksStr: string): LinkItem[] => {
@@ -197,10 +210,28 @@ export function LinkManager({ label, links, onLinksChange, placeholder }: LinkMa
               <LinkIcon className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Add New Link</span>
             </div>
+            
+            {/* Quick Preset Buttons - 3 most common titles */}
+            <div className="flex gap-2 mb-2">
+              {getCommonTitles().map((title) => (
+                <Button
+                  key={title}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewTitle(title)}
+                  className="flex-1"
+                >
+                  {title}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Title Input */}
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Link Title (e.g., Netflix, Download)"
+              placeholder="Link Title (or use buttons above)"
               className="text-sm"
             />
             <Input

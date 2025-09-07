@@ -701,6 +701,7 @@ export function MovieDetailContent({
                       uLinks={uLinks}
                       cLinks={cLinks}
                       renderLinkButton={renderers.renderLinkButton}
+                      movie={currentMovie}
                     />
                   ) : (
                     <span className="text-muted-foreground">No links available</span>
