@@ -5,7 +5,7 @@ import { Card, CardContent } from '../../ui/card'
 import { ArrowRightLeft, ExternalLink } from 'lucide-react'
 import { movieLinksApi, MovieLink } from '../../../utils/movieLinksApi'
 import { movieApi, Movie } from '../../../utils/movieApi'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface LinkedMoviesSectionProps {
   movieId: string
@@ -17,6 +17,11 @@ interface LinkedMoviesSectionProps {
 export function LinkedMoviesSection({ movieId, accessToken, onMovieSelect, renderWrapper }: LinkedMoviesSectionProps) {
   const [linkedMovies, setLinkedMovies] = useState<{movie: Movie, link: MovieLink}[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const truncate = (text: string, max: number) => {
+    if (!text) return ''
+    return text.length > max ? `${text.slice(0, max)}…` : text
+  }
 
   useEffect(() => {
     loadLinkedMovies()
@@ -78,20 +83,27 @@ export function LinkedMoviesSection({ movieId, accessToken, onMovieSelect, rende
           <Card key={movie.id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Movie Type Badge */}
                   <Badge variant="outline" className="text-xs">
                     {movie.type || 'Unknown'}
                   </Badge>
                   
-                  {/* Movie Title */}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {movie.titleEn || movie.titleJp || movie.code}
+                  {/* Movie Code */}
+                  {movie.code && (
+                    <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
+                      {movie.code.toUpperCase()}
+                    </span>
+                  )}
+
+                  {/* Movie Title (truncated) */}
+                  <div className="flex-1 min-w-0 max-w-[180px] sm:max-w-[240px] md:max-w-[300px]">
+                    <div className="font-medium text-sm truncate">
+                      {truncate(movie.titleEn || movie.titleJp || movie.code || '', 20)}
                     </div>
                     {movie.titleJp && movie.titleEn && (
-                      <div className="text-sm text-muted-foreground truncate">
-                        {movie.titleJp}
+                      <div className="text-xs text-muted-foreground truncate">
+                        {truncate(movie.titleJp, 20)}
                       </div>
                     )}
                   </div>
