@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -111,44 +111,46 @@ export function MultiSelectWithCreate({
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0">
+        <PopoverContent className="w-full p-0 max-h-80">
           <Command>
             <CommandInput placeholder={`Cari ${type}...`} />
-            <CommandEmpty>
-              <div className="p-4 space-y-2">
-                <p>Tidak ditemukan.</p>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={`Nama ${type} baru`}
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleCreateNew()}
-                  />
-                  <Button onClick={handleCreateNew} size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const displayName = getDisplayName(option)
-                const optionValue = getOptionValue(option)
-                return (
-                  <CommandItem
-                    key={option.id}
-                    onSelect={() => handleSelect(optionValue)}
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${
-                        value.includes(optionValue) ? "opacity-100" : "opacity-0"
-                      }`}
+            <div className="max-h-60 overflow-y-auto">
+              <CommandEmpty>
+                <div className="p-4 space-y-2">
+                  <p>Tidak ditemukan.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder={`Nama ${type} baru`}
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCreateNew()}
                     />
-                    {displayName}
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
+                    <Button onClick={handleCreateNew} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => {
+                  const displayName = getDisplayName(option)
+                  const optionValue = getOptionValue(option)
+                  return (
+                    <CommandItem
+                      key={option.id}
+                      onSelect={() => handleSelect(optionValue)}
+                    >
+                      <Check
+                        className={`mr-2 h-4 w-4 ${
+                          value.includes(optionValue) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      {displayName}
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            </div>
           </Command>
         </PopoverContent>
       </Popover>
