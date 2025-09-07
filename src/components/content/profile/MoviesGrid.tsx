@@ -512,7 +512,7 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                 <MovieThumbnail
                   movie={movie}
                   onClick={() => onMovieSelect(movie)}
-                  showHoverEffect={true}
+                  showHoverEffect={false} // Disable hover effect to prevent nested group conflicts
                   className="mb-2"
                   showFavoriteButton={true}
                   accessToken={accessToken}
@@ -631,7 +631,7 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                 <SCMovieThumbnail
                   scMovie={scMovie}
                   onClick={() => onSCMovieSelect?.(scMovie.id || '')}
-                  showHoverEffect={true}
+                  showHoverEffect={false} // Disable hover effect to prevent nested group conflicts
                   className="mb-2"
                   showFavoriteButton={true}
                   accessToken={accessToken}

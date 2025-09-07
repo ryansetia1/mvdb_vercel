@@ -72,12 +72,29 @@ export function SimpleImageViewer({
   }
 
   const handleDownload = () => {
-    const link = document.createElement('a')
-    link.href = currentSrc
-    link.download = alt || 'image'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    try {
+      const fileExtension = currentSrc.split('.').pop()?.toLowerCase() || 'jpg'
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      const fileName = alt 
+        ? `${alt.replace(/[^a-z0-9\s]/gi, '_')}_${timestamp}.${fileExtension}`
+        : `image_${timestamp}.${fileExtension}`
+      
+      // Simple new tab opening
+      const link = document.createElement('a')
+      link.href = currentSrc
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.download = fileName
+      
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      console.log('Image opened in new tab for download:', fileName)
+      
+    } catch (error) {
+      console.error('Download failed:', error)
+    }
   }
 
   const handlePrevious = () => {

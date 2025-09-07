@@ -2,7 +2,7 @@
  * SaveableGallery - Wrapper untuk EnhancedGallery dengan fitur save/load
  */
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { EnhancedGallery } from './EnhancedGallery'
@@ -10,7 +10,7 @@ import { ModernLightbox } from './ModernLightbox'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { savedGalleryApi, type SavedGalleryData } from '../utils/savedGalleryApi'
 import { Save, RefreshCw, Database, Clock, Grid, List, Eye, Loader2 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface SaveableGalleryProps {
   galleryTemplate: string
@@ -219,24 +219,29 @@ export function SaveableGallery({
         {/* Saved Gallery Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {validUrls.map((url, index) => (
-            <div key={index} className="relative aspect-[3/4] group">
+            <div key={index} className="relative aspect-[3/4] cursor-pointer rounded-lg overflow-hidden">
               <ImageWithFallback
                 src={url}
                 alt={`Gallery image ${index + 1}`}
-                className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
                 onClick={() => openLightbox(index)}
               />
               
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center rounded-lg">
-                <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-              </div>
-              
-              {/* Image index */}
-              <div className="absolute top-2 left-2">
-                <Badge variant="secondary" className="text-xs">
+              {/* Image index - always visible */}
+              <div className="absolute top-2 left-2 z-10">
+                <Badge variant="secondary" className="text-xs bg-black/70 text-white border-none">
                   {index + 1}
                 </Badge>
+              </div>
+              
+              {/* Simple hover overlay with click action */}
+              <div 
+                className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors duration-200 flex items-center justify-center opacity-0 hover:opacity-100 rounded-lg"
+                onClick={() => openLightbox(index)}
+              >
+                <div className="bg-white/90 rounded-full p-2 shadow-lg">
+                  <Eye className="h-5 w-5 text-gray-700" />
+                </div>
               </div>
             </div>
           ))}
@@ -252,10 +257,10 @@ export function SaveableGallery({
 
         {/* Lightbox */}
         <ModernLightbox
-          images={validUrls}
+          src={validUrls[lightboxIndex] || ''}
+          alt={`Gallery image ${lightboxIndex + 1}`}
           isOpen={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
-          startIndex={lightboxIndex}
         />
       </div>
     )
