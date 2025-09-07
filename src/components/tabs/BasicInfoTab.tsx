@@ -118,9 +118,9 @@ export function BasicInfoTab({
     }
   }
 
-  const handleHourMinuteDurationChange = () => {
-    const hours = parseInt(durationHours) || 0
-    const minutes = parseInt(durationMinutes) || 0
+  const handleHourMinuteDurationChange = (newHours?: string, newMinutes?: string) => {
+    const hours = parseInt(newHours ?? durationHours) || 0
+    const minutes = parseInt(newMinutes ?? durationMinutes) || 0
     
     let durationText = ''
     if (hours > 0 && minutes > 0) {
@@ -270,8 +270,9 @@ export function BasicInfoTab({
                       placeholder="Jam"
                       value={durationHours}
                       onChange={(e) => {
-                        setDurationHours(e.target.value)
-                        setTimeout(handleHourMinuteDurationChange, 0)
+                        const newHours = e.target.value
+                        setDurationHours(newHours)
+                        handleHourMinuteDurationChange(newHours, durationMinutes)
                       }}
                       type="number"
                       min="0"
@@ -283,8 +284,9 @@ export function BasicInfoTab({
                       placeholder="Menit"
                       value={durationMinutes}
                       onChange={(e) => {
-                        setDurationMinutes(e.target.value)
-                        setTimeout(handleHourMinuteDurationChange, 0)
+                        const newMinutes = e.target.value
+                        setDurationMinutes(newMinutes)
+                        handleHourMinuteDurationChange(durationHours, newMinutes)
                       }}
                       type="number"
                       min="0"
