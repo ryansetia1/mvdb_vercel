@@ -272,12 +272,23 @@ export function MoviesContent({
   const handleRandomize = () => {
     setRandomMovies(shuffleArray(filteredAndSortedMovies))
     setIsRandomized(true)
+    // Reset ke halaman pertama setiap kali randomize
+    updateFilters({ currentPage: 1 })
   }
   // Handler reset
   const handleResetRandom = () => {
     setIsRandomized(false)
     setRandomMovies([])
+    updateFilters({ currentPage: 1 })
   }
+
+  // Reset randomization when searchQuery changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setIsRandomized(false)
+      setRandomMovies([])
+    }
+  }, [searchQuery])
 
   // Keyboard navigation for pagination
   useEffect(() => {
@@ -340,6 +351,9 @@ export function MoviesContent({
     }
     
     updateFilters(updates)
+    // Reset randomization when filters change
+    setIsRandomized(false)
+    setRandomMovies([])
   }
 
   const clearFilters = () => {
@@ -350,6 +364,9 @@ export function MoviesContent({
       typeFilter: 'all',
       currentPage: 1
     })
+    // Reset randomization when clearing filters
+    setIsRandomized(false)
+    setRandomMovies([])
   }
 
   const hasActiveFilters = tagFilter !== 'all' || studioFilter !== 'all' || seriesFilter !== 'all' || typeFilter !== 'all'
@@ -592,14 +609,13 @@ export function MoviesContent({
         </Select>
 
         {/* Tombol Randomize di pojok kanan */}
-        <div className="ml-auto">
-          {isRandomized ? (
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleRandomize}>
+            Randomize
+          </Button>
+          {isRandomized && (
             <Button variant="outline" size="sm" onClick={handleResetRandom}>
               Reset
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleRandomize}>
-              Randomize
             </Button>
           )}
         </div>
