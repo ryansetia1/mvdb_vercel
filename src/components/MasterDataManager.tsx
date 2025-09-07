@@ -35,6 +35,7 @@ const masterDataTypes = [
 
 export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
   const [data, setData] = useState<Record<string, MasterDataItem[]>>({})
+  const [searchQueryByType, setSearchQueryByType] = useState<Record<string, string>>({})
   const [newItems, setNewItems] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
@@ -176,6 +177,17 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
           <div className="space-y-6">
             {/* Type Management Section */}
             <div className="space-y-4">
+              {/* Search for type */}
+              <div className="flex gap-2 items-center">
+                <Input
+                  placeholder={`Search ${key}...`}
+                  value={searchQueryByType[key] || ''}
+                  onChange={(e) => setSearchQueryByType(prev => ({ ...prev, [key]: e.target.value }))}
+                />
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {(data[key] || []).filter(i => (searchQueryByType[key]||'') ? (i.name||'').toLowerCase().includes((searchQueryByType[key]||'').toLowerCase()) : true).length} / {(data[key] || []).length}
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder={`Add new ${masterDataTypes.find(t => t.key === key)?.label.toLowerCase()}...`}
@@ -200,7 +212,13 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
                         No {key}s found. Add one above to get started.
                       </div>
                     ) : (
-                      (data[key] || []).map((item) => (
+                      (data[key] || [])
+                        .filter(item => {
+                          const q = (searchQueryByType[key] || '').toLowerCase()
+                          if (!q) return true
+                          return (item.name || '').toLowerCase().includes(q)
+                        })
+                        .map((item) => (
                         <EditableTypeItem
                           key={item.id}
                           item={item}
@@ -245,6 +263,21 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
       // Editable form for tag with sync functionality
       return (
         <div className="space-y-4">
+          <div className="flex gap-2 items-center">
+            <Input
+              placeholder={`Search ${key}...`}
+              value={searchQueryByType[key] || ''}
+              onChange={(e) => setSearchQueryByType(prev => ({ ...prev, [key]: e.target.value }))}
+            />
+            <div className="text-xs text-muted-foreground whitespace-nowrap">
+              {(data[key] || [])
+                .filter(item => {
+                  const q = (searchQueryByType[key] || '').toLowerCase()
+                  if (!q) return true
+                  return (item.name || '').toLowerCase().includes(q)
+                }).length} / {(data[key] || []).length}
+            </div>
+          </div>
           <div className="flex gap-2">
             <Input
               placeholder={`Add new ${masterDataTypes.find(t => t.key === key)?.label.toLowerCase()}...`}
@@ -269,7 +302,13 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
                     No {key}s found. Add one above to get started.
                   </div>
                 ) : (
-                  (data[key] || []).map((item) => (
+                  (data[key] || [])
+                    .filter(item => {
+                      const q = (searchQueryByType[key] || '').toLowerCase()
+                      if (!q) return true
+                      return (item.name || '').toLowerCase().includes(q)
+                    })
+                    .map((item) => (
                     <EditableTypeItem
                       key={item.id}
                       item={item}
@@ -312,7 +351,15 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
           <ExtendedForm
             type={key as 'actor' | 'actress'}
             accessToken={accessToken}
-            data={data[key] || []}
+            data={(data[key] || []).filter(item => {
+              const q = (searchQueryByType[key] || '').toLowerCase()
+              if (!q) return true
+              return (
+                (item.name || '').toLowerCase().includes(q) ||
+                (item.jpname || '').toLowerCase().includes(q) ||
+                (item.alias || '').toLowerCase().includes(q)
+              )
+            })}
             onDataChange={(newData) => handleDataChange(key, newData)}
           />
         )
@@ -321,7 +368,15 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
         return (
           <SeriesForm
             accessToken={accessToken}
-            data={data[key] || []}
+            data={(data[key] || []).filter(item => {
+              const q = (searchQueryByType[key] || '').toLowerCase()
+              if (!q) return true
+              return (
+                (item.name || '').toLowerCase().includes(q) ||
+                ((item as any).titleEn || '').toLowerCase().includes(q) ||
+                ((item as any).titleJp || '').toLowerCase().includes(q)
+              )
+            })}
             onDataChange={(newData) => handleDataChange(key, newData)}
           />
         )
@@ -330,7 +385,14 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
         return (
           <StudioForm
             accessToken={accessToken}
-            data={data[key] || []}
+            data={(data[key] || []).filter(item => {
+              const q = (searchQueryByType[key] || '').toLowerCase()
+              if (!q) return true
+              return (
+                (item.name || '').toLowerCase().includes(q) ||
+                (item.alias || '').toLowerCase().includes(q)
+              )
+            })}
             onDataChange={(newData) => handleDataChange(key, newData)}
           />
         )
@@ -339,7 +401,11 @@ export function MasterDataManager({ accessToken }: MasterDataManagerProps) {
         return (
           <LabelForm
             accessToken={accessToken}
-            data={data[key] || []}
+            data={(data[key] || []).filter(item => {
+              const q = (searchQueryByType[key] || '').toLowerCase()
+              if (!q) return true
+              return (item.name || '').toLowerCase().includes(q)
+            })}
             onDataChange={(newData) => handleDataChange(key, newData)}
           />
         )

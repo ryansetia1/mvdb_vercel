@@ -34,7 +34,7 @@ export function MultiSelectWithCreate({
   const loadOptions = async () => {
     setIsLoading(true)
     try {
-      const items = await masterDataApi.getByType(type)
+      const items = await masterDataApi.getByType(type, accessToken)
       setOptions(items)
     } catch (error) {
       console.log(`Error loading ${type} options:`, error)
@@ -75,7 +75,20 @@ export function MultiSelectWithCreate({
     if (!newItemName.trim()) return
 
     try {
-      const newItem = await masterDataApi.create(type, newItemName.trim(), accessToken)
+      let newItem: MasterDataItem
+      // Some master data types require extended creation payloads
+      if (type === 'series') {
+        newItem = await masterDataApi.createExtended('series', { titleEn: newItemName.trim() }, accessToken)
+      } else if (type === 'studio') {
+        newItem = await masterDataApi.createExtended('studio', { name: newItemName.trim() }, accessToken)
+      } else if (type === 'label') {
+        newItem = await masterDataApi.createExtended('label', { name: newItemName.trim() }, accessToken)
+      } else if (type === 'actor' || type === 'actress' || type === 'director') {
+        newItem = await masterDataApi.createExtended(type as any, { name: newItemName.trim() }, accessToken)
+      } else {
+        // Simple types (type, tag)
+        newItem = await masterDataApi.create(type, newItemName.trim(), accessToken)
+      }
       setOptions(prev => [...prev, newItem])
       handleSelect(getOptionValue(newItem))
       setNewItemName('')

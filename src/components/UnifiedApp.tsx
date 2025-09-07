@@ -1006,7 +1006,12 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 <Input
                   placeholder="Search movies, actors, actresses..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const q = e.target.value
+                    setSearchQuery(q)
+                    // Reset movies pagination to first page whenever search changes
+                    setMoviesFilters(prev => ({ ...prev, currentPage: 1 }))
+                  }}
                   className="pl-12 pr-12 h-12 text-left w-full text-base"
                 />
                 {searchQuery && (

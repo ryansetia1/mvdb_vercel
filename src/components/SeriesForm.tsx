@@ -31,6 +31,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const resetForm = () => {
     setFormData(initialFormData)
@@ -184,13 +185,29 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
           <CardTitle>Daftar Series</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Search bar */}
+          <div className="mb-3">
+            <Input
+              placeholder="Cari series..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {data.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">
                 Belum ada series yang ditambahkan
               </p>
             ) : (
-              data.map((item) => (
+              data
+                .filter(item => {
+                  const q = searchQuery.toLowerCase().trim()
+                  if (!q) return true
+                  const fields = [item.titleEn, item.titleJp, item.name]
+                  return fields.some(f => f?.toLowerCase().includes(q))
+                })
+                .map((item) => (
                 <div key={item.id} className="border rounded-lg p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
