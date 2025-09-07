@@ -5,6 +5,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Badge } from './ui/badge'
 import { cn } from './ui/utils'
+import { movieCodeMatchesQuery } from '../utils/masterDataApi'
 
 export interface Movie {
   id: string
@@ -105,10 +106,15 @@ export function SearchableMovieSelector({
               </div>
             </CommandEmpty>
             <CommandGroup>
-              {sortedMovies.map((movie) => (
+              {sortedMovies.map((movie) => {
+                // Create search-friendly value that includes code without dashes
+                const codeWithoutDashes = movie.code ? movie.code.replace(/-/g, '') : ''
+                const searchValue = `${movie.code || ''} ${codeWithoutDashes} ${movie.titleEn || ''} ${movie.titleJp || ''} ${movie.type || ''}`
+                
+                return (
                 <CommandItem
                   key={movie.id}
-                  value={`${movie.code || ''} ${movie.titleEn || ''} ${movie.titleJp || ''} ${movie.type || ''}`}
+                  value={searchValue}
                   onSelect={() => {
                     onValueChange(movie.id)
                     setOpen(false)
@@ -125,7 +131,8 @@ export function SearchableMovieSelector({
                     {displayMovie(movie)}
                   </div>
                 </CommandItem>
-              ))}
+                )
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

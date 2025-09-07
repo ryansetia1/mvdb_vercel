@@ -1,7 +1,7 @@
 import React from 'react'
 import { useState, useMemo, useEffect } from 'react'
 import { Movie } from '../../utils/movieApi'
-import { MasterDataItem, castMatchesQuery } from '../../utils/masterDataApi'
+import { MasterDataItem, castMatchesQuery, movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { MovieCard } from '../MovieCard'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
 import { Button } from '../ui/button'
@@ -124,6 +124,38 @@ export function MoviesContent({
     }
   }
 
+  // Helper function to check if a name matches query with reverse search capability
+  const nameMatchesQuery = (name: string, query: string): boolean => {
+    const nameLower = name.toLowerCase()
+    const queryLower = query.toLowerCase()
+    
+    // Direct match
+    if (nameLower.includes(queryLower)) return true
+    
+    // Reverse name search for fallback when not in master data
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
+    const nameWords = nameLower.split(/\s+/).filter(w => w.length > 0)
+    
+    if (queryWords.length >= 2 && nameWords.length >= 2) {
+      // Try reverse matching: if query is "hatano yui", check if name contains "yui hatano"
+      const reversedQuery = [...queryWords].reverse().join(' ')
+      if (nameLower.includes(reversedQuery)) return true
+      
+      // Also try partial reverse matching with individual words
+      const firstQueryWord = queryWords[0]
+      const lastQueryWord = queryWords[queryWords.length - 1]
+      const firstName = nameWords[0]
+      const lastName = nameWords[nameWords.length - 1]
+      
+      // Check if first word of query matches last word of name AND vice versa
+      if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
+        return true
+      }
+    }
+    
+    return false
+  }
+
   // Helper function to check if a movie contains a cast member that matches the search query
   const movieContainsCastWithQuery = (movie: Movie, query: string): boolean => {
     if (!query || !query.trim()) return true
@@ -136,8 +168,8 @@ export function MoviesContent({
         if (actress && castMatchesQuery(actress, query)) {
           return true
         }
-        // Fallback to simple name matching if actress not found in master data
-        if (actressName.toLowerCase().includes(query.toLowerCase())) {
+        // Fallback with enhanced name matching if actress not found in master data
+        if (nameMatchesQuery(actressName, query)) {
           return true
         }
       }
@@ -151,8 +183,8 @@ export function MoviesContent({
         if (actor && castMatchesQuery(actor, query)) {
           return true
         }
-        // Fallback to simple name matching if actor not found in master data
-        if (actorName.toLowerCase().includes(query.toLowerCase())) {
+        // Fallback with enhanced name matching if actor not found in master data
+        if (nameMatchesQuery(actorName, query)) {
           return true
         }
       }
@@ -164,8 +196,8 @@ export function MoviesContent({
       if (director && castMatchesQuery(director, query)) {
         return true
       }
-      // Fallback to simple name matching if director not found in master data
-      if (movie.director.toLowerCase().includes(query.toLowerCase())) {
+      // Fallback with enhanced name matching if director not found in master data
+      if (nameMatchesQuery(movie.director, query)) {
         return true
       }
     }
@@ -206,7 +238,8 @@ export function MoviesContent({
       filtered = filtered.filter(movie =>
         movie.titleEn?.toLowerCase().includes(query) ||
         movie.titleJp?.toLowerCase().includes(query) ||
-        movie.code?.toLowerCase().includes(query) ||
+        movieCodeMatchesQuery(movie.code, query) ||
+        movieCodeMatchesQuery(movie.dmcode, query) ||
         movie.studio?.toLowerCase().includes(query) ||
         movie.series?.toLowerCase().includes(query) ||
         movie.tags?.toLowerCase().includes(query) ||

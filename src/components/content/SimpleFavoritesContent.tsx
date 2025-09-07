@@ -11,7 +11,7 @@ import { ClickableProfileAvatar } from '../ClickableProfileAvatar'
 import { useSimpleFavoritesContext } from '../../contexts/SimpleFavoritesContext'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { Photobook, photobookApi } from '../../utils/photobookApi'
-import { MasterDataItem, masterDataApi, calculateAge, castMatchesQuery } from '../../utils/masterDataApi'
+import { MasterDataItem, masterDataApi, calculateAge, castMatchesQuery, movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { 
   Film, 
   Image as ImageIcon, 
@@ -183,6 +183,8 @@ export function SimpleFavoritesContent({
       movies: favoriteMovies.filter(movie => 
         movie.titleEn?.toLowerCase().includes(query) ||
         movie.titleJp?.toLowerCase().includes(query) ||
+        movieCodeMatchesQuery(movie.code, query) ||
+        movieCodeMatchesQuery(movie.dmcode, query) ||
         movie.dmm?.toLowerCase().includes(query)
       ),
       images: favoriteImages.filter(img => 

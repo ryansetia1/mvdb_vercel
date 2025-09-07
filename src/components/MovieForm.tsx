@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Movie, movieApi } from '../utils/movieApi'
 import { BasicInfoTab } from './tabs/BasicInfoTab'
 import { MediaLinksTab } from './tabs/MediaLinksTab'
-import { PeopleCastTab } from './tabs/PeopleCastTab'
-import { MetadataTab } from './tabs/MetadataTab'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { Alert, AlertDescription } from './ui/alert'
 import { CheckCircle } from 'lucide-react'
@@ -230,25 +228,23 @@ export function MovieForm({ movie, onSave, onCancel, accessToken }: MovieFormPro
   // Form completion status
   const getFormCompletionStatus = () => {
     const requiredFields = ['titleEn']
-    const basicFields = ['titleEn', 'titleJp', 'code', 'dmcode', 'releaseDate', 'duration', 'type', 'director']
-    const mediaFields = ['cover', 'gallery', 'dmlink']
-    const peopleFields = ['actress', 'actors', 'series', 'studio', 'label']
-    const metadataFields = ['tags']
+    // Basic now includes all fields that were previously in people and metadata tabs
+    const basicFields = [
+      'titleEn', 'titleJp', 'code', 'dmcode', 'dmlink', 'releaseDate', 'duration', 
+      'type', 'director', 'actress', 'actors', 'series', 'studio', 'label', 'tags'
+    ]
+    const mediaFields = ['cover', 'gallery']
 
     const isFieldFilled = (field: string) => formData[field as keyof Movie]?.toString().trim() || false
 
     const requiredComplete = requiredFields.every(isFieldFilled)
     const basicComplete = basicFields.filter(isFieldFilled).length
     const mediaComplete = mediaFields.filter(isFieldFilled).length
-    const peopleComplete = peopleFields.filter(isFieldFilled).length
-    const metadataComplete = metadataFields.filter(isFieldFilled).length
 
     return {
       requiredComplete,
       basic: { completed: basicComplete, total: basicFields.length },
-      media: { completed: mediaComplete, total: mediaFields.length },
-      people: { completed: peopleComplete, total: peopleFields.length },
-      metadata: { completed: metadataComplete, total: metadataFields.length }
+      media: { completed: mediaComplete, total: mediaFields.length }
     }
   }
 
@@ -300,7 +296,7 @@ export function MovieForm({ movie, onSave, onCancel, accessToken }: MovieFormPro
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-2 w-full max-w-lg mx-auto">
               <TabsTrigger value="basic" className="relative">
                 Informasi Dasar
                 <span className="ml-1 text-xs text-muted-foreground">
@@ -314,18 +310,6 @@ export function MovieForm({ movie, onSave, onCancel, accessToken }: MovieFormPro
                 Media & Links
                 <span className="ml-1 text-xs text-muted-foreground">
                   ({completionStatus.media.completed}/{completionStatus.media.total})
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="people">
-                Cast & Crew
-                <span className="ml-1 text-xs text-muted-foreground">
-                  ({completionStatus.people.completed}/{completionStatus.people.total})
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="metadata">
-                Metadata
-                <span className="ml-1 text-xs text-muted-foreground">
-                  ({completionStatus.metadata.completed}/{completionStatus.metadata.total})
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -352,27 +336,12 @@ export function MovieForm({ movie, onSave, onCancel, accessToken }: MovieFormPro
               />
             </TabsContent>
 
-            <TabsContent value="people" className="space-y-4">
-              <PeopleCastTab
-                formData={formData}
-                onMultiSelectChange={handleMultiSelectChange}
-                accessToken={accessToken}
-              />
-            </TabsContent>
-
-            <TabsContent value="metadata" className="space-y-4">
-              <MetadataTab
-                formData={formData}
-                onMultiSelectChange={handleMultiSelectChange}
-                accessToken={accessToken}
-              />
-            </TabsContent>
           </Tabs>
 
           {/* Form Actions */}
           <div className="flex justify-between items-center pt-6 border-t">
             <div className="text-sm text-muted-foreground">
-              <div>Progress: {Object.values(completionStatus).slice(1).reduce((acc, curr) => acc + curr.completed, 0)} / {Object.values(completionStatus).slice(1).reduce((acc, curr) => acc + curr.total, 0)} fields</div>
+              <div>Progress: {completionStatus.basic.completed + completionStatus.media.completed} / {completionStatus.basic.total + completionStatus.media.total} fields</div>
               {!completionStatus.requiredComplete && (
                 <div className="text-red-600">⚠ Field "Judul English" wajib diisi sebelum menyimpan</div>
               )}

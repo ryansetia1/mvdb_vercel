@@ -2,6 +2,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { Checkbox } from '../ui/checkbox'
+import { CollapsibleInfo } from '../ui/CollapsibleInfo'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { TemplatePreview } from '../TemplatePreview'
 import { LinkManager } from '../LinkManager'
@@ -10,7 +11,7 @@ import { ImageResolutionInfo } from '../ImageResolutionInfo'
 import { CoverTemplateSelector } from '../CoverTemplateSelector'
 import { processTemplate, getHashtagExplanation, shouldHideGallery } from '../../utils/templateUtils'
 import { Movie } from '../../utils/movieApi'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Info, HelpCircle } from 'lucide-react'
 
 interface MediaLinksTabProps {
   formData: Partial<Movie>
@@ -78,8 +79,95 @@ export function MediaLinksTab({
     )
   )
 
+  // Determine which link sections to show based on type
+  const getLinkSectionsToShow = () => {
+    if (!formData.type) {
+      // If no type selected, show all sections
+      return { showCensored: true, showUncensored: true, showOthers: true }
+    }
+
+    const types = currentTypes.map(t => t.toLowerCase())
+    
+    // Check for specific types
+    const hasCen = types.includes('cen')
+    const hasSem = types.includes('sem') 
+    const hasUn = types.includes('un')
+    const hasLeaks = types.includes('leaks')
+
+    let showCensored = false
+    let showUncensored = false
+    let showOthers = false
+
+    if (hasCen || hasSem) {
+      // Cen, Sem = censored, others
+      showCensored = true
+      showOthers = true
+    } else if (hasUn) {
+      // Un = Uncensored, others  
+      showUncensored = true
+      showOthers = true
+    } else if (hasLeaks) {
+      // Leaks = censored, uncensored, others
+      showCensored = true
+      showUncensored = true
+      showOthers = true
+    } else {
+      // For other types, show all sections
+      showCensored = true
+      showUncensored = true
+      showOthers = true
+    }
+
+    return { showCensored, showUncensored, showOthers }
+  }
+
+  const { showCensored, showUncensored, showOthers } = getLinkSectionsToShow()
+
+  // Determine which info panels to show based on type (to reduce clutter)
+  const getInfoPanelsToShow = () => {
+    const types = currentTypes.map(t => t.toLowerCase())
+    const hasCen = types.includes('cen')
+    const hasSem = types.includes('sem')
+    const hasUn = types.includes('un')
+    const hasLeaks = types.includes('leaks')
+    
+    // For specific content types, show minimal info to reduce clutter
+    if (hasCen || hasSem) {
+      return {
+        showAutoTemplate: false, // Hide auto-template info for cleaner view
+        showPlaceholderInfo: false, // Hide placeholder details
+        showGalleryInfo: false, // Hide detailed gallery info
+        showLinkTypeInfo: false // Hide link type info to reduce clutter even more
+      }
+    } else if (hasUn) {
+      return {
+        showAutoTemplate: false,
+        showPlaceholderInfo: false,
+        showGalleryInfo: false,
+        showLinkTypeInfo: false // Hide link type info for cleaner view
+      }
+    } else if (hasLeaks) {
+      return {
+        showAutoTemplate: true, // Show for leaks as they might need templates
+        showPlaceholderInfo: true,
+        showGalleryInfo: true,
+        showLinkTypeInfo: true
+      }
+    } else {
+      // For other/unknown types, show all info
+      return {
+        showAutoTemplate: true,
+        showPlaceholderInfo: true,
+        showGalleryInfo: true,
+        showLinkTypeInfo: true
+      }
+    }
+  }
+
+  const { showAutoTemplate, showPlaceholderInfo, showGalleryInfo, showLinkTypeInfo } = getInfoPanelsToShow()
+
   // Check if we should show template information
-  const shouldShowTemplateInfo = formData.studio || formData.type
+  const shouldShowTemplateInfo = (formData.studio || formData.type) && showAutoTemplate
 
   return (
     <div className="space-y-4">
@@ -159,26 +247,36 @@ export function MediaLinksTab({
           onChange={onInputChange}
           placeholder="https://example.com/*/cover.jpg (gunakan * untuk DM code)"
         />
-        <div className="text-xs text-gray-500 mt-1 space-y-1">
-          <div><strong>Placeholders available:</strong></div>
-          <div>• <code className="bg-gray-100 px-1 rounded">*</code> = DM code</div>
-          <div>• <code className="bg-gray-100 px-1 rounded">@studio</code> = Studio name (lowercase)</div>
-          <div>• <code className="bg-gray-100 px-1 rounded">@firstname</code> = First name (lowercase)</div>
-          <div>• <code className="bg-gray-100 px-1 rounded">@lastname</code> = Last name (lowercase)</div>
-          <div className="text-blue-600 mt-2">
-            💡 Example: https://pics.com/@studio/*/covers/@firstname-@lastname.jpg
+        {showPlaceholderInfo && (
+          <div className="mt-2">
+            <CollapsibleInfo 
+              title="Placeholders available" 
+              variant="gray" 
+              size="sm"
+              icon={<HelpCircle className="h-4 w-4" />}
+            >
+              <div className="space-y-1 text-xs">
+                <div>• <code className="bg-gray-100 px-1 rounded">*</code> = DM code</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@studio</code> = Studio name (lowercase)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@firstname</code> = First name (lowercase)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@lastname</code> = Last name (lowercase)</div>
+                <div className="text-blue-600 mt-2">
+                  💡 Example: https://pics.com/@studio/*/covers/@firstname-@lastname.jpg
+                </div>
+                {formData.studio && (
+                  <div className="text-blue-600 mt-1">
+                    💡 Studio <span className="font-mono bg-gray-100 px-1 rounded">{formData.studio}</span> akan auto-isi field ini jika memiliki default template.
+                  </div>
+                )}
+                {formData.type && !formData.studio && (
+                  <div className="text-blue-600 mt-1">
+                    💡 Type <span className="font-mono bg-gray-100 px-1 rounded">{formData.type}</span> akan auto-isi field ini jika memiliki default template.
+                  </div>
+                )}
+              </div>
+            </CollapsibleInfo>
           </div>
-          {formData.studio && (
-            <div className="text-blue-600 mt-1">
-              💡 Studio <span className="font-mono bg-gray-100 px-1 rounded">{formData.studio}</span> akan auto-isi field ini jika memiliki default template.
-            </div>
-          )}
-          {formData.type && !formData.studio && (
-            <div className="text-blue-600 mt-1">
-              💡 Type <span className="font-mono bg-gray-100 px-1 rounded">{formData.type}</span> akan auto-isi field ini jika memiliki default template.
-            </div>
-          )}
-        </div>
+        )}
         
         <TemplatePreview 
           template={formData.cover || ''} 
@@ -288,45 +386,52 @@ export function MediaLinksTab({
           placeholder="https://site.com/@studio/*/img##.jpg"
           rows={3}
         />
-        <div className="text-xs text-gray-500 mt-1">
-          <div className="space-y-1">
-            <div>
-              <strong>Placeholders available:</strong>
-            </div>
-            <div>• <code className="bg-gray-100 px-1 rounded">*</code> = DM code</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">@studio</code> = Studio name (lowercase)</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">@firstname</code> = First name (lowercase, ignores text in parentheses)</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">@lastname</code> = Last name (lowercase, ignores text in parentheses)</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">#</code> = 1-digit numbers (1, 2, 3, ..., 9)</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">##</code> = 2-digit numbers (01, 02, 03, ..., 99)</div>
-            <div>• <code className="bg-gray-100 px-1 rounded">###</code> = 3-digit numbers (001, 002, 003, ..., 999)</div>
-            <div className="text-blue-600 mt-2">
-              💡 Example: https://gallery.com/@studio/@firstname-@lastname/*/img##.jpg
-            </div>
-            <div className="text-blue-600">
-              🔍 <strong>Advanced Gallery Validation:</strong> Sistem akan otomatis memfilter gambar yang tidak valid.
-            </div>
-            <div className="text-green-600">
-              ✅ <strong>Comprehensive Detection:</strong>
-              <ul className="ml-4 mt-1 space-y-1">
-                <li>• URL patterns (now_printing.jpg, /n/now_printing/, dll)</li>
-                <li>• Dimensi minimum 150x150 pixel</li>
-                <li>• Ukuran file minimum 20KB</li>
-                <li>• Filename validation</li>
-              </ul>
-            </div>
-            {formData.studio && (
-              <div className="text-blue-600 mt-2">
-                💡 Studio <span className="font-mono bg-gray-100 px-1 rounded">{formData.studio}</span> akan auto-isi gallery template jika tersedia.
+        {showGalleryInfo && (
+          <div className="mt-2">
+            <CollapsibleInfo 
+              title="Gallery Placeholders & Validation" 
+              variant="gray" 
+              size="sm"
+              icon={<HelpCircle className="h-4 w-4" />}
+            >
+              <div className="space-y-1 text-xs">
+                <div><strong>Placeholders available:</strong></div>
+                <div>• <code className="bg-gray-100 px-1 rounded">*</code> = DM code</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@studio</code> = Studio name (lowercase)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@firstname</code> = First name (lowercase, ignores text in parentheses)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">@lastname</code> = Last name (lowercase, ignores text in parentheses)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">#</code> = 1-digit numbers (1, 2, 3, ..., 9)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">##</code> = 2-digit numbers (01, 02, 03, ..., 99)</div>
+                <div>• <code className="bg-gray-100 px-1 rounded">###</code> = 3-digit numbers (001, 002, 003, ..., 999)</div>
+                <div className="text-blue-600 mt-2">
+                  💡 Example: https://gallery.com/@studio/@firstname-@lastname/*/img##.jpg
+                </div>
+                <div className="text-blue-600">
+                  🔍 <strong>Advanced Gallery Validation:</strong> Sistem akan otomatis memfilter gambar yang tidak valid.
+                </div>
+                <div className="text-green-600">
+                  ✅ <strong>Comprehensive Detection:</strong>
+                  <ul className="ml-4 mt-1 space-y-1">
+                    <li>• URL patterns (now_printing.jpg, /n/now_printing/, dll)</li>
+                    <li>• Dimensi minimum 150x150 pixel</li>
+                    <li>• Ukuran file minimum 20KB</li>
+                    <li>• Filename validation</li>
+                  </ul>
+                </div>
+                {formData.studio && (
+                  <div className="text-blue-600 mt-2">
+                    💡 Studio <span className="font-mono bg-gray-100 px-1 rounded">{formData.studio}</span> akan auto-isi gallery template jika tersedia.
+                  </div>
+                )}
+                {formData.type && !formData.studio && (
+                  <div className="text-blue-600 mt-2">
+                    💡 Type <span className="font-mono bg-gray-100 px-1 rounded">{formData.type}</span> akan auto-isi gallery template jika tersedia.
+                  </div>
+                )}
               </div>
-            )}
-            {formData.type && !formData.studio && (
-              <div className="text-blue-600 mt-2">
-                💡 Type <span className="font-mono bg-gray-100 px-1 rounded">{formData.type}</span> akan auto-isi gallery template jika tersedia.
-              </div>
-            )}
+            </CollapsibleInfo>
           </div>
-        </div>
+        )}
         
         {formData.gallery && formData.gallery.includes('#') && (
           <div className="mt-2 space-y-2">
@@ -378,40 +483,47 @@ export function MediaLinksTab({
         />
       </div>
 
-      {/* DM Link */}
-      <div>
-        <Label htmlFor="dmlink">DM Link</Label>
-        <Input
-          id="dmlink"
-          name="dmlink"
-          value={formData.dmlink || ''}
-          onChange={onInputChange}
-          placeholder="https://dmm.co.jp/..."
-        />
-      </div>
 
-      {/* Multiple Links - Updated to use LinkManager for consistency */}
+      {/* Multiple Links - Conditional based on type */}
       <div className="space-y-6">
-        <LinkManager
-          label="Censored"
-          links={formData.clinks || ''}
-          onLinksChange={(links) => onLinksChange('clinks', links)}
-          placeholder="Add censored links like trailers, reviews, etc."
-        />
+        {formData.type && showLinkTypeInfo && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-700">
+              <strong>Link sections shown based on type:</strong>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {showCensored && <span className="px-2 py-1 bg-blue-100 rounded text-xs">Censored</span>}
+                {showUncensored && <span className="px-2 py-1 bg-blue-100 rounded text-xs">Uncensored</span>}
+                {showOthers && <span className="px-2 py-1 bg-blue-100 rounded text-xs">Others</span>}
+              </div>
+            </div>
+          </div>
+        )}
+        {showCensored && (
+          <LinkManager
+            label="Censored"
+            links={formData.clinks || ''}
+            onLinksChange={(links) => onLinksChange('clinks', links)}
+            placeholder="Add censored links like trailers, reviews, etc."
+          />
+        )}
 
-        <LinkManager
-          label="Uncensored"
-          links={formData.ulinks || ''}
-          onLinksChange={(links) => onLinksChange('ulinks', links)}
-          placeholder="Add uncensored download sources and mirrors"
-        />
+        {showUncensored && (
+          <LinkManager
+            label="Uncensored"
+            links={formData.ulinks || ''}
+            onLinksChange={(links) => onLinksChange('ulinks', links)}
+            placeholder="Add uncensored download sources and mirrors"
+          />
+        )}
 
-        <LinkManager
-          label="Other"
-          links={formData.slinks || ''}
-          onLinksChange={(links) => onLinksChange('slinks', links)}
-          placeholder="Add other platforms like Netflix, Amazon Prime, etc."
-        />
+        {showOthers && (
+          <LinkManager
+            label="Other"
+            links={formData.slinks || ''}
+            onLinksChange={(links) => onLinksChange('slinks', links)}
+            placeholder="Add other platforms like Netflix, Amazon Prime, etc."
+          />
+        )}
       </div>
     </div>
   )

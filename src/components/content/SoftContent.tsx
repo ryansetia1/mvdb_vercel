@@ -8,6 +8,7 @@ import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { Search, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
+import { movieCodeMatchesQuery } from '../../utils/masterDataApi'
 
 interface SoftContentProps {
   searchQuery: string
@@ -51,6 +52,38 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
     loadSCMovies()
   }, [accessToken])
 
+  // Helper function to check if cast matches query with reverse search capability
+  const castMatchesQueryEnhanced = (cast: string, query: string): boolean => {
+    const castLower = cast.toLowerCase()
+    const queryLower = query.toLowerCase()
+    
+    // Direct match
+    if (castLower.includes(queryLower)) return true
+    
+    // Reverse name search
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
+    const castWords = castLower.split(/\s+/).filter(w => w.length > 0)
+    
+    if (queryWords.length >= 2 && castWords.length >= 2) {
+      // Try reverse matching: if query is "hatano yui", check if cast contains "yui hatano"
+      const reversedQuery = [...queryWords].reverse().join(' ')
+      if (castLower.includes(reversedQuery)) return true
+      
+      // Also try partial reverse matching with individual words
+      const firstQueryWord = queryWords[0]
+      const lastQueryWord = queryWords[queryWords.length - 1]
+      const firstName = castWords[0]
+      const lastName = castWords[castWords.length - 1]
+      
+      // Check if first word of query matches last word of cast AND vice versa
+      if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
+        return true
+      }
+    }
+    
+    return false
+  }
+
   useEffect(() => {
     // Filter movies based on search query
     if (!effectiveSearchQuery.trim()) {
@@ -60,8 +93,8 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
       const filtered = scMovies.filter(movie =>
         movie.titleEn.toLowerCase().includes(query) ||
         movie.titleJp?.toLowerCase().includes(query) ||
-        movie.hcCode?.toLowerCase().includes(query) ||
-        movie.cast?.toLowerCase().includes(query)
+        movieCodeMatchesQuery(movie.hcCode, query) ||
+        (movie.cast && castMatchesQueryEnhanced(movie.cast, query))
       )
       setFilteredMovies(filtered)
     }

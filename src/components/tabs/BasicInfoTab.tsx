@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { DatePicker } from '../DatePicker'
 import { MultiSelectWithCreate } from '../MultiSelectWithCreate'
+import { CollapsibleInfo } from '../ui/CollapsibleInfo'
+import { TagsManager } from '../TagsManager'
 import { Movie } from '../../utils/movieApi'
+import { Lightbulb } from 'lucide-react'
 
 interface BasicInfoTabProps {
   formData: Partial<Movie>
@@ -75,6 +78,11 @@ export function BasicInfoTab({
     return value ? value.split(',').map(v => v.trim()).filter(v => v) : []
   }
 
+  const handleTagsChange = (newTags: string) => {
+    const tagValues = newTags ? newTags.split(',').map(v => v.trim()).filter(v => v) : []
+    onMultiSelectChange('tags', tagValues)
+  }
+
   const handleDurationFormatChange = (format: 'hours' | 'minutes') => {
     setDurationFormat(format)
     
@@ -118,9 +126,9 @@ export function BasicInfoTab({
     }
   }
 
-  const handleHourMinuteDurationChange = () => {
-    const hours = parseInt(durationHours) || 0
-    const minutes = parseInt(durationMinutes) || 0
+  const handleHourMinuteDurationChange = (newHours?: string, newMinutes?: string) => {
+    const hours = parseInt(newHours ?? durationHours) || 0
+    const minutes = parseInt(newMinutes ?? durationMinutes) || 0
     
     let durationText = ''
     if (hours > 0 && minutes > 0) {
@@ -147,41 +155,37 @@ export function BasicInfoTab({
   )
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4">
-        {/* Title Section */}
+    <div className="space-y-8">
+      {/* Section 1: Basic Movie Information */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+          Informasi Dasar Film
+        </h3>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="titleEn">Judul English (EN) *</Label>
+          <div className="md:col-span-2">
+            <Label htmlFor="titleEn">Judul English *</Label>
             <Input
               id="titleEn"
               name="titleEn"
               value={formData.titleEn || ''}
               onChange={onInputChange}
-              placeholder="English title (wajib diisi)"
+              placeholder="Masukkan judul dalam bahasa English"
+              required
             />
-            <div className="text-xs text-gray-500 mt-1">
-              Wajib diisi
-            </div>
           </div>
 
-          <div>
-            <Label htmlFor="titleJp">Judul Japanese (JP)</Label>
+          <div className="md:col-span-2">
+            <Label htmlFor="titleJp">Judul Japanese/Hangeul (Optional)</Label>
             <Input
               id="titleJp"
               name="titleJp"
               value={formData.titleJp || ''}
               onChange={onInputChange}
-              placeholder="日本語タイトル (opsional)"
+              placeholder="日本語タイトル atau 한국어 제목 (opsional)"
             />
-            <div className="text-xs text-gray-500 mt-1">
-              Opsional - bisa dikosongkan
-            </div>
           </div>
-        </div>
 
-        {/* Other Basic Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="code">Code</Label>
             <Input
@@ -216,10 +220,18 @@ export function BasicInfoTab({
                 disabled={sameAsCode}
                 className={sameAsCode ? "bg-muted" : ""}
               />
-              <div className="text-xs text-blue-600 mt-1">
-                💡 DM Code digunakan untuk auto-apply template default
-              </div>
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="dmlink">DM Link</Label>
+            <Input
+              id="dmlink"
+              name="dmlink"
+              value={formData.dmlink || ''}
+              onChange={onInputChange}
+              placeholder="https://dmm.co.jp/..."
+            />
           </div>
 
           <div>
@@ -231,7 +243,7 @@ export function BasicInfoTab({
             />
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <Label htmlFor="duration">Durasi</Label>
             
             {/* Duration Format Toggle */}
@@ -264,14 +276,15 @@ export function BasicInfoTab({
               />
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 max-w-md">
                   <div>
                     <Input
                       placeholder="Jam"
                       value={durationHours}
                       onChange={(e) => {
-                        setDurationHours(e.target.value)
-                        setTimeout(handleHourMinuteDurationChange, 0)
+                        const newHours = e.target.value
+                        setDurationHours(newHours)
+                        handleHourMinuteDurationChange(newHours, durationMinutes)
                       }}
                       type="number"
                       min="0"
@@ -283,8 +296,9 @@ export function BasicInfoTab({
                       placeholder="Menit"
                       value={durationMinutes}
                       onChange={(e) => {
-                        setDurationMinutes(e.target.value)
-                        setTimeout(handleHourMinuteDurationChange, 0)
+                        const newMinutes = e.target.value
+                        setDurationMinutes(newMinutes)
+                        handleHourMinuteDurationChange(durationHours, newMinutes)
                       }}
                       type="number"
                       min="0"
@@ -298,7 +312,16 @@ export function BasicInfoTab({
               </div>
             )}
           </div>
+        </div>
+      </div>
 
+      {/* Section 2: Movie Classification */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+          Klasifikasi Film
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="type">Type</Label>
             <MultiSelectWithCreate
@@ -308,18 +331,84 @@ export function BasicInfoTab({
               placeholder="Pilih atau tambah type"
               accessToken={accessToken}
             />
-            <div className="text-xs text-gray-500 mt-1">
-              💡 <span className="font-medium">Auto-features:</span>
-              <div className="space-y-1 mt-1">
-                <div>• <span className="font-mono bg-gray-100 px-1 rounded">Cen</span>, <span className="font-mono bg-gray-100 px-1 rounded">Leaks</span>, <span className="font-mono bg-gray-100 px-1 rounded">Sem</span>, <span className="font-mono bg-gray-100 px-1 rounded">2versions</span> → Auto-crop cover</div>
-                <div>• Types dengan default template → Auto-isi cover & gallery</div>
-              </div>
-            </div>
             {hasAutoCropType && (
               <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
                 ✅ Cover akan otomatis di-crop karena type yang dipilih
               </div>
             )}
+          </div>
+
+          <div>
+            <Label htmlFor="series">Series</Label>
+            <MultiSelectWithCreate
+              type="series"
+              value={getMultiSelectValues(formData.series || '')}
+              onChange={(values) => onMultiSelectChange('series', values)}
+              placeholder="Pilih atau tambah series"
+              accessToken={accessToken}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="studio">Studio</Label>
+            <MultiSelectWithCreate
+              type="studio"
+              value={getMultiSelectValues(formData.studio || '')}
+              onChange={(values) => onMultiSelectChange('studio', values)}
+              placeholder="Pilih atau tambah studio"
+              accessToken={accessToken}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="label">Label Produksi</Label>
+            <MultiSelectWithCreate
+              type="label"
+              value={getMultiSelectValues(formData.label || '')}
+              onChange={(values) => onMultiSelectChange('label', values)}
+              placeholder="Pilih atau tambah label"
+              accessToken={accessToken}
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label>Tags & Metadata</Label>
+          <TagsManager
+            currentTags={formData.tags || ''}
+            onTagsChange={handleTagsChange}
+            accessToken={accessToken}
+          />
+        </div>
+      </div>
+
+      {/* Section 3: Cast & Crew */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+          Cast & Crew
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="actress">Aktris</Label>
+            <MultiSelectWithCreate
+              type="actress"
+              value={getMultiSelectValues(formData.actress || '')}
+              onChange={(values) => onMultiSelectChange('actress', values)}
+              placeholder="Pilih atau tambah aktris"
+              accessToken={accessToken}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="actors">Aktor</Label>
+            <MultiSelectWithCreate
+              type="actor"
+              value={getMultiSelectValues(formData.actors || '')}
+              onChange={(values) => onMultiSelectChange('actors', values)}
+              placeholder="Pilih atau tambah aktor"
+              accessToken={accessToken}
+            />
           </div>
 
           <div>
@@ -332,7 +421,25 @@ export function BasicInfoTab({
               accessToken={accessToken}
             />
           </div>
+
+          <div></div>
         </div>
+      </div>
+
+      {/* Section 4: Help Information - Collapsible */}
+      <div className="space-y-3">
+        <CollapsibleInfo 
+          title="Auto-Template Feature" 
+          variant="green" 
+          size="sm"
+          icon={<Lightbulb className="h-4 w-4" />}
+        >
+          <div className="space-y-1">
+            <p>• Studio atau Type dengan <span className="font-mono bg-green-100 px-1 rounded">isDefault=true</span> akan otomatis mengisi field cover & gallery</p>
+            <p>• Pastikan DM Code sudah diisi agar template bisa diterapkan dengan benar</p>
+            <p>• Template akan diterapkan hanya jika field cover/gallery masih kosong</p>
+          </div>
+        </CollapsibleInfo>
       </div>
     </div>
   )

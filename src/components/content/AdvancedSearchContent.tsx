@@ -21,7 +21,7 @@ import {
   PlayCircle
 } from 'lucide-react'
 import { Movie, movieApi } from '../../utils/movieApi'
-import { MasterDataItem, masterDataApi, getAllAliases } from '../../utils/masterDataApi'
+import { MasterDataItem, masterDataApi, getAllAliases, movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { MovieCard } from '../MovieCard'
 
 interface AdvancedSearchContentProps {
@@ -127,6 +127,12 @@ export function AdvancedSearchContent({ accessToken, onBack, onMovieClick, onPro
         // Text search
         if (filters.query.trim()) {
           const query = filters.query.toLowerCase()
+          
+          // Check movie codes with enhanced matching
+          const movieCodeMatch = movieCodeMatchesQuery(movie.code, query) || 
+                                movieCodeMatchesQuery(movie.dmcode, query)
+          
+          // Check other searchable text
           const searchableText = [
             movie.titleEn,
             movie.titleJp, 
@@ -135,12 +141,12 @@ export function AdvancedSearchContent({ accessToken, onBack, onMovieClick, onPro
             movie.actors,
             movie.studio,
             movie.label,
-            movie.tags,
-            movie.code,
-            movie.dmcode
+            movie.tags
           ].filter(Boolean).join(' ').toLowerCase()
           
-          if (!searchableText.includes(query)) {
+          const textMatch = searchableText.includes(query)
+          
+          if (!movieCodeMatch && !textMatch) {
             return false
           }
         }
