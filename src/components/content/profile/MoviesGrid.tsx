@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
+import { getTypeColorClasses, getTypeColorStyles } from '../../../utils/movieTypeColors'
 import { MovieThumbnail } from '../../MovieThumbnail'
 import { SCMovieThumbnail } from '../../SCMovieThumbnail'
 import { Movie } from '../../../utils/movieApi'
@@ -330,7 +331,9 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
         return moviesCopy.sort((a, b) => {
           const ageA = a.releaseDate ? calculateAgeAtDate(profile.birthdate!, a.releaseDate) : 999
           const ageB = b.releaseDate ? calculateAgeAtDate(profile.birthdate!, b.releaseDate) : 999
-          return ageA - ageB // youngest age first
+          const aVal = ageA === null ? 999 : ageA
+          const bVal = ageB === null ? 999 : ageB
+          return aVal - bVal // youngest age first
         })
       
       case 'age_desc':
@@ -338,7 +341,9 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
         return moviesCopy.sort((a, b) => {
           const ageA = a.releaseDate ? calculateAgeAtDate(profile.birthdate!, a.releaseDate) : 0
           const ageB = b.releaseDate ? calculateAgeAtDate(profile.birthdate!, b.releaseDate) : 0
-          return ageB - ageA // oldest age first
+          const aVal = ageA === null ? 0 : ageA
+          const bVal = ageB === null ? 0 : ageB
+          return bVal - aVal // oldest age first
         })
       case 'ageGapMax_desc':
         return moviesCopy.sort((a, b) => {
@@ -487,11 +492,20 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                 className="group cursor-pointer"
                 onClick={() => onMovieSelect(movie)}
               >
-                {/* Movie Code */}
+                {/* Movie Code and Type */}
                 <div className="text-center mb-2">
                   <Badge variant="secondary" className="text-xs font-mono px-2 py-1">
                     {movie.code?.toUpperCase() || 'NO CODE'}
                   </Badge>
+                  {movie.type && (
+                    <span 
+                      className={`ml-2 text-[10px] px-2 py-0.5 rounded font-medium align-middle ${getTypeColorClasses(movie.type)}`}
+                      style={getTypeColorStyles(movie.type)}
+                      title={`Movie type: ${movie.type}`}
+                    >
+                      {movie.type.toUpperCase()}
+                    </span>
+                  )}
                 </div>
 
                 {/* Cover using MovieThumbnail component for consistent cropping */}
