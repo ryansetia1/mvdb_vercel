@@ -3,8 +3,10 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { ModernLightbox } from './ModernLightbox'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
+import { simpleFavoritesApi } from '../utils/simpleFavoritesApi'
 import { processTemplate, generateSmartGalleryUrls } from '../utils/templateUtils'
 import { ImageIcon, Eye, Grid, List, Loader2, AlertTriangle, Save } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface EnhancedGalleryProps {
   galleryTemplate: string
@@ -55,6 +57,8 @@ export function EnhancedGallery({
   const [imageStatuses, setImageStatuses] = useState<ImageStatus[]>([])
   const [isPreloading, setIsPreloading] = useState(true)
   const [preloadProgress, setPreloadProgress] = useState(0)
+  // State untuk track favorite status di lightbox
+  const [currentImageFavorite, setCurrentImageFavorite] = useState(false)
 
   const generateImageUrls = () => {
     if (!dmcode) return []
@@ -306,6 +310,73 @@ export function EnhancedGallery({
     }
   }
 
+  // Check favorite status for current image when lightbox opens
+  useEffect(() => {
+    const checkCurrentImageFavorite = async () => {
+      if (!showLightbox || !accessToken || !movieData?.id || validImages.length === 0) return
+      
+      const currentImage = validImages[selectedImageIndex]
+      if (!currentImage) return
+
+      try {
+        const isFavorited = await simpleFavoritesApi.isFavorited(
+          'image',
+          currentImage.url,
+          accessToken
+        )
+        
+        setCurrentImageFavorite(isFavorited)
+      } catch (error) {
+        console.warn('Failed to check favorite status:', error)
+        setCurrentImageFavorite(false)
+      }
+    }
+
+    checkCurrentImageFavorite()
+  }, [showLightbox, selectedImageIndex, validImages, accessToken, movieData?.id])
+
+  // Handle toggle favorite for current image in lightbox
+  const handleToggleFavorite = async () => {
+    const currentImage = validImages[selectedImageIndex]
+    if (!currentImage || !accessToken || !movieData?.id) return
+
+    try {
+      const isCurrentlyFavorite = await simpleFavoritesApi.isFavorited(
+        'image',
+        currentImage.url,
+        accessToken
+      )
+
+      if (isCurrentlyFavorite) {
+        // Get the favorite ID first
+        const favorite = await simpleFavoritesApi.isFavorited(
+          'image',
+          currentImage.url,
+          accessToken,
+          movieData.id
+        )
+        
+        if (favorite) {
+          await simpleFavoritesApi.removeFavorite(favorite.id, accessToken)
+          setCurrentImageFavorite(false)
+          toast.success('Removed from favorites')
+        }
+      } else {
+        await simpleFavoritesApi.addFavorite(
+          'image',
+          currentImage.url,
+          accessToken,
+          movieData.id // sourceId
+        )
+        setCurrentImageFavorite(true)
+        toast.success('Added to favorites')
+      }
+    } catch (error: any) {
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Could not update favorites at this time')
+    }
+  }
+
   // Note: Arrow up/down are now used for zoom in ModernLightbox, not navigation
   // Left/Right arrows still work for navigation in the lightbox
 
@@ -350,10 +421,13 @@ export function EnhancedGallery({
             </div>
           </div>
           
-          {/* Gallery Image Favorite Button - simplified */}
+          {/* Gallery Image Favorite Button - always visible */}
           {accessToken && movieData && (
             <div className="absolute bottom-2 right-2 z-10">
-              <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+              <div 
+                className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <SimpleFavoriteButton
                   type="image"
                   itemId={imageStatus.url}
@@ -569,6 +643,9 @@ export function EnhancedGallery({
           onNext={handleNext}
           onPrevious={handlePrevious}
           showNavigation={validImages.length > 1}
+          isFavorite={currentImageFavorite}
+          onToggleFavorite={handleToggleFavorite}
+          accessToken={accessToken}
         />
       )}
 

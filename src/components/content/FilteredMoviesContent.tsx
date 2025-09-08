@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { Movie } from '../../utils/movieApi'
 import { MovieCard } from '../MovieCard'
 import { MasterDataItem, masterDataApi } from '../../utils/masterDataApi'
+import { PaginationEnhanced } from '../ui/pagination-enhanced'
 
 interface FilteredMoviesContentProps {
   movies: Movie[]
@@ -27,6 +28,8 @@ export function FilteredMoviesContent({
   accessToken
 }: FilteredMoviesContentProps) {
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(24)
 
   useEffect(() => {
     // Load actresses data if we need to filter by group
@@ -42,6 +45,11 @@ export function FilteredMoviesContent({
       loadActresses()
     }
   }, [filterType, accessToken])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterType, filterValue, searchQuery])
   const filteredMovies = useMemo(() => {
     let filtered = movies.filter(movie => {
       switch (filterType) {
@@ -107,7 +115,13 @@ export function FilteredMoviesContent({
     }
 
     return filtered
-  }, [movies, filterType, filterValue, searchQuery])
+  }, [movies, filterType, filterValue, searchQuery, actresses])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedMovies = filteredMovies.slice(startIndex, endIndex)
 
   if (filteredMovies.length === 0) {
     return (
@@ -125,16 +139,29 @@ export function FilteredMoviesContent({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
         {filterType === 'collaboration' 
           ? `Showing ${filteredMovies.length} movies featuring both ${actorName} and ${actressName}${searchQuery ? ` matching "${searchQuery}"` : ''}`
           : `Showing ${filteredMovies.length} movies for ${filterType}: ${filterValue}${searchQuery ? ` matching "${searchQuery}"` : ''}`
         }
       </p>
+
+      {/* Pagination - Top */}
+      <PaginationEnhanced
+        currentPage={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredMovies.length}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={(newItemsPerPage) => {
+          setItemsPerPage(newItemsPerPage)
+          setCurrentPage(1)
+        }}
+      />
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-        {filteredMovies.map((movie) => (
+        {paginatedMovies.map((movie) => (
           <MovieCard
             key={movie.id}
             movie={movie}

@@ -9,6 +9,7 @@ import { EnhancedGallery } from './EnhancedGallery'
 import { ModernLightbox } from './ModernLightbox'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { savedGalleryApi, type SavedGalleryData } from '../utils/savedGalleryApi'
+import { favoritesApi } from '../utils/favoritesApi'
 import { RefreshCw, Database, Clock, Eye, Loader2 } from 'lucide-react'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
 import { toast } from 'sonner'
@@ -44,6 +45,34 @@ export function GalleryWithSave({
   const [useSavedGallery, setUseSavedGallery] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  // State untuk track favorite status di lightbox
+  const [currentImageFavorite, setCurrentImageFavorite] = useState(false)
+
+  // Check favorite status for current image when lightbox opens
+  useEffect(() => {
+    const checkCurrentImageFavorite = async () => {
+      if (!lightboxOpen || !accessToken || !savedData?.urls.length) return
+      
+      const currentImageUrl = savedData.urls[lightboxIndex]
+      if (!currentImageUrl) return
+
+      try {
+        const favorite = await favoritesApi.checkIsFavorite(
+          'image',
+          currentImageUrl,
+          movieData?.id,
+          accessToken
+        )
+        
+        setCurrentImageFavorite(!!favorite)
+      } catch (error) {
+        console.warn('Failed to check favorite status:', error)
+        setCurrentImageFavorite(false)
+      }
+    }
+
+    checkCurrentImageFavorite()
+  }, [lightboxOpen, lightboxIndex, savedData?.urls, accessToken, movieData?.id])
 
   // Check for saved gallery on mount
   useEffect(() => {
@@ -140,6 +169,43 @@ export function GalleryWithSave({
     }
   }
 
+  // Handle toggle favorite for current image in lightbox
+  const handleToggleFavorite = async () => {
+    const currentImageUrl = savedData?.urls[lightboxIndex]
+    if (!currentImageUrl || !accessToken) return
+
+    try {
+      const { isFavorite: newIsFavorite } = await favoritesApi.toggleFavorite(
+        'image',
+        currentImageUrl,
+        accessToken,
+        movieData?.id, // sourceId
+        {
+          sourceType: 'movie',
+          sourceTitle: movieData?.titleEn,
+          movieCode: movieData?.code,
+          actresses: movieData?.actress ? [movieData.actress] : [],
+          actors: movieData?.actors || [],
+          releaseDate: movieData?.releaseDate
+        }
+      )
+      
+      setCurrentImageFavorite(newIsFavorite)
+      toast.success(newIsFavorite ? 'Added to favorites' : 'Removed from favorites')
+    } catch (error: any) {
+      console.error('Failed to toggle favorite:', error)
+      
+      // Handle specific error cases
+      if (error.message?.includes('409') || error.message?.includes('already in favorites')) {
+        // Item already exists, treat as success
+        setCurrentImageFavorite(true)
+        toast.success('Added to favorites')
+      } else {
+        toast.error('Could not update favorites at this time')
+      }
+    }
+  }
+
   // Loading state
   if (isLoadingSaved) {
     return (
@@ -222,10 +288,13 @@ export function GalleryWithSave({
                 </div>
               </div>
               
-              {/* Gallery Image Favorite Button - simplified */}
+              {/* Gallery Image Favorite Button - always visible */}
               {accessToken && movieData && (
                 <div className="absolute bottom-2 right-2 z-10">
-                  <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+                  <div 
+                    className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <SimpleFavoriteButton
                       type="image"
                       itemId={url}
@@ -267,6 +336,9 @@ export function GalleryWithSave({
               }
             }}
             showNavigation={savedData.urls.length > 1}
+            isFavorite={currentImageFavorite}
+            onToggleFavorite={handleToggleFavorite}
+            accessToken={accessToken}
           />
         )}
       </div>

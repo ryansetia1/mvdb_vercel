@@ -59,12 +59,8 @@ export const favoritesApi = {
         return cache.data || []
       }
 
-      // Test server connectivity first
-      const isHealthy = await this.checkHealth()
-      if (!isHealthy) {
-        return []
-      }
-      
+      // Skip health check to avoid 401 errors
+      // Directly try to fetch favorites
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/favorites`, {
         method: 'GET',
         headers: {
@@ -146,6 +142,7 @@ export const favoritesApi = {
     if (!accessToken) return null
     
     try {
+      // Use cached data if available, otherwise fetch fresh data
       const favorites = await this.getFavorites(accessToken)
       return favorites.find(f => 
         f.type === type && 
@@ -167,19 +164,30 @@ export const favoritesApi = {
     metadata?: any
   ): Promise<{ isFavorite: boolean; favorite?: FavoriteItem }> {
     try {
+      // Clear cache before toggle to ensure fresh data
+      this.clearCache()
       const existingFavorite = await this.checkIsFavorite(type, itemId, sourceId, accessToken)
       
       if (existingFavorite?.id) {
         await this.removeFavorite(existingFavorite.id, accessToken)
         return { isFavorite: false }
       } else {
-        const favorite = await this.addFavorite({
-          type,
-          itemId,
-          sourceId,
-          metadata
-        }, accessToken)
-        return { isFavorite: true, favorite }
+        try {
+          const favorite = await this.addFavorite({
+            type,
+            itemId,
+            sourceId,
+            metadata
+          }, accessToken)
+          return { isFavorite: true, favorite }
+        } catch (addError: any) {
+          // Handle 409 error - item already exists
+          if (addError.message?.includes('409') || addError.message?.includes('already in favorites')) {
+            console.warn('Item already in favorites, treating as success')
+            return { isFavorite: true }
+          }
+          throw addError
+        }
       }
     } catch (error) {
       console.error('Failed to toggle favorite:', error)

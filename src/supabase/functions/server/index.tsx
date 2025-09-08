@@ -3153,5 +3153,392 @@ app.put('/make-server-f3064b20/master/:type/:id/sync', updateSimpleMasterDataWit
 // Delete master data item
 app.delete('/make-server-f3064b20/master/:type/:id', deleteMasterData)
 
+// ==================================================================================
+// MOVIE TYPE COLORS ROUTES (with f3064b20 prefix for consistency)
+// ==================================================================================
+
+// Get movie type colors
+app.get('/make-server-f3064b20/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Try both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('GET request - user ID:', user.id)
+    console.log('GET request - trying global key:', globalKey)
+    console.log('GET request - trying user key:', userKey)
+    
+    let colorsData = await kv.get(globalKey)
+    console.log('Retrieved colors data from KV store (global):', colorsData)
+    
+    if (!colorsData) {
+      colorsData = await kv.get(userKey)
+      console.log('Retrieved colors data from KV store (user-specific):', colorsData)
+    }
+    
+    // Additional debugging - list all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store (GET):', allKeys.map(k => k.key))
+    
+    let colors = {}
+    
+    if (colorsData) {
+      try {
+        // colorsData is already the parsed value from KV store
+        colors = typeof colorsData === 'string' ? JSON.parse(colorsData) : colorsData
+        console.log('Successfully parsed colors:', colors)
+      } catch (parseError) {
+        console.log('JSON parse error for stored colors:', parseError)
+        console.log('Raw stored data:', colorsData)
+        // Return empty object if stored data is corrupted
+        colors = {}
+      }
+    } else {
+      console.log('No colors data found in KV store (both global and user-specific)')
+    }
+    
+    return c.json({ colors })
+  } catch (error) {
+    console.log('Get movie type colors error:', error)
+    return c.json({ error: `Get movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Save movie type colors
+app.post('/make-server-f3064b20/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Parse request body with better error handling
+    let requestBody
+    try {
+      const bodyText = await c.req.text()
+      console.log('Raw request body:', bodyText)
+      requestBody = JSON.parse(bodyText)
+    } catch (parseError) {
+      console.log('JSON parse error:', parseError)
+      return c.json({ error: 'Invalid JSON in request body' }, 400)
+    }
+
+    const { colors } = requestBody
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    const colorsJson = JSON.stringify(colors)
+    console.log('Saving colors to KV store:', colorsJson)
+    
+    // Save to both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('Saving to global key:', globalKey)
+    console.log('Saving to user key:', userKey)
+    
+    await kv.set(globalKey, colorsJson)
+    await kv.set(userKey, colorsJson)
+    
+    // Add a small delay to ensure KV store consistency
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Verify the save by immediately reading it back
+    const savedDataGlobal = await kv.get(globalKey)
+    const savedDataUser = await kv.get(userKey)
+    console.log('Verification - saved data (global):', savedDataGlobal)
+    console.log('Verification - saved data (user-specific):', savedDataUser)
+    
+    // Additional verification - try to get all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store:', allKeys.map(k => k.key))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Save movie type colors error:', error)
+    return c.json({ error: `Save movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Reset movie type colors to defaults
+app.put('/make-server-f3064b20/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Parse request body with better error handling
+    let requestBody
+    try {
+      const bodyText = await c.req.text()
+      console.log('Raw reset request body:', bodyText)
+      requestBody = JSON.parse(bodyText)
+    } catch (parseError) {
+      console.log('JSON parse error in reset:', parseError)
+      return c.json({ error: 'Invalid JSON in request body' }, 400)
+    }
+
+    const { colors } = requestBody
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    const colorsJson = JSON.stringify(colors)
+    console.log('Saving colors to KV store:', colorsJson)
+    
+    // Save to both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('Saving to global key:', globalKey)
+    console.log('Saving to user key:', userKey)
+    
+    await kv.set(globalKey, colorsJson)
+    await kv.set(userKey, colorsJson)
+    
+    // Add a small delay to ensure KV store consistency
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Verify the save by immediately reading it back
+    const savedDataGlobal = await kv.get(globalKey)
+    const savedDataUser = await kv.get(userKey)
+    console.log('Verification - saved data (global):', savedDataGlobal)
+    console.log('Verification - saved data (user-specific):', savedDataUser)
+    
+    // Additional verification - try to get all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store:', allKeys.map(k => k.key))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Reset movie type colors error:', error)
+    return c.json({ error: `Reset movie type colors error: ${error}` }, 500)
+  }
+})
+
+// ==================================================================================
+// MOVIE TYPE COLORS ROUTES (legacy e0516fcf prefix - keeping for backward compatibility)
+// ==================================================================================
+
+// Get movie type colors
+app.get('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Try both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('GET request - user ID:', user.id)
+    console.log('GET request - trying global key:', globalKey)
+    console.log('GET request - trying user key:', userKey)
+    
+    let colorsData = await kv.get(globalKey)
+    console.log('Retrieved colors data from KV store (global):', colorsData)
+    
+    if (!colorsData) {
+      colorsData = await kv.get(userKey)
+      console.log('Retrieved colors data from KV store (user-specific):', colorsData)
+    }
+    
+    // Additional debugging - list all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store (GET):', allKeys.map(k => k.key))
+    
+    let colors = {}
+    
+    if (colorsData) {
+      try {
+        // colorsData is already the parsed value from KV store
+        colors = typeof colorsData === 'string' ? JSON.parse(colorsData) : colorsData
+        console.log('Successfully parsed colors:', colors)
+      } catch (parseError) {
+        console.log('JSON parse error for stored colors:', parseError)
+        console.log('Raw stored data:', colorsData)
+        // Return empty object if stored data is corrupted
+        colors = {}
+      }
+    } else {
+      console.log('No colors data found in KV store (both global and user-specific)')
+    }
+    
+    return c.json({ colors })
+  } catch (error) {
+    console.log('Get movie type colors error:', error)
+    return c.json({ error: `Get movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Save movie type colors
+app.post('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Parse request body with better error handling
+    let requestBody
+    try {
+      const bodyText = await c.req.text()
+      console.log('Raw request body:', bodyText)
+      requestBody = JSON.parse(bodyText)
+    } catch (parseError) {
+      console.log('JSON parse error:', parseError)
+      return c.json({ error: 'Invalid JSON in request body' }, 400)
+    }
+
+    const { colors } = requestBody
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    const colorsJson = JSON.stringify(colors)
+    console.log('Saving colors to KV store:', colorsJson)
+    
+    // Save to both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('Saving to global key:', globalKey)
+    console.log('Saving to user key:', userKey)
+    
+    await kv.set(globalKey, colorsJson)
+    await kv.set(userKey, colorsJson)
+    
+    // Add a small delay to ensure KV store consistency
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Verify the save by immediately reading it back
+    const savedDataGlobal = await kv.get(globalKey)
+    const savedDataUser = await kv.get(userKey)
+    console.log('Verification - saved data (global):', savedDataGlobal)
+    console.log('Verification - saved data (user-specific):', savedDataUser)
+    
+    // Additional verification - try to get all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store:', allKeys.map(k => k.key))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Save movie type colors error:', error)
+    return c.json({ error: `Save movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Reset movie type colors to defaults
+app.put('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Parse request body with better error handling
+    let requestBody
+    try {
+      const bodyText = await c.req.text()
+      console.log('Raw reset request body:', bodyText)
+      requestBody = JSON.parse(bodyText)
+    } catch (parseError) {
+      console.log('JSON parse error in reset:', parseError)
+      return c.json({ error: 'Invalid JSON in request body' }, 400)
+    }
+
+    const { colors } = requestBody
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    const colorsJson = JSON.stringify(colors)
+    console.log('Saving colors to KV store:', colorsJson)
+    
+    // Save to both global and user-specific keys
+    const globalKey = 'movie_type_colors'
+    const userKey = `movie_type_colors:${user.id}`
+    
+    console.log('Saving to global key:', globalKey)
+    console.log('Saving to user key:', userKey)
+    
+    await kv.set(globalKey, colorsJson)
+    await kv.set(userKey, colorsJson)
+    
+    // Add a small delay to ensure KV store consistency
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Verify the save by immediately reading it back
+    const savedDataGlobal = await kv.get(globalKey)
+    const savedDataUser = await kv.get(userKey)
+    console.log('Verification - saved data (global):', savedDataGlobal)
+    console.log('Verification - saved data (user-specific):', savedDataUser)
+    
+    // Additional verification - try to get all keys with prefix
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    console.log('All movie_type_colors keys in KV store:', allKeys.map(k => k.key))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Reset movie type colors error:', error)
+    return c.json({ error: `Reset movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Debug endpoint to list all KV store keys
+app.get('/make-server-f3064b20/debug/kv-keys', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const allKeys = await kv.getByPrefix('movie_type_colors')
+    const keysWithData = []
+    
+    for (const keyData of allKeys) {
+      keysWithData.push({
+        key: keyData.key,
+        value: keyData.value,
+        hasData: !!keyData.value
+      })
+    }
+    
+    return c.json({ 
+      keys: keysWithData,
+      totalKeys: allKeys.length
+    })
+  } catch (error) {
+    console.log('Debug KV keys error:', error)
+    return c.json({ error: `Debug KV keys error: ${error}` }, 500)
+  }
+})
+
 console.log('Server starting with all routes...')
 Deno.serve(app.fetch)

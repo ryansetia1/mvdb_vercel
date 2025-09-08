@@ -21,6 +21,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { PaginationEnhanced } from '../ui/pagination-enhanced'
+import { MovieCard } from '../MovieCard'
+// Force reload check
 
 interface FavoritesContentProps {
   accessToken: string
@@ -81,6 +84,10 @@ export function FavoritesContent({
   const [showLightbox, setShowLightbox] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   
+  // Pagination state for each tab
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(24)
+  
   // Load favorites first, then load data for current tab
   useEffect(() => {
     loadFavorites()
@@ -92,6 +99,11 @@ export function FavoritesContent({
       loadCurrentTabData()
     }
   }, [favorites, activeTab])
+
+  // Reset to page 1 when tab changes or search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery])
 
   const loadFavorites = async () => {
     try {
@@ -332,6 +344,23 @@ export function FavoritesContent({
     }
   }, [favoriteMovies, favoriteImages, favoriteCast, favoriteSeries, searchQuery])
 
+  // Calculate pagination for current tab
+  const getCurrentTabData = () => {
+    switch (activeTab) {
+      case 'movies': return filteredMovies
+      case 'images': return filteredImages
+      case 'cast': return filteredCast
+      case 'series': return filteredSeries
+      default: return []
+    }
+  }
+
+  const currentTabData = getCurrentTabData()
+  const totalPages = Math.ceil(currentTabData.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedData = currentTabData.slice(startIndex, endIndex)
+
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {
     const items = []
@@ -456,6 +485,19 @@ export function FavoritesContent({
           </TabsTrigger>
         </TabsList>
 
+        {/* Pagination - Top */}
+        <PaginationEnhanced
+          currentPage={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          totalItems={currentTabData.length}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            setItemsPerPage(newItemsPerPage)
+            setCurrentPage(1)
+          }}
+        />
+
         {/* Favorite Movies Tab */}
         <TabsContent value="movies" className="space-y-4">
           {!favoriteMovies.length ? (
@@ -464,59 +506,22 @@ export function FavoritesContent({
               <p className="text-muted-foreground">No favorite movies yet</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {favoriteMovies.map((movie) => {
-                const favorite = favorites.find(f => f.type === 'movie' && f.itemId === movie.id)
-                return (
-                  <Card key={movie.id} className="group hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-0">
-                      <div 
-                        className="aspect-[3/4] relative overflow-hidden rounded-t-lg"
-                        onClick={() => onMovieSelect(movie)}
-                      >
-                        <ImageWithFallback
-                          src={movie.cover || ''}
-                          alt={movie.titleEn || movie.titleJp || 'Movie cover'}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                        
-                        {/* Remove favorite button */}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (favorite?.id) removeFavorite(favorite.id)
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="p-3 space-y-2">
-                        <div onClick={() => onMovieSelect(movie)}>
-                          <h3 className="font-medium line-clamp-2 leading-tight">
-                            {movie.titleEn || movie.titleJp}
-                          </h3>
-                          {movie.dmm && (
-                            <p className="text-sm text-muted-foreground">{movie.dmm}</p>
-                          )}
-                        </div>
-
-                        {movie.releaseDate && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            <span>{new Date(movie.releaseDate).getFullYear()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+            <div className="space-y-6">
+              {/* Movies Grid - Exact same structure as MoviesContent */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                {paginatedData.map((movie) => (
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    onClick={() => onMovieSelect(movie)}
+                    onActressClick={onProfileSelect ? (actressName, e) => {
+                      e.stopPropagation()
+                      onProfileSelect('actress', actressName)
+                    } : undefined}
+                    accessToken={accessToken}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -530,7 +535,7 @@ export function FavoritesContent({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {favoriteImages.map((image) => (
+              {paginatedData.map((image) => (
                 <Card key={image.id} className="group hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-0">
                     <div 
@@ -582,7 +587,7 @@ export function FavoritesContent({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {favoriteCast.map((person) => {
+              {paginatedData.map((person) => {
                 const favorite = favorites.find(f => f.type === 'cast' && f.itemId === person.name)
                 return (
                   <Card key={person.id} className="group hover:shadow-md transition-shadow cursor-pointer">
@@ -638,7 +643,7 @@ export function FavoritesContent({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {favoriteSeries.map((series) => (
+              {paginatedData.map((series) => (
                 <Card key={series.favoriteId} className="group hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">

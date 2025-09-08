@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Button } from '../ui/button'
@@ -8,8 +8,11 @@ import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { ClickableProfileAvatar } from '../ClickableProfileAvatar'
 import { ModernLightbox } from '../ModernLightbox'
 import { Photobook, photobookApi, photobookHelpers, ImageTag } from '../../utils/photobookApi'
+import { favoritesApi } from '../../utils/favoritesApi'
+import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
+import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ArrowLeft, Calendar, User, ExternalLink, Images, Shield, Users, Edit3, Save, X } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface PhotobookDetailContentProps {
   photobook?: Photobook // Accept photobook object directly
@@ -41,6 +44,7 @@ export function PhotobookDetailContent({
   const [galleryTab, setGalleryTab] = useState<'all' | 'nn' | 'n'>('nn')
   const [isEditingRatings, setIsEditingRatings] = useState(false)
   const [isSavingRatings, setIsSavingRatings] = useState(false)
+
 
   useEffect(() => {
     // If we have a photobook object, use it directly
@@ -368,6 +372,7 @@ export function PhotobookDetailContent({
   const imageCounts = getImageCounts()
   const allActresses = photobookHelpers.getAllActressesFromTags(photobook)
 
+
   console.log('=== PhotobookDetailContent Render ===')
   console.log('Photobook data:', {
     id: photobook.id,
@@ -388,7 +393,7 @@ export function PhotobookDetailContent({
         console.log('lightboxImages:', lightboxImages)
         console.log('currentImageUrl:', currentImageUrl)
         
-        let metadata = undefined
+        let metadata: any = undefined
         if (currentImageUrl && photobook) {
           console.log('Generating metadata for:', currentImageUrl)
           metadata = getLightboxMetadata(currentImageUrl)
@@ -398,6 +403,7 @@ export function PhotobookDetailContent({
           console.log('- currentImageUrl:', currentImageUrl)
           console.log('- photobook exists:', !!photobook)
         }
+        
         
         return (
           <ModernLightbox
@@ -666,6 +672,26 @@ export function PhotobookDetailContent({
                             <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                               {index + 1}
                             </div>
+                            
+                            {/* Favorite Button */}
+                            {accessToken && (
+                              <div className="absolute bottom-1 right-1 z-10">
+                                <div 
+                                  className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <SimpleFavoriteButton
+                                    type="image"
+                                    itemId={imageUrl}
+                                    sourceId={photobook?.id || ''}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
                             {/* Dynamic Rating Badge */}
                             {currentRating && (
                               <div className="absolute top-1 right-1">
@@ -724,6 +750,26 @@ export function PhotobookDetailContent({
                           <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                             {index + 1}
                           </div>
+                          
+                          {/* Favorite Button */}
+                          {accessToken && (
+                            <div className="absolute bottom-1 right-1 z-10">
+                              <div 
+                                className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SimpleFavoriteButton
+                                  type="image"
+                                  itemId={imageUrl}
+                                  sourceId={photobook?.id || ''}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="absolute top-1 right-1">
                             <Badge variant="secondary" className="text-xs h-auto py-0 px-1">
                               NN
@@ -775,6 +821,26 @@ export function PhotobookDetailContent({
                           <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                             {index + 1}
                           </div>
+                          
+                          {/* Favorite Button */}
+                          {accessToken && (
+                            <div className="absolute bottom-1 right-1 z-10">
+                              <div 
+                                className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SimpleFavoriteButton
+                                  type="image"
+                                  itemId={imageUrl}
+                                  sourceId={photobook?.id || ''}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="absolute top-1 right-1">
                             <Badge variant="destructive" className="text-xs h-auto py-0 px-1">
                               N

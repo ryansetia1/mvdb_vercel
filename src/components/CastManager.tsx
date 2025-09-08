@@ -335,12 +335,12 @@ export function CastManager({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           
-          {/* Show available people by default or when searching */}
-          {filteredPeople.length > 0 && (
-            <Card className="max-h-48 overflow-y-auto">
+          {/* Show search results only */}
+          {searchQuery && filteredPeople.length > 0 && (
+            <Card>
               <CardContent className="p-2">
                 <div className="space-y-1">
-                  {(searchQuery ? filteredPeople : filteredPeople.slice(0, 15)).map((person) => (
+                  {filteredPeople.slice(0, 8).map((person) => (
                     <Button
                       key={person.id}
                       variant="ghost"
@@ -361,11 +361,6 @@ export function CastManager({
                       </div>
                     </Button>
                   ))}
-                  {!searchQuery && filteredPeople.length > 15 && (
-                    <div className="text-xs text-center text-muted-foreground py-2 border-t">
-                      Showing first 15 {typeLabels[type].toLowerCase()}s. Use search to find more.
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -9,7 +9,8 @@ import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { GroupFormDialog } from '../groupForm/GroupFormDialog'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
+import { PaginationEnhanced } from '../ui/pagination-enhanced'
 
 interface GroupsContentProps {
   accessToken: string
@@ -17,6 +18,7 @@ interface GroupsContentProps {
   onProfileSelect?: (type: 'actress' | 'actor', name: string) => void
   onGroupSelect?: (group: MasterDataItem) => void
   selectedGroupFromNavigation?: string
+  actresses?: MasterDataItem[]
 }
 
 interface GroupFormData {
@@ -37,7 +39,7 @@ const sortOptions = [
   { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => actress.movieCount || 0 },
 ]
 
-export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGroupSelect, selectedGroupFromNavigation }: GroupsContentProps) {
+export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGroupSelect, selectedGroupFromNavigation, actresses: passedActresses }: GroupsContentProps) {
   const [groups, setGroups] = useState<MasterDataItem[]>([])
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -47,6 +49,8 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const [groupMembers, setGroupMembers] = useState<MasterDataItem[]>([])
   const [editingGroupActresses, setEditingGroupActresses] = useState<MasterDataItem[]>([])
   const [sortBy, setSortBy] = useState('name')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(24)
   const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     jpname: '',
@@ -58,7 +62,7 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
 
   useEffect(() => {
     loadData()
-  }, [accessToken])
+  }, [accessToken, passedActresses])
 
   // Handle selectedGroupFromNavigation when data is loaded
   useEffect(() => {
@@ -78,15 +82,21 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const loadData = async () => {
     try {
       setIsLoading(true)
-      console.log('🔄 Loading groups and actresses data...')
+      console.log('🔄 Loading groups data...')
       
-      const [groupsData, actressesData] = await Promise.all([
-        masterDataApi.getByType('group', accessToken),
-        masterDataApi.getByType('actress', accessToken)
-      ])
+      const groupsData = await masterDataApi.getByType('group', accessToken)
       
       console.log('📊 Groups loaded:', groupsData?.length || 0)
-      console.log('👩 Actresses loaded:', actressesData?.length || 0)
+      
+      // Use passed actresses if available, otherwise load our own
+      let actressesData = passedActresses
+      if (!actressesData) {
+        console.log('🔄 Loading actresses data...')
+        actressesData = await masterDataApi.getByType('actress', accessToken)
+        console.log('👩 Actresses loaded:', actressesData?.length || 0)
+      } else {
+        console.log('👩 Using passed actresses:', actressesData?.length || 0)
+      }
       
       // Debug: log actresses with group data
       if (actressesData && actressesData.length > 0) {
@@ -449,7 +459,13 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     setSelectedGroup(null)
     setGroupMembers([])
     setSortBy('name') // Reset sort when going back to groups
+    setCurrentPage(1) // Reset pagination when going back to groups
   }
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
 
   const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
     console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
@@ -573,6 +589,16 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     return sorted
   }, [groupMembers, sortBy])
 
+  // Calculate pagination for groups list
+  const groupsTotalPages = Math.ceil(filteredGroups.length / itemsPerPage)
+  const groupsStartIndex = (currentPage - 1) * itemsPerPage
+  const paginatedGroups = filteredGroups.slice(groupsStartIndex, groupsStartIndex + itemsPerPage)
+
+  // Calculate pagination for group members
+  const membersTotalPages = Math.ceil(sortedGroupMembers.length / itemsPerPage)
+  const membersStartIndex = (currentPage - 1) * itemsPerPage
+  const paginatedMembers = sortedGroupMembers.slice(membersStartIndex, membersStartIndex + itemsPerPage)
+
   if (isLoading && groups.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -647,6 +673,19 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
           </div>
         )}
 
+        {/* Pagination - Top */}
+        <PaginationEnhanced
+          currentPage={currentPage}
+          totalPages={membersTotalPages}
+          itemsPerPage={itemsPerPage}
+          totalItems={sortedGroupMembers.length}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            setItemsPerPage(newItemsPerPage)
+            setCurrentPage(1)
+          }}
+        />
+
         {/* Members Grid */}
         {groupMembers.length === 0 ? (
           <div className="text-center py-12">
@@ -658,7 +697,7 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {sortedGroupMembers.map((actress) => {
+            {paginatedMembers.map((actress) => {
               const imageUrl = getGroupProfilePicture(actress, selectedGroup.name || '')
               const groupAlias = getGroupAlias(actress, selectedGroup.name || '')
               
@@ -775,6 +814,19 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
         </Button>
       </div>
 
+      {/* Pagination - Top */}
+      <PaginationEnhanced
+        currentPage={currentPage}
+        totalPages={groupsTotalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredGroups.length}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={(newItemsPerPage) => {
+          setItemsPerPage(newItemsPerPage)
+          setCurrentPage(1)
+        }}
+      />
+
       {/* Groups Grid */}
       {filteredGroups.length === 0 ? (
         <div className="text-center py-12">
@@ -797,7 +849,7 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredGroups.map(group => (
+          {paginatedGroups.map(group => (
             <Card 
               key={group.id} 
               className="hover:shadow-md transition-shadow cursor-pointer"

@@ -542,6 +542,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   const handleFilterSelect = (filterType: string, filterValue: string, title?: string) => {
+    // Save current state to history before navigating to filtered view
+    setNavigationHistory(prev => [...prev, contentState])
+    
     // For group filters, show actresses instead of movies
     const contentMode = filterType === 'group' ? 'filteredActresses' : 'filteredMovies'
     setContentState({
@@ -1070,7 +1073,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 {/* Show back button with title for filtered views, just title for main views */}
                 {contentState.mode === 'filteredMovies' ? (
                   <div className="flex items-center justify-between w-full">
-
+                    <div className="flex items-center gap-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleBack}
+                        className="flex items-center gap-2"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back
+                      </Button>
+                      <h2 className="text-2xl font-bold">{contentState.title}</h2>
+                    </div>
                   </div>
                 ) : (
                   <h2 className="text-2xl font-bold">{contentState.title}</h2>
@@ -1173,6 +1186,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onProfileSelect={handleProfileSelect}
                 onGroupSelect={handleGroupSelect}
                 selectedGroupFromNavigation={contentState.data?.selectedGroup}
+                actresses={actresses}
               />
             )}
 

@@ -821,10 +821,12 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                           onChange={(e) => setCastSearchQuery(e.target.value)}
                           className="mb-2"
                         />
-                        <div className="max-h-32 overflow-y-auto border rounded p-2 mb-2">
-                          {availableActresses
-                            .filter(actress => !castSearchQuery || String(actress.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
-                            .map((actress) => (
+                        {castSearchQuery && (
+                          <div className="border rounded p-2 mb-2">
+                            {availableActresses
+                              .filter(actress => String(actress.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
+                              .slice(0, 8)
+                              .map((actress) => (
                               <Button
                                 key={actress.id}
                                 variant="ghost"
@@ -841,7 +843,8 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                                 </div>
                               </Button>
                             ))}
-                        </div>
+                          </div>
+                        )}
                         {cast.actresses.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {cast.actresses.map((name: string) => (
@@ -869,10 +872,12 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                           onChange={(e) => setCastSearchQuery(e.target.value)}
                           className="mb-2"
                         />
-                        <div className="max-h-32 overflow-y-auto border rounded p-2 mb-2">
-                          {availableActors
-                            .filter(actor => !castSearchQuery || String(actor.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
-                            .map((actor) => (
+                        {castSearchQuery && (
+                          <div className="border rounded p-2 mb-2">
+                            {availableActors
+                              .filter(actor => String(actor.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
+                              .slice(0, 8)
+                              .map((actor) => (
                               <Button
                                 key={actor.id}
                                 variant="ghost"
@@ -889,7 +894,8 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                                 </div>
                               </Button>
                             ))}
-                        </div>
+                          </div>
+                        )}
                         {cast.actors.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {cast.actors.map((name: string) => (
@@ -917,10 +923,12 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                           onChange={(e) => setCastSearchQuery(e.target.value)}
                           className="mb-2"
                         />
-                        <div className="max-h-32 overflow-y-auto border rounded p-2 mb-2">
-                          {availableDirectors
-                            .filter(director => !castSearchQuery || String(director.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
-                            .map((director) => (
+                        {castSearchQuery && (
+                          <div className="border rounded p-2 mb-2">
+                            {availableDirectors
+                              .filter(director => String(director.name || '').toLowerCase().includes(castSearchQuery.toLowerCase()))
+                              .slice(0, 8)
+                              .map((director) => (
                               <Button
                                 key={director.id}
                                 variant="ghost"
@@ -937,7 +945,8 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                                 </div>
                               </Button>
                             ))}
-                        </div>
+                          </div>
+                        )}
                         {cast.directors.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {cast.directors.map((name: string) => (

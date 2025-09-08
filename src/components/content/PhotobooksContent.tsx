@@ -8,6 +8,7 @@ import { FilterIndicator } from '../ui/filter-indicator'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { PhotobookForm } from '../PhotobookForm'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
+import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { Photobook, photobookApi } from '../../utils/photobookApi'
 import { projectId } from '../../utils/supabase/info'
 import { Plus, Search, Edit, Trash2, ExternalLink, Calendar, User, AlertCircle } from 'lucide-react'
@@ -304,6 +305,15 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
                     {/* Action Buttons Overlay */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex gap-1">
+                        {accessToken && (
+                          <SimpleFavoriteButton
+                            type="photobook"
+                            itemId={photobook.id || ''}
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 w-8 p-0"
+                          />
+                        )}
                         <Button
                           size="sm"
                           variant="secondary"

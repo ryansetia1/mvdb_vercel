@@ -1,7 +1,10 @@
 /**
  * Movie Type Color Configuration
  * Simple and stable system for customizable movie type colors
+ * Now supports both database persistence and localStorage fallback
  */
+
+import { movieTypeColorsApi, MovieTypeColorConfig as ApiMovieTypeColorConfig } from './movieTypeColorsApi'
 
 export interface MovieTypeColorConfig {
   [type: string]: string
@@ -19,9 +22,31 @@ export const DEFAULT_TYPE_COLORS: MovieTypeColorConfig = {
 const STORAGE_KEY = 'movieTypeColors'
 
 /**
- * Get current type color configuration
+ * Get current type color configuration from database (with localStorage fallback)
  */
-export function getTypeColors(): MovieTypeColorConfig {
+export async function getTypeColorsFromDatabase(accessToken?: string): Promise<MovieTypeColorConfig> {
+  if (!accessToken) {
+    console.log('No access token provided, falling back to localStorage')
+    return getTypeColorsFromLocalStorage()
+  }
+
+  try {
+    const colors = await movieTypeColorsApi.getColors(accessToken)
+    // If database has colors, sync them to localStorage for offline access
+    if (Object.keys(colors).length > 0) {
+      saveTypeColorsToLocalStorage(colors)
+    }
+    return colors
+  } catch (error) {
+    console.warn('Failed to load type colors from database, falling back to localStorage:', error)
+    return getTypeColorsFromLocalStorage()
+  }
+}
+
+/**
+ * Get current type color configuration from localStorage
+ */
+export function getTypeColorsFromLocalStorage(): MovieTypeColorConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
@@ -38,26 +63,63 @@ export function getTypeColors(): MovieTypeColorConfig {
 }
 
 /**
- * Save type color configuration
+ * Get current type color configuration (backward compatibility)
+ * Uses localStorage only
  */
-export function saveTypeColors(colors: MovieTypeColorConfig): void {
+export function getTypeColors(): MovieTypeColorConfig {
+  return getTypeColorsFromLocalStorage()
+}
+
+/**
+ * Save type color configuration to database (with localStorage backup)
+ */
+export async function saveTypeColorsToDatabase(colors: MovieTypeColorConfig, accessToken?: string): Promise<void> {
+  // Always save to localStorage first for immediate access
+  saveTypeColorsToLocalStorage(colors)
+  
+  if (!accessToken) {
+    console.log('No access token provided, saved to localStorage only')
+    return
+  }
+
+  try {
+    await movieTypeColorsApi.saveColors(colors, accessToken)
+    console.log('Type colors saved successfully to database')
+  } catch (error) {
+    console.warn('Failed to save type colors to database, but saved to localStorage:', error)
+    // Don't throw error since localStorage save succeeded
+  }
+}
+
+/**
+ * Save type color configuration to localStorage
+ */
+export function saveTypeColorsToLocalStorage(colors: MovieTypeColorConfig): void {
   try {
     const serialized = JSON.stringify(colors)
     localStorage.setItem(STORAGE_KEY, serialized)
-    console.log('Type colors saved successfully:', colors)
+    console.log('Type colors saved successfully to localStorage:', colors)
     
     // Verify the save immediately
     const verified = localStorage.getItem(STORAGE_KEY)
     if (verified === serialized) {
-      console.log('Type colors save verification successful')
+      console.log('Type colors localStorage save verification successful')
     } else {
-      console.error('Type colors save verification failed')
+      console.error('Type colors localStorage save verification failed')
       throw new Error('Save verification failed')
     }
   } catch (error) {
     console.error('Failed to save type colors to localStorage:', error)
     throw error
   }
+}
+
+/**
+ * Save type color configuration (backward compatibility)
+ * Uses localStorage only
+ */
+export function saveTypeColors(colors: MovieTypeColorConfig): void {
+  saveTypeColorsToLocalStorage(colors)
 }
 
 /**
@@ -155,22 +217,52 @@ export function hasCustomTypeColors(): boolean {
 }
 
 /**
- * Reset to default colors
+ * Reset to default colors in database (with localStorage backup)
  */
-export function resetTypeColors(): void {
+export async function resetTypeColorsToDatabase(accessToken?: string): Promise<void> {
+  // Always reset localStorage first for immediate access
+  resetTypeColorsToLocalStorage()
+  
+  if (!accessToken) {
+    console.log('No access token provided, reset localStorage only')
+    return
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_TYPE_COLORS))
+    await movieTypeColorsApi.resetColors(DEFAULT_TYPE_COLORS, accessToken)
+    console.log('Type colors reset successfully in database')
   } catch (error) {
-    console.warn('Failed to reset type colors:', error)
+    console.warn('Failed to reset type colors in database, but reset localStorage:', error)
+    // Don't throw error since localStorage reset succeeded
   }
 }
 
 /**
- * Sync type colors when master data type name changes
+ * Reset to default colors in localStorage
  */
-export function syncTypeColorsOnNameChange(oldTypeName: string, newTypeName: string): void {
+export function resetTypeColorsToLocalStorage(): void {
   try {
-    const colors = getTypeColors()
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_TYPE_COLORS))
+    console.log('Type colors reset successfully in localStorage')
+  } catch (error) {
+    console.warn('Failed to reset type colors in localStorage:', error)
+  }
+}
+
+/**
+ * Reset to default colors (backward compatibility)
+ * Uses localStorage only
+ */
+export function resetTypeColors(): void {
+  resetTypeColorsToLocalStorage()
+}
+
+/**
+ * Sync type colors when master data type name changes (database + localStorage)
+ */
+export async function syncTypeColorsOnNameChangeToDatabase(oldTypeName: string, newTypeName: string, accessToken?: string): Promise<void> {
+  try {
+    const colors = await getTypeColorsFromDatabase(accessToken)
     const oldKey = oldTypeName.toLowerCase()
     const newKey = newTypeName.toLowerCase()
     
@@ -179,7 +271,29 @@ export function syncTypeColorsOnNameChange(oldTypeName: string, newTypeName: str
       colors[newKey] = colors[oldKey]
       delete colors[oldKey]
       
-      saveTypeColors(colors)
+      await saveTypeColorsToDatabase(colors, accessToken)
+      console.log(`Movie type color synced: "${oldTypeName}" -> "${newTypeName}"`)
+    }
+  } catch (error) {
+    console.warn('Failed to sync type colors on name change:', error)
+  }
+}
+
+/**
+ * Sync type colors when master data type name changes (localStorage only - backward compatibility)
+ */
+export function syncTypeColorsOnNameChange(oldTypeName: string, newTypeName: string): void {
+  try {
+    const colors = getTypeColorsFromLocalStorage()
+    const oldKey = oldTypeName.toLowerCase()
+    const newKey = newTypeName.toLowerCase()
+    
+    // If old type has a color setting, move it to new type name
+    if (colors[oldKey] && oldKey !== newKey) {
+      colors[newKey] = colors[oldKey]
+      delete colors[oldKey]
+      
+      saveTypeColorsToLocalStorage(colors)
       console.log(`Movie type color synced: "${oldTypeName}" -> "${newTypeName}"`)
     }
   } catch (error) {

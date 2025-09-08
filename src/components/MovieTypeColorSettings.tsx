@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -7,14 +7,17 @@ import { Badge } from './ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { 
   getTypeColors, 
+  getTypeColorsFromDatabase,
   saveTypeColors, 
+  saveTypeColorsToDatabase,
   resetTypeColors, 
+  resetTypeColorsToDatabase,
   initializeTypeColors,
   DEFAULT_TYPE_COLORS,
   MovieTypeColorConfig 
 } from '../utils/movieTypeColors'
 import { masterDataApi, MasterDataItem } from '../utils/masterDataApi'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface Props {
   accessToken?: string
@@ -26,32 +29,60 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
   const [masterDataTypes, setMasterDataTypes] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedMasterType, setSelectedMasterType] = useState<string>('')
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    // Initialize colors with defaults on first load
-    initializeTypeColors()
-    
-    // Clean up any incorrect type names that don't match master data
-    const currentColors = getTypeColors()
-    const cleaned = { ...currentColors }
-    
-    // Fix the 2version -> 2vers issue
-    if (cleaned['2version'] && !cleaned['2vers']) {
-      cleaned['2vers'] = cleaned['2version']
-      delete cleaned['2version']
-      console.log('Fixed type name: 2version -> 2vers')
+    const loadColors = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Initialize colors with defaults on first load
+        initializeTypeColors()
+        
+        // Load colors from database if access token is available
+        let currentColors: MovieTypeColorConfig
+        if (accessToken) {
+          currentColors = await getTypeColorsFromDatabase(accessToken)
+        } else {
+          currentColors = getTypeColors()
+        }
+        
+        // Clean up any incorrect type names that don't match master data
+        const cleaned = { ...currentColors }
+        
+        // Fix the 2version -> 2vers issue
+        if (cleaned['2version'] && !cleaned['2vers']) {
+          cleaned['2vers'] = cleaned['2version']
+          delete cleaned['2version']
+          console.log('Fixed type name: 2version -> 2vers')
+        }
+        
+        // Save the cleaned version if any changes were made
+        if (JSON.stringify(cleaned) !== JSON.stringify(currentColors)) {
+          if (accessToken) {
+            await saveTypeColorsToDatabase(cleaned, accessToken)
+          } else {
+            saveTypeColors(cleaned)
+          }
+        }
+        
+        setColors(cleaned)
+        
+        if (accessToken) {
+          loadMasterDataTypes()
+        }
+      } catch (error) {
+        console.error('Error loading colors:', error)
+        // Fallback to localStorage
+        const fallbackColors = getTypeColors()
+        setColors(fallbackColors)
+      } finally {
+        setIsLoading(false)
+      }
     }
     
-    // Save the cleaned version if any changes were made
-    if (JSON.stringify(cleaned) !== JSON.stringify(currentColors)) {
-      saveTypeColors(cleaned)
-    }
-    
-    setColors(cleaned)
-    
-    if (accessToken) {
-      loadMasterDataTypes()
-    }
+    loadColors()
   }, [accessToken])
 
   const loadMasterDataTypes = async () => {
@@ -68,7 +99,7 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
       console.log('Loaded master data types:', typeNames)
       
       // Sync existing color settings with master data
-      const currentColors = getTypeColors()
+      const currentColors = accessToken ? await getTypeColorsFromDatabase(accessToken) : getTypeColors()
       const syncedColors = { ...currentColors }
       let hasChanges = false
       
@@ -86,7 +117,11 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
       
       // Save synced colors if there were changes
       if (hasChanges) {
-        saveTypeColors(syncedColors)
+        if (accessToken) {
+          await saveTypeColorsToDatabase(syncedColors, accessToken)
+        } else {
+          saveTypeColors(syncedColors)
+        }
         setColors(syncedColors)
         toast.info('Type colors synced with master data')
       }
@@ -102,20 +137,38 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
   const handleColorChange = (type: string, color: string) => {
     const updated = { ...colors, [type]: color }
     setColors(updated)
+    setHasUnsavedChanges(true)
     
+    // Save to localStorage immediately for preview
+    saveTypeColors(updated)
+  }
+
+  const handleSaveToDatabase = async () => {
+    if (!accessToken) {
+      toast.error('Please login to save colors to database')
+      return
+    }
+
+    setIsSaving(true)
     try {
-      saveTypeColors(updated)
-      // Verify the save by re-reading from storage
-      const verified = getTypeColors()
-      if (verified[type] === color) {
-        toast.success(`Updated color for "${type}" type`)
+      await saveTypeColorsToDatabase(colors, accessToken)
+      
+      // Verify the save by re-reading from database
+      const verified = await getTypeColorsFromDatabase(accessToken)
+      const isSuccess = JSON.stringify(verified) === JSON.stringify(colors)
+      
+      if (isSuccess) {
+        setHasUnsavedChanges(false)
+        toast.success('Colors saved to database successfully')
       } else {
-        console.error('Color save verification failed:', { expected: color, actual: verified[type] })
-        toast.error(`Failed to save color for "${type}" type`)
+        console.error('Color save verification failed:', { expected: colors, actual: verified })
+        toast.error('Failed to save colors to database - verification failed')
       }
     } catch (error) {
-      console.error('Error saving type color:', error)
-      toast.error(`Failed to save color for "${type}" type`)
+      console.error('Error saving colors to database:', error)
+      toast.error('Failed to save colors to database')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -134,10 +187,14 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
 
     const updated = { ...colors, [typeToAdd]: newColor }
     setColors(updated)
+    setHasUnsavedChanges(true)
+    
+    // Save to localStorage immediately for preview
     saveTypeColors(updated)
+    
     setSelectedMasterType('')
     setNewColor('#3b82f6')
-    toast.success(`Added color for type "${typeToAdd}"`)
+    toast.success(`Added color for type "${typeToAdd}" (local preview)`)
   }
 
   // Helper function to get contrast text color
@@ -155,18 +212,39 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
     return /^#[0-9A-Fa-f]{6}$/.test(color)
   }
 
-  const handleRemoveType = (type: string) => {
+  const handleRemoveType = async (type: string) => {
     const updated = { ...colors }
     delete updated[type]
     setColors(updated)
-    saveTypeColors(updated)
-    toast.success(`Removed type "${type}"`)
+    
+    try {
+      if (accessToken) {
+        await saveTypeColorsToDatabase(updated, accessToken)
+      } else {
+        saveTypeColors(updated)
+      }
+      toast.success(`Removed type "${type}"`)
+    } catch (error) {
+      console.error('Error removing type color:', error)
+      toast.error(`Failed to remove type "${type}"`)
+    }
   }
 
-  const handleReset = () => {
-    resetTypeColors()
-    setColors(getTypeColors()) // Get the reset colors from storage
-    toast.success('Reset to default colors')
+  const handleReset = async () => {
+    try {
+      if (accessToken) {
+        await resetTypeColorsToDatabase(accessToken)
+        const resetColors = await getTypeColorsFromDatabase(accessToken)
+        setColors(resetColors)
+      } else {
+        resetTypeColors()
+        setColors(getTypeColors()) // Get the reset colors from storage
+      }
+      toast.success('Reset to default colors')
+    } catch (error) {
+      console.error('Error resetting colors:', error)
+      toast.error('Failed to reset colors')
+    }
   }
 
   const handleSyncWithMasterData = async () => {
@@ -191,9 +269,38 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
     <Card className="p-6">
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-2">Movie Type Colors</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">Movie Type Colors</h3>
+            <div className="flex items-center gap-2">
+              {hasUnsavedChanges && (
+                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                  Unsaved Changes
+                </Badge>
+              )}
+              {accessToken && (
+                <Button 
+                  onClick={handleSaveToDatabase}
+                  disabled={isSaving || !hasUnsavedChanges}
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      💾 Save to Database
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground">
-            Customize colors for movie types from master data. To add new types, use Master Data Manager.
+            Customize colors for movie types from master data. Changes are saved locally for preview. 
+            {accessToken ? ' Click "Save to Database" to persist changes.' : ' Login to save changes to database.'}
           </p>
         </div>
 

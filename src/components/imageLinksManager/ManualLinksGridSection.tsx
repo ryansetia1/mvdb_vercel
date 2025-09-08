@@ -186,8 +186,8 @@ export function ManualLinksGridSection({
         )}
 
         {/* Full-Width Drag & Drop Zone */}
-        <div className="mb-4">
-          <div className="relative min-h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+        <div className="mb-6">
+          <div className="relative h-48 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors overflow-hidden">
             <DragDropImageZone onUrlsDropped={handleDragDropUrls} />
           </div>
         </div>

@@ -144,7 +144,9 @@ export function ManualLinksSection({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Drag & Drop Zone */}
-        <DragDropImageZone onUrlsDropped={handleDragDropUrls} />
+        <div className="relative h-48 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors overflow-hidden">
+          <DragDropImageZone onUrlsDropped={handleDragDropUrls} />
+        </div>
 
         {/* Existing Manual Links */}
         <div className="space-y-2">

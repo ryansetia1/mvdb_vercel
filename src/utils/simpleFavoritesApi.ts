@@ -3,7 +3,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info'
 
 export interface SimpleFavorite {
   id: string
-  type: 'movie' | 'image' | 'cast' | 'series'
+  type: 'movie' | 'image' | 'cast' | 'series' | 'photobook'
   itemId: string
   sourceId?: string // For images, this is the movie/photobook ID
   createdAt: string
