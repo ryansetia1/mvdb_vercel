@@ -506,24 +506,6 @@ export function ModernLightbox({
                 
                 <div className="w-px h-6 bg-white/20 mx-1" />
                 
-                {/* Favorite Button */}
-                {onToggleFavorite && accessToken && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onToggleFavorite()
-                    }}
-                    className={`text-white hover:bg-white/20 h-8 w-8 p-0 transition-all duration-200 ${
-                      isFavorite ? 'text-red-400 hover:text-red-300' : ''
-                    }`}
-                    title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
-                  </Button>
-                )}
                 
                 <Button
                   variant="ghost"
@@ -549,6 +531,28 @@ export function ModernLightbox({
                     <Download className="h-4 w-4" />
                   )}
                 </Button>
+                
+                {/* Favorite Button - only show if accessToken and onToggleFavorite are provided */}
+                {accessToken && onToggleFavorite && (
+                  <>
+                    <div className="w-px h-6 bg-white/20 mx-1" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        onToggleFavorite()
+                      }}
+                      className={`text-white hover:bg-white/20 h-8 w-8 p-0 transition-all duration-200 ${
+                        isFavorite ? 'text-red-400 hover:text-red-300' : 'hover:text-red-400'
+                      }`}
+                      title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+                    </Button>
+                  </>
+                )}
               </div>
             </motion.div>
           )}

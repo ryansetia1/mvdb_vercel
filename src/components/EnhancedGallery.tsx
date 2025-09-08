@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { ModernLightbox } from './ModernLightbox'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
-import { favoritesApi } from '../utils/favoritesApi'
+import { simpleFavoritesApi } from '../utils/simpleFavoritesApi'
 import { processTemplate, generateSmartGalleryUrls } from '../utils/templateUtils'
 import { ImageIcon, Eye, Grid, List, Loader2, AlertTriangle, Save } from 'lucide-react'
 import { toast } from 'sonner'
@@ -319,14 +319,13 @@ export function EnhancedGallery({
       if (!currentImage) return
 
       try {
-        const favorite = await favoritesApi.checkIsFavorite(
+        const isFavorited = await simpleFavoritesApi.isFavorited(
           'image',
           currentImage.url,
-          movieData.id,
           accessToken
         )
         
-        setCurrentImageFavorite(!!favorite)
+        setCurrentImageFavorite(isFavorited)
       } catch (error) {
         console.warn('Failed to check favorite status:', error)
         setCurrentImageFavorite(false)
@@ -342,34 +341,39 @@ export function EnhancedGallery({
     if (!currentImage || !accessToken || !movieData?.id) return
 
     try {
-      const { isFavorite: newIsFavorite } = await favoritesApi.toggleFavorite(
+      const isCurrentlyFavorite = await simpleFavoritesApi.isFavorited(
         'image',
         currentImage.url,
-        accessToken,
-        movieData.id, // sourceId
-        {
-          sourceType: 'movie',
-          sourceTitle: movieData.titleEn,
-          movieCode: movieData.code,
-          actresses: movieData.actress ? [movieData.actress] : [],
-          actors: movieData.actors || [],
-          releaseDate: movieData.releaseDate
-        }
+        accessToken
       )
-      
-      setCurrentImageFavorite(newIsFavorite)
-      toast.success(newIsFavorite ? 'Added to favorites' : 'Removed from favorites')
-    } catch (error: any) {
-      console.error('Failed to toggle favorite:', error)
-      
-      // Handle specific error cases
-      if (error.message?.includes('409') || error.message?.includes('already in favorites')) {
-        // Item already exists, treat as success
+
+      if (isCurrentlyFavorite) {
+        // Get the favorite ID first
+        const favorite = await simpleFavoritesApi.isFavorited(
+          'image',
+          currentImage.url,
+          accessToken,
+          movieData.id
+        )
+        
+        if (favorite) {
+          await simpleFavoritesApi.removeFavorite(favorite.id, accessToken)
+          setCurrentImageFavorite(false)
+          toast.success('Removed from favorites')
+        }
+      } else {
+        await simpleFavoritesApi.addFavorite(
+          'image',
+          currentImage.url,
+          accessToken,
+          movieData.id // sourceId
+        )
         setCurrentImageFavorite(true)
         toast.success('Added to favorites')
-      } else {
-        toast.error('Could not update favorites at this time')
       }
+    } catch (error: any) {
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Could not update favorites at this time')
     }
   }
 

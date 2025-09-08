@@ -19,11 +19,21 @@ export const movieTypeColorsApi = {
    */
   async getColors(accessToken: string): Promise<MovieTypeColorConfig> {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
         headers: getAuthHeader(accessToken),
       })
       
-      const result = await response.json()
+      const responseText = await response.text()
+      console.log('Raw server response (GET):', responseText)
+      
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (parseError) {
+        console.log('Failed to parse server response as JSON (GET):', parseError)
+        throw new Error(`Server returned invalid JSON: ${responseText}`)
+      }
+      
       if (!response.ok) {
         console.log('Get movie type colors API error:', result)
         throw new Error(result.error || 'Failed to fetch movie type colors')
@@ -41,13 +51,26 @@ export const movieTypeColorsApi = {
    */
   async saveColors(colors: MovieTypeColorConfig, accessToken: string): Promise<void> {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
+      const requestBody = JSON.stringify({ colors })
+      console.log('Sending colors to server:', requestBody)
+      
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
         method: 'POST',
         headers: getAuthHeader(accessToken),
-        body: JSON.stringify({ colors }),
+        body: requestBody,
       })
       
-      const result = await response.json()
+      const responseText = await response.text()
+      console.log('Raw server response:', responseText)
+      
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (parseError) {
+        console.log('Failed to parse server response as JSON:', parseError)
+        throw new Error(`Server returned invalid JSON: ${responseText}`)
+      }
+      
       if (!response.ok) {
         console.log('Save movie type colors API error:', result)
         throw new Error(result.error || 'Failed to save movie type colors')
@@ -65,13 +88,26 @@ export const movieTypeColorsApi = {
    */
   async resetColors(defaultColors: MovieTypeColorConfig, accessToken: string): Promise<void> {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
+      const requestBody = JSON.stringify({ colors: defaultColors })
+      console.log('Sending reset colors to server:', requestBody)
+      
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
         method: 'PUT',
         headers: getAuthHeader(accessToken),
-        body: JSON.stringify({ colors: defaultColors }),
+        body: requestBody,
       })
       
-      const result = await response.json()
+      const responseText = await response.text()
+      console.log('Raw server response (RESET):', responseText)
+      
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (parseError) {
+        console.log('Failed to parse server response as JSON (RESET):', parseError)
+        throw new Error(`Server returned invalid JSON: ${responseText}`)
+      }
+      
       if (!response.ok) {
         console.log('Reset movie type colors API error:', result)
         throw new Error(result.error || 'Failed to reset movie type colors')

@@ -14,6 +14,8 @@ import { useSimpleFavoritesContext } from '../../contexts/SimpleFavoritesContext
 import { Movie, movieApi } from '../../utils/movieApi'
 import { Photobook, photobookApi } from '../../utils/photobookApi'
 import { MasterDataItem, masterDataApi, calculateAge, castMatchesQuery, movieCodeMatchesQuery } from '../../utils/masterDataApi'
+import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
+import { toast } from 'sonner'
 import { 
   Film, 
   Image as ImageIcon, 
@@ -53,7 +55,7 @@ export function SimpleFavoritesContent({
   onFilterSelect,
   searchQuery
 }: SimpleFavoritesContentProps) {
-  const { favorites, isLoading: favoritesLoading, getFavoritesByType } = useSimpleFavoritesContext()
+  const { favorites, setFavorites, isLoading: favoritesLoading, getFavoritesByType } = useSimpleFavoritesContext()
   
   // Data state - lazy loaded per tab
   const [movies, setMovies] = useState<Movie[]>([])
@@ -63,9 +65,13 @@ export function SimpleFavoritesContent({
   
   // Processed data
   const [favoriteMovies, setFavoriteMovies] = useState<Movie[]>([])
+  const [favoritePhotobooks, setFavoritePhotobooks] = useState<Photobook[]>([])
   const [favoriteImages, setFavoriteImages] = useState<FavoriteImageData[]>([])
   const [favoriteCast, setFavoriteCast] = useState<MasterDataItem[]>([])
   const [favoriteSeries, setFavoriteSeries] = useState<{ name: string; movies: Movie[]; favoriteId: string }[]>([])
+  
+  // Failed images tracking
+  const [failedImages, setFailedImages] = useState<Array<{favorite: any, reason: string}>>([])
   
   // UI state
   const [activeTab, setActiveTab] = useState('movies')
@@ -83,6 +89,9 @@ export function SimpleFavoritesContent({
         switch (activeTab) {
           case 'movies':
             await loadMoviesData()
+            break
+          case 'photobooks':
+            await loadPhotobooksData()
             break
           case 'images':
             await loadImagesData()
@@ -129,6 +138,30 @@ export function SimpleFavoritesContent({
     }
   }
 
+  const loadPhotobooksData = async () => {
+    const photobookFavorites = favorites.filter(f => f.type === 'photobook')
+    if (photobookFavorites.length === 0) {
+      setFavoritePhotobooks([])
+      return
+    }
+
+    // Only load photobooks if not already loaded
+    if (photobooks.length === 0) {
+      const photobooksData = await photobookApi.getPhotobooks(accessToken).catch(() => [])
+      setPhotobooks(photobooksData)
+      
+      const foundPhotobooks = photobookFavorites
+        .map(f => photobooksData.find(p => p.id === f.itemId))
+        .filter(Boolean) as Photobook[]
+      setFavoritePhotobooks(foundPhotobooks)
+    } else {
+      const foundPhotobooks = photobookFavorites
+        .map(f => photobooks.find(p => p.id === f.itemId))
+        .filter(Boolean) as Photobook[]
+      setFavoritePhotobooks(foundPhotobooks)
+    }
+  }
+
   const loadImagesData = async () => {
     const imageFavorites = favorites.filter(f => f.type === 'image')
     if (imageFavorites.length === 0) {
@@ -156,46 +189,59 @@ export function SimpleFavoritesContent({
       }
     }
 
-    const processedImages = imageFavorites
-      .map(f => {
-        const movie = moviesData.find(m => m.id === f.sourceId)
-        const photobook = photobooksData.find(p => p.id === f.sourceId)
-        
-        if (movie) {
-          return {
-            id: f.id,
-            url: f.itemId,
-            sourceType: 'movie' as const,
-            sourceId: movie.id!,
-            sourceTitle: movie.titleEn || movie.titleJp || '',
-            movieCode: movie.dmm,
-            actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
-            actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
-            releaseDate: movie.releaseDate,
-            dateAdded: f.createdAt || f.dateAdded // Use createdAt from favorite or fallback to dateAdded
-          }
-        } else if (photobook) {
-          const actresses = photobook.imageTags 
-            ? Array.from(new Set(photobook.imageTags.flatMap(tag => tag.actresses)))
-            : photobook.actress ? photobook.actress.split(',').map(a => a.trim()).filter(a => a) : []
-            
-          return {
-            id: f.id,
-            url: f.itemId,
-            sourceType: 'photobook' as const,
-            sourceId: photobook.id!,
-            sourceTitle: photobook.titleEn || photobook.titleJp || '',
-            movieCode: undefined,
-            actresses,
-            actors: [],
-            releaseDate: photobook.releaseDate,
-            dateAdded: f.createdAt || f.dateAdded // Use createdAt from favorite or fallback to dateAdded
-          }
-        }
-        return null
-      })
-      .filter(Boolean) as FavoriteImageData[]
+    const processedImages: FavoriteImageData[] = []
+    const failedImages: Array<{favorite: any, reason: string}> = []
+
+    imageFavorites.forEach(f => {
+      const movie = moviesData.find(m => m.id === f.sourceId)
+      const photobook = photobooksData.find(p => p.id === f.sourceId)
+      
+      if (movie) {
+        processedImages.push({
+          id: f.id,
+          url: f.itemId,
+          sourceType: 'movie' as const,
+          sourceId: movie.id!,
+          sourceTitle: movie.titleEn || movie.titleJp || '',
+          movieCode: movie.dmm,
+          actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
+          actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
+          releaseDate: movie.releaseDate,
+          dateAdded: f.createdAt || f.dateAdded
+        })
+      } else if (photobook) {
+        const actresses = photobook.imageTags 
+          ? Array.from(new Set(photobook.imageTags.flatMap(tag => tag.actresses)))
+          : photobook.actress ? photobook.actress.split(',').map(a => a.trim()).filter(a => a) : []
+          
+        processedImages.push({
+          id: f.id,
+          url: f.itemId,
+          sourceType: 'photobook' as const,
+          sourceId: photobook.id!,
+          sourceTitle: photobook.titleEn || photobook.titleJp || '',
+          movieCode: undefined,
+          actresses,
+          actors: [],
+          releaseDate: photobook.releaseDate,
+          dateAdded: f.createdAt || f.dateAdded
+        })
+      } else {
+        // Track failed images with reason
+        failedImages.push({
+          favorite: f,
+          reason: `Source ${f.sourceId} not found (movie or photobook may have been deleted)`
+        })
+      }
+    })
+
     setFavoriteImages(processedImages)
+    setFailedImages(failedImages)
+    
+    // Log failed images for debugging
+    if (failedImages.length > 0) {
+      console.warn('Failed to process images:', failedImages)
+    }
   }
 
   const loadCastData = async () => {
@@ -252,6 +298,7 @@ export function SimpleFavoritesContent({
   const favoriteCounts = useMemo(() => {
     return {
       movies: favorites.filter(f => f.type === 'movie').length,
+      photobooks: favorites.filter(f => f.type === 'photobook').length,
       images: favorites.filter(f => f.type === 'image').length,
       cast: favorites.filter(f => f.type === 'cast').length,
       series: favorites.filter(f => f.type === 'series').length
@@ -282,6 +329,7 @@ export function SimpleFavoritesContent({
     if (!searchQuery.trim()) {
       return {
         movies: favoriteMovies,
+        photobooks: favoritePhotobooks,
         images: sortedImages,
         cast: favoriteCast,
         series: favoriteSeries
@@ -298,6 +346,11 @@ export function SimpleFavoritesContent({
         movieCodeMatchesQuery(movie.dmcode, query) ||
         movie.dmm?.toLowerCase().includes(query)
       ),
+      photobooks: favoritePhotobooks.filter(photobook => 
+        photobook.titleEn?.toLowerCase().includes(query) ||
+        photobook.titleJp?.toLowerCase().includes(query) ||
+        photobook.actress?.toLowerCase().includes(query)
+      ),
       images: sortedImages.filter(img => 
         img.sourceTitle.toLowerCase().includes(query) ||
         img.movieCode?.toLowerCase().includes(query) ||
@@ -309,7 +362,7 @@ export function SimpleFavoritesContent({
         series.name.toLowerCase().includes(query)
       )
     }
-  }, [favoriteMovies, sortedImages, favoriteCast, favoriteSeries, searchQuery])
+  }, [favoriteMovies, favoritePhotobooks, sortedImages, favoriteCast, favoriteSeries, searchQuery])
 
   const handleImageClick = (image: FavoriteImageData) => {
     const imageIndex = filteredData.images.findIndex(img => img.id === image.id)
@@ -336,6 +389,21 @@ export function SimpleFavoritesContent({
   const handleCastClick = (type: 'actor' | 'actress', name: string) => {
     onProfileSelect(type, name)
     setShowLightbox(false)
+  }
+
+  const handleRemoveFailedFavorite = async (favoriteId: string) => {
+    try {
+      await simpleFavoritesApi.removeFavorite(favoriteId, accessToken)
+      // Refresh favorites after removal
+      const updatedFavorites = favorites.filter(f => f.id !== favoriteId)
+      setFavorites(updatedFavorites)
+      // Reload images data
+      await loadImagesData()
+      toast.success('Removed broken favorite')
+    } catch (error) {
+      console.error('Failed to remove favorite:', error)
+      toast.error('Failed to remove favorite')
+    }
   }
 
   const handleSeriesClick = (seriesName: string) => {
@@ -380,24 +448,30 @@ export function SimpleFavoritesContent({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="movies" className="flex items-center gap-2">
-            <Film className="h-4 w-4" />
-            Movies ({favoriteCounts.movies})
-          </TabsTrigger>
-          <TabsTrigger value="images" className="flex items-center gap-2">
-            <ImageIcon className="h-4 w-4" />
-            Images ({favoriteCounts.images})
-          </TabsTrigger>
-          <TabsTrigger value="cast" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Cast ({favoriteCounts.cast})
-          </TabsTrigger>
-          <TabsTrigger value="series" className="flex items-center gap-2">
-            <PlayCircle className="h-4 w-4" />
-            Series ({favoriteCounts.series})
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="movies" className="flex items-center gap-2 whitespace-nowrap">
+              <Film className="h-4 w-4" />
+              Movies ({favoriteCounts.movies})
+            </TabsTrigger>
+            <TabsTrigger value="photobooks" className="flex items-center gap-2 whitespace-nowrap">
+              <ImageIcon className="h-4 w-4" />
+              Photobooks ({favoriteCounts.photobooks})
+            </TabsTrigger>
+            <TabsTrigger value="images" className="flex items-center gap-2 whitespace-nowrap">
+              <ImageIcon className="h-4 w-4" />
+              Images ({favoriteCounts.images})
+            </TabsTrigger>
+            <TabsTrigger value="cast" className="flex items-center gap-2 whitespace-nowrap">
+              <User className="h-4 w-4" />
+              Cast ({favoriteCounts.cast})
+            </TabsTrigger>
+            <TabsTrigger value="series" className="flex items-center gap-2 whitespace-nowrap">
+              <PlayCircle className="h-4 w-4" />
+              Series ({favoriteCounts.series})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Movies Tab */}
         <TabsContent value="movies" className="space-y-4">
@@ -422,17 +496,92 @@ export function SimpleFavoritesContent({
             <div className="space-y-6">
               {/* Movies Grid - Exact same structure as MoviesContent */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {filteredData.movies.map((movie) => (
-                  <MovieCard
-                    key={movie.id}
-                    movie={movie}
-                    onClick={() => onMovieSelect(movie)}
-                    onActressClick={onProfileSelect ? (actressName, e) => {
-                      e.stopPropagation()
-                      onProfileSelect('actress', actressName)
-                    } : undefined}
-                    accessToken={accessToken}
-                  />
+                {filteredData.movies.map((movie) => {
+                  const movieCard = (
+                    <MovieCard
+                      movie={movie}
+                      onClick={() => onMovieSelect(movie)}
+                      onActressClick={onProfileSelect ? (actressName, e) => {
+                        e.stopPropagation()
+                        onProfileSelect('actress', actressName)
+                      } : undefined}
+                      accessToken={accessToken}
+                    />
+                  )
+                  return <div key={movie.id}>{movieCard}</div>
+                })}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Photobooks Tab */}
+        <TabsContent value="photobooks" className="space-y-4">
+          {isLoadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading photobooks...</p>
+            </div>
+          ) : favoriteCounts.photobooks === 0 ? (
+            <div className="text-center py-12">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No favorite photobooks yet</p>
+              <p className="text-sm text-muted-foreground mt-2">Add photobooks to your favorites to see them here</p>
+            </div>
+          ) : !filteredData.photobooks.length ? (
+            <div className="text-center py-12">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No photobooks match your search</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your search terms</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Photobooks Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {filteredData.photobooks.map((photobook) => (
+                  <Card key={photobook.id} className="group hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-0">
+                      {/* Cover Image */}
+                      <div 
+                        className="aspect-[3/4] relative overflow-hidden rounded-t-lg"
+                        onClick={() => onPhotobookSelect(photobook)}
+                      >
+                        {photobook.cover ? (
+                          <ImageWithFallback
+                            src={photobook.cover}
+                            alt={photobook.titleEn || 'Photobook cover'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                            <span className="text-muted-foreground">No Cover</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="p-3 space-y-2">
+                        <h3 className="font-medium text-sm line-clamp-2">
+                          {photobook.titleEn || photobook.titleJp || 'Untitled'}
+                        </h3>
+                        {photobook.titleJp && photobook.titleEn && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {photobook.titleJp}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {photobook.releaseDate || 'Unknown'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <ImageIcon className="h-3 w-3" />
+                            {photobook.imageTags?.length || 0}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </div>
@@ -477,9 +626,52 @@ export function SimpleFavoritesContent({
                   </Select>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {filteredData.images.length} image{filteredData.images.length !== 1 ? 's' : ''}
+                  {favoriteCounts.images} image{favoriteCounts.images !== 1 ? 's' : ''}
                 </div>
               </div>
+              
+              {/* Failed Images Warning */}
+              {failedImages.length > 0 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                        <span className="text-yellow-500 text-sm">⚠</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-yellow-600 font-medium mb-2">
+                        {failedImages.length} image{failedImages.length !== 1 ? 's' : ''} cannot be displayed
+                      </h4>
+                      <p className="text-yellow-600/80 text-sm mb-3">
+                        These images are still in your favorites but their source content (movie/photobook) may have been deleted or is no longer available.
+                      </p>
+                      <div className="space-y-2">
+                        {failedImages.map((failed, index) => (
+                          <div key={index} className="flex items-center justify-between bg-yellow-500/5 rounded p-2">
+                            <div className="flex-1">
+                              <p className="text-sm text-yellow-600/80">
+                                Image from source ID: {failed.favorite.sourceId}
+                              </p>
+                              <p className="text-xs text-yellow-600/60">
+                                {failed.reason}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveFailedFavorite(failed.favorite.id)}
+                              className="text-yellow-600 border-yellow-500/30 hover:bg-yellow-500/10"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* Images Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">

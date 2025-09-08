@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Button } from '../ui/button'
@@ -9,9 +9,10 @@ import { ClickableProfileAvatar } from '../ClickableProfileAvatar'
 import { ModernLightbox } from '../ModernLightbox'
 import { Photobook, photobookApi, photobookHelpers, ImageTag } from '../../utils/photobookApi'
 import { favoritesApi } from '../../utils/favoritesApi'
+import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ArrowLeft, Calendar, User, ExternalLink, Images, Shield, Users, Edit3, Save, X } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface PhotobookDetailContentProps {
   photobook?: Photobook // Accept photobook object directly
@@ -43,34 +44,7 @@ export function PhotobookDetailContent({
   const [galleryTab, setGalleryTab] = useState<'all' | 'nn' | 'n'>('nn')
   const [isEditingRatings, setIsEditingRatings] = useState(false)
   const [isSavingRatings, setIsSavingRatings] = useState(false)
-  // State untuk track favorite status di lightbox
-  const [currentImageFavorite, setCurrentImageFavorite] = useState(false)
 
-  // Check favorite status for current image when lightbox opens
-  useEffect(() => {
-    const checkCurrentImageFavorite = async () => {
-      if (!lightboxOpen || !accessToken || lightboxImages.length === 0) return
-      
-      const currentImageUrl = lightboxImages[lightboxIndex]
-      if (!currentImageUrl) return
-
-      try {
-        const favorite = await favoritesApi.checkIsFavorite(
-          'image',
-          currentImageUrl,
-          photobook?.id,
-          accessToken
-        )
-        
-        setCurrentImageFavorite(!!favorite)
-      } catch (error) {
-        console.warn('Failed to check favorite status:', error)
-        setCurrentImageFavorite(false)
-      }
-    }
-
-    checkCurrentImageFavorite()
-  }, [lightboxOpen, lightboxIndex, lightboxImages, accessToken, photobook?.id])
 
   useEffect(() => {
     // If we have a photobook object, use it directly
@@ -398,40 +372,6 @@ export function PhotobookDetailContent({
   const imageCounts = getImageCounts()
   const allActresses = photobookHelpers.getAllActressesFromTags(photobook)
 
-  // Handle toggle favorite for current image in lightbox
-  const handleToggleFavorite = async () => {
-    const currentImageUrl = lightboxImages[lightboxIndex]
-    if (!currentImageUrl || !accessToken) return
-
-    try {
-      const { isFavorite: newIsFavorite } = await favoritesApi.toggleFavorite(
-        'image',
-        currentImageUrl,
-        accessToken,
-        photobook?.id, // sourceId
-        {
-          sourceType: 'photobook',
-          sourceTitle: photobook?.titleEn,
-          actresses: photobook?.actress ? [photobook.actress] : [],
-          releaseDate: photobook?.releaseDate
-        }
-      )
-      
-      setCurrentImageFavorite(newIsFavorite)
-      toast.success(newIsFavorite ? 'Added to favorites' : 'Removed from favorites')
-    } catch (error: any) {
-      console.error('Failed to toggle favorite:', error)
-      
-      // Handle specific error cases
-      if (error.message?.includes('409') || error.message?.includes('already in favorites')) {
-        // Item already exists, treat as success
-        setCurrentImageFavorite(true)
-        toast.success('Added to favorites')
-      } else {
-        toast.error('Could not update favorites at this time')
-      }
-    }
-  }
 
   console.log('=== PhotobookDetailContent Render ===')
   console.log('Photobook data:', {
@@ -453,7 +393,7 @@ export function PhotobookDetailContent({
         console.log('lightboxImages:', lightboxImages)
         console.log('currentImageUrl:', currentImageUrl)
         
-        let metadata = undefined
+        let metadata: any = undefined
         if (currentImageUrl && photobook) {
           console.log('Generating metadata for:', currentImageUrl)
           metadata = getLightboxMetadata(currentImageUrl)
@@ -463,6 +403,7 @@ export function PhotobookDetailContent({
           console.log('- currentImageUrl:', currentImageUrl)
           console.log('- photobook exists:', !!photobook)
         }
+        
         
         return (
           <ModernLightbox
@@ -476,9 +417,6 @@ export function PhotobookDetailContent({
             onPrevious={handleLightboxPrevious}
             showNavigation={lightboxImages.length > 1}
             metadata={metadata}
-            isFavorite={currentImageFavorite}
-            onToggleFavorite={handleToggleFavorite}
-            accessToken={accessToken}
           />
         )
       })()}
@@ -812,6 +750,26 @@ export function PhotobookDetailContent({
                           <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                             {index + 1}
                           </div>
+                          
+                          {/* Favorite Button */}
+                          {accessToken && (
+                            <div className="absolute bottom-1 right-1 z-10">
+                              <div 
+                                className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SimpleFavoriteButton
+                                  type="image"
+                                  itemId={imageUrl}
+                                  sourceId={photobook?.id || ''}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="absolute top-1 right-1">
                             <Badge variant="secondary" className="text-xs h-auto py-0 px-1">
                               NN
@@ -863,6 +821,26 @@ export function PhotobookDetailContent({
                           <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                             {index + 1}
                           </div>
+                          
+                          {/* Favorite Button */}
+                          {accessToken && (
+                            <div className="absolute bottom-1 right-1 z-10">
+                              <div 
+                                className="opacity-70 hover:opacity-100 transition-opacity duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SimpleFavoriteButton
+                                  type="image"
+                                  itemId={imageUrl}
+                                  sourceId={photobook?.id || ''}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="absolute top-1 right-1">
                             <Badge variant="destructive" className="text-xs h-auto py-0 px-1">
                               N
