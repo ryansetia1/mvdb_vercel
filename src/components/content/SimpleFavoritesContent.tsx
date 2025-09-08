@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { LightboxWithThumbnails } from '../LightboxWithThumbnails'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { MovieThumbnail } from '../MovieThumbnail'
 import { ClickableProfileAvatar } from '../ClickableProfileAvatar'
+import { MovieCard } from '../MovieCard'
 import { useSimpleFavoritesContext } from '../../contexts/SimpleFavoritesContext'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { Photobook, photobookApi } from '../../utils/photobookApi'
@@ -40,6 +42,7 @@ interface FavoriteImageData {
   actresses?: string[]
   actors?: string[]
   releaseDate?: string
+  dateAdded?: string // Date when the image was added to favorites
 }
 
 export function SimpleFavoritesContent({ 
@@ -52,7 +55,7 @@ export function SimpleFavoritesContent({
 }: SimpleFavoritesContentProps) {
   const { favorites, isLoading: favoritesLoading, getFavoritesByType } = useSimpleFavoritesContext()
   
-  // Data state
+  // Data state - lazy loaded per tab
   const [movies, setMovies] = useState<Movie[]>([])
   const [photobooks, setPhotobooks] = useState<Photobook[]>([])
   const [cast, setCast] = useState<MasterDataItem[]>([])
@@ -68,49 +71,95 @@ export function SimpleFavoritesContent({
   const [activeTab, setActiveTab] = useState('movies')
   const [showLightbox, setShowLightbox] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+  const [imageSortBy, setImageSortBy] = useState('dateAdded-desc') // Default sort by date added (newest first)
 
-  // Load base data once
+  // Load data only for active tab
   useEffect(() => {
-    const loadBaseData = async () => {
+    const loadTabData = async () => {
+      if (!favorites.length) return
+      
       setIsLoadingData(true)
       try {
-        const [moviesData, photobooksData, actorsData, actressesData] = await Promise.all([
-          movieApi.getMovies(accessToken).catch(() => []),
-          photobookApi.getPhotobooks(accessToken).catch(() => []),
-          masterDataApi.getByType('actor', accessToken).catch(() => []),
-          masterDataApi.getByType('actress', accessToken).catch(() => [])
-        ])
-        
-        setMovies(moviesData)
-        setPhotobooks(photobooksData)
-        setCast([...actorsData, ...actressesData])
+        switch (activeTab) {
+          case 'movies':
+            await loadMoviesData()
+            break
+          case 'images':
+            await loadImagesData()
+            break
+          case 'cast':
+            await loadCastData()
+            break
+          case 'series':
+            await loadSeriesData()
+            break
+        }
       } catch (error) {
-        console.error('Failed to load base data:', error)
+        console.error(`Failed to load data for ${activeTab} tab:`, error)
       } finally {
         setIsLoadingData(false)
       }
     }
 
-    loadBaseData()
-  }, [accessToken])
+    loadTabData()
+  }, [activeTab, favorites, accessToken])
 
-  // Process favorites when data changes
-  useEffect(() => {
-    if (!favorites.length || !movies.length) return
-
-    // Process favorite movies
+  // Individual data loading functions
+  const loadMoviesData = async () => {
     const movieFavorites = favorites.filter(f => f.type === 'movie')
-    const foundMovies = movieFavorites
-      .map(f => movies.find(m => m.id === f.itemId))
-      .filter(Boolean) as Movie[]
-    setFavoriteMovies(foundMovies)
+    if (movieFavorites.length === 0) {
+      setFavoriteMovies([])
+      return
+    }
 
-    // Process favorite images
+    // Only load movies if not already loaded
+    if (movies.length === 0) {
+      const moviesData = await movieApi.getMovies(accessToken).catch(() => [])
+      setMovies(moviesData)
+      
+      const foundMovies = movieFavorites
+        .map(f => moviesData.find(m => m.id === f.itemId))
+        .filter(Boolean) as Movie[]
+      setFavoriteMovies(foundMovies)
+    } else {
+      const foundMovies = movieFavorites
+        .map(f => movies.find(m => m.id === f.itemId))
+        .filter(Boolean) as Movie[]
+      setFavoriteMovies(foundMovies)
+    }
+  }
+
+  const loadImagesData = async () => {
     const imageFavorites = favorites.filter(f => f.type === 'image')
+    if (imageFavorites.length === 0) {
+      setFavoriteImages([])
+      return
+    }
+
+    // Load movies and photobooks if not already loaded
+    let moviesData = movies
+    let photobooksData = photobooks
+    
+    if (moviesData.length === 0 || photobooksData.length === 0) {
+      const [moviesResult, photobooksResult] = await Promise.all([
+        moviesData.length === 0 ? movieApi.getMovies(accessToken).catch(() => []) : Promise.resolve(moviesData),
+        photobooksData.length === 0 ? photobookApi.getPhotobooks(accessToken).catch(() => []) : Promise.resolve(photobooksData)
+      ])
+      
+      if (moviesData.length === 0) {
+        setMovies(moviesResult)
+        moviesData = moviesResult
+      }
+      if (photobooksData.length === 0) {
+        setPhotobooks(photobooksResult)
+        photobooksData = photobooksResult
+      }
+    }
+
     const processedImages = imageFavorites
       .map(f => {
-        const movie = movies.find(m => m.id === f.sourceId)
-        const photobook = photobooks.find(p => p.id === f.sourceId)
+        const movie = moviesData.find(m => m.id === f.sourceId)
+        const photobook = photobooksData.find(p => p.id === f.sourceId)
         
         if (movie) {
           return {
@@ -122,7 +171,8 @@ export function SimpleFavoritesContent({
             movieCode: movie.dmm,
             actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
             actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
-            releaseDate: movie.releaseDate
+            releaseDate: movie.releaseDate,
+            dateAdded: f.createdAt || f.dateAdded // Use createdAt from favorite or fallback to dateAdded
           }
         } else if (photobook) {
           const actresses = photobook.imageTags 
@@ -138,40 +188,101 @@ export function SimpleFavoritesContent({
             movieCode: undefined,
             actresses,
             actors: [],
-            releaseDate: photobook.releaseDate
+            releaseDate: photobook.releaseDate,
+            dateAdded: f.createdAt || f.dateAdded // Use createdAt from favorite or fallback to dateAdded
           }
         }
         return null
       })
       .filter(Boolean) as FavoriteImageData[]
     setFavoriteImages(processedImages)
+  }
 
-    // Process favorite cast
-    if (cast.length) {
-      const castFavorites = favorites.filter(f => f.type === 'cast')
+  const loadCastData = async () => {
+    const castFavorites = favorites.filter(f => f.type === 'cast')
+    if (castFavorites.length === 0) {
+      setFavoriteCast([])
+      return
+    }
+
+    // Only load cast if not already loaded
+    if (cast.length === 0) {
+      const [actorsData, actressesData] = await Promise.all([
+        masterDataApi.getByType('actor', accessToken).catch(() => []),
+        masterDataApi.getByType('actress', accessToken).catch(() => [])
+      ])
+      const castData = [...actorsData, ...actressesData]
+      setCast(castData)
+      
+      const foundCast = castFavorites
+        .map(f => castData.find(c => c.name === f.itemId))
+        .filter(Boolean) as MasterDataItem[]
+      setFavoriteCast(foundCast)
+    } else {
       const foundCast = castFavorites
         .map(f => cast.find(c => c.name === f.itemId))
         .filter(Boolean) as MasterDataItem[]
       setFavoriteCast(foundCast)
     }
+  }
 
-    // Process favorite series
+  const loadSeriesData = async () => {
     const seriesFavorites = favorites.filter(f => f.type === 'series')
+    if (seriesFavorites.length === 0) {
+      setFavoriteSeries([])
+      return
+    }
+
+    // Only load movies if not already loaded
+    let moviesData = movies
+    if (moviesData.length === 0) {
+      moviesData = await movieApi.getMovies(accessToken).catch(() => [])
+      setMovies(moviesData)
+    }
+
     const processedSeries = seriesFavorites.map(f => ({
       name: f.itemId,
-      movies: movies.filter(m => m.series === f.itemId),
-      favoriteId: f.id
+      movies: moviesData.filter(m => m.series === f.itemId),
+      favoriteId: f.id!
     }))
     setFavoriteSeries(processedSeries)
+  }
 
-  }, [favorites, movies, photobooks, cast])
+  // Calculate favorite counts from favorites list (not loaded data)
+  const favoriteCounts = useMemo(() => {
+    return {
+      movies: favorites.filter(f => f.type === 'movie').length,
+      images: favorites.filter(f => f.type === 'image').length,
+      cast: favorites.filter(f => f.type === 'cast').length,
+      series: favorites.filter(f => f.type === 'series').length
+    }
+  }, [favorites])
+
+  // Sort images based on selected sort option
+  const sortedImages = useMemo(() => {
+    const sorted = [...favoriteImages].sort((a, b) => {
+      switch (imageSortBy) {
+        case 'dateAdded-desc':
+          return new Date(b.dateAdded || '').getTime() - new Date(a.dateAdded || '').getTime()
+        case 'dateAdded-asc':
+          return new Date(a.dateAdded || '').getTime() - new Date(b.dateAdded || '').getTime()
+        case 'movieTitle-asc':
+          return (a.sourceTitle || '').localeCompare(b.sourceTitle || '')
+        case 'movieTitle-desc':
+          return (b.sourceTitle || '').localeCompare(a.sourceTitle || '')
+        default:
+          return 0
+      }
+    })
+    return sorted
+  }, [favoriteImages, imageSortBy])
 
   // Filter data based on search query
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) {
       return {
         movies: favoriteMovies,
-        images: favoriteImages,
+        images: sortedImages,
         cast: favoriteCast,
         series: favoriteSeries
       }
@@ -187,7 +298,7 @@ export function SimpleFavoritesContent({
         movieCodeMatchesQuery(movie.dmcode, query) ||
         movie.dmm?.toLowerCase().includes(query)
       ),
-      images: favoriteImages.filter(img => 
+      images: sortedImages.filter(img => 
         img.sourceTitle.toLowerCase().includes(query) ||
         img.movieCode?.toLowerCase().includes(query) ||
         img.actresses?.some(a => a.toLowerCase().includes(query)) ||
@@ -198,7 +309,7 @@ export function SimpleFavoritesContent({
         series.name.toLowerCase().includes(query)
       )
     }
-  }, [favoriteMovies, favoriteImages, favoriteCast, favoriteSeries, searchQuery])
+  }, [favoriteMovies, sortedImages, favoriteCast, favoriteSeries, searchQuery])
 
   const handleImageClick = (image: FavoriteImageData) => {
     const imageIndex = filteredData.images.findIndex(img => img.id === image.id)
@@ -272,88 +383,106 @@ export function SimpleFavoritesContent({
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="movies" className="flex items-center gap-2">
             <Film className="h-4 w-4" />
-            Movies ({filteredData.movies.length})
+            Movies ({favoriteCounts.movies})
           </TabsTrigger>
           <TabsTrigger value="images" className="flex items-center gap-2">
             <ImageIcon className="h-4 w-4" />
-            Images ({filteredData.images.length})
+            Images ({favoriteCounts.images})
           </TabsTrigger>
           <TabsTrigger value="cast" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            Cast ({filteredData.cast.length})
+            Cast ({favoriteCounts.cast})
           </TabsTrigger>
           <TabsTrigger value="series" className="flex items-center gap-2">
             <PlayCircle className="h-4 w-4" />
-            Series ({filteredData.series.length})
+            Series ({favoriteCounts.series})
           </TabsTrigger>
         </TabsList>
 
         {/* Movies Tab */}
         <TabsContent value="movies" className="space-y-4">
-          {!filteredData.movies.length ? (
+          {isLoadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading movies...</p>
+            </div>
+          ) : favoriteCounts.movies === 0 ? (
             <div className="text-center py-12">
               <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No favorite movies yet</p>
+              <p className="text-sm text-muted-foreground mt-2">Add movies to your favorites to see them here</p>
+            </div>
+          ) : !filteredData.movies.length ? (
+            <div className="text-center py-12">
+              <Film className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No movies match your search</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your search terms</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredData.movies.map((movie) => (
-                <Card key={movie.id} className="group hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-0">
-                    <div 
-                      className="aspect-[3/4] relative overflow-hidden rounded-t-lg"
-                      onClick={() => onMovieSelect(movie)}
-                    >
-                      <ImageWithFallback
-                        src={movie.cover || ''}
-                        alt={movie.titleEn || movie.titleJp || 'Movie cover'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      />
-                      
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <SimpleFavoriteButton
-                          type="movie"
-                          itemId={movie.id!}
-                          size="sm"
-                          variant="ghost"
-                          className="bg-black/20 hover:bg-black/40 text-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-3 space-y-2">
-                      <div onClick={() => onMovieSelect(movie)}>
-                        <h3 className="font-medium line-clamp-2 leading-tight">
-                          {movie.titleEn || movie.titleJp}
-                        </h3>
-                        {movie.dmm && (
-                          <p className="text-sm text-muted-foreground">{movie.dmm}</p>
-                        )}
-                      </div>
-
-                      {movie.releaseDate && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(movie.releaseDate).getFullYear()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="space-y-6">
+              {/* Movies Grid - Exact same structure as MoviesContent */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                {filteredData.movies.map((movie) => (
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    onClick={() => onMovieSelect(movie)}
+                    onActressClick={onProfileSelect ? (actressName, e) => {
+                      e.stopPropagation()
+                      onProfileSelect('actress', actressName)
+                    } : undefined}
+                    accessToken={accessToken}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </TabsContent>
 
         {/* Images Tab */}
         <TabsContent value="images" className="space-y-4">
-          {!filteredData.images.length ? (
+          {isLoadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading images...</p>
+            </div>
+          ) : favoriteCounts.images === 0 ? (
             <div className="text-center py-12">
               <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No favorite images yet</p>
+              <p className="text-sm text-muted-foreground mt-2">Add images to your favorites to see them here</p>
+            </div>
+          ) : !filteredData.images.length ? (
+            <div className="text-center py-12">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No images match your search</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your search terms</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="space-y-4">
+              {/* Sort Controls */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Sort by:</span>
+                  <Select value={imageSortBy} onValueChange={setImageSortBy}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dateAdded-desc">Date Added (Newest)</SelectItem>
+                      <SelectItem value="dateAdded-asc">Date Added (Oldest)</SelectItem>
+                      <SelectItem value="movieTitle-asc">Movie Title (A-Z)</SelectItem>
+                      <SelectItem value="movieTitle-desc">Movie Title (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {filteredData.images.length} image{filteredData.images.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+              
+              {/* Images Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {filteredData.images.map((image) => (
                 <Card key={image.id} className="group hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-0">
@@ -388,16 +517,29 @@ export function SimpleFavoritesContent({
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </div>
           )}
         </TabsContent>
 
         {/* Cast Tab */}
         <TabsContent value="cast" className="space-y-4">
-          {!filteredData.cast.length ? (
+          {isLoadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading cast...</p>
+            </div>
+          ) : favoriteCounts.cast === 0 ? (
             <div className="text-center py-12">
               <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No favorite cast yet</p>
+              <p className="text-sm text-muted-foreground mt-2">Add actors/actresses to your favorites to see them here</p>
+            </div>
+          ) : !filteredData.cast.length ? (
+            <div className="text-center py-12">
+              <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No cast match your search</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your search terms</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -514,10 +656,22 @@ export function SimpleFavoritesContent({
 
         {/* Series Tab */}
         <TabsContent value="series" className="space-y-4">
-          {!filteredData.series.length ? (
+          {isLoadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading series...</p>
+            </div>
+          ) : favoriteCounts.series === 0 ? (
             <div className="text-center py-12">
               <PlayCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No favorite series yet</p>
+              <p className="text-sm text-muted-foreground mt-2">Add series to your favorites to see them here</p>
+            </div>
+          ) : !filteredData.series.length ? (
+            <div className="text-center py-12">
+              <PlayCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No series match your search</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your search terms</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">

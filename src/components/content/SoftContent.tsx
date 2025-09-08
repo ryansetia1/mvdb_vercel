@@ -9,6 +9,7 @@ import { Search, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
 import { movieCodeMatchesQuery } from '../../utils/masterDataApi'
+import { PaginationEnhanced } from '../ui/pagination-enhanced'
 
 interface SoftContentProps {
   searchQuery: string
@@ -21,13 +22,21 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
   const [filteredMovies, setFilteredMovies] = useState<SCMovie[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [localSearchQuery, setLocalSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(24)
 
   // Combine global search query with local search
   const effectiveSearchQuery = searchQuery || localSearchQuery
 
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {
-    const items = []
+    const items: Array<{
+      key: string
+      label: string
+      value: string
+      displayValue: string
+      onRemove: () => void
+    }> = []
     
     if (effectiveSearchQuery.trim()) {
       items.push({
@@ -51,6 +60,11 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
   useEffect(() => {
     loadSCMovies()
   }, [accessToken])
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [effectiveSearchQuery])
 
   // Helper function to check if cast matches query with reverse search capability
   const castMatchesQueryEnhanced = (cast: string, query: string): boolean => {
@@ -122,6 +136,12 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
     }
   }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedMovies = filteredMovies.slice(startIndex, endIndex)
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -175,6 +195,19 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
         </div>
       )}
 
+      {/* Pagination - Top */}
+      <PaginationEnhanced
+        currentPage={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredMovies.length}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={(newItemsPerPage) => {
+          setItemsPerPage(newItemsPerPage)
+          setCurrentPage(1)
+        }}
+      />
+
       {/* SC Movies Grid */}
       {filteredMovies.length === 0 ? (
         <div className="text-center py-12">
@@ -184,7 +217,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filteredMovies.map((movie) => (
+          {paginatedMovies.map((movie) => (
             <Card
               key={movie.id}
               className="group cursor-pointer hover:shadow-lg transition-all duration-200 overflow-hidden"
