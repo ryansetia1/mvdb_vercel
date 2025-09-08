@@ -605,7 +605,7 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
 
         {/* Links Assignment Tab */}
         <TabsContent value="links">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-[calc(100vh-20rem)]">
+          <div className="grid grid-cols-1 gap-3 h-[calc(100vh-20rem)]">
             {/* Link Configuration Panel */}
             <Card className="flex flex-col">
               <CardHeader className="pb-3 flex-shrink-0">
@@ -672,7 +672,7 @@ export function BulkLinksManagerContent({ accessToken, onBack }: BulkLinksManage
                                               onChange={(e) => 
                                                 handleLinkInputChange(input.id, 'title', e.target.value)
                                               }
-                                              className="text-xs h-7 w-16 flex-shrink-0"
+                                              className="text-xs h-7 w-32 flex-shrink-0"
                                             />
                                             <Input
                                               placeholder="URL"

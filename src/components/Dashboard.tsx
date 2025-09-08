@@ -6,6 +6,7 @@ import { MasterDataManager } from './MasterDataManager'
 import { ActorManager } from './ActorManager'
 import { BulkAssignmentManager } from './BulkAssignmentManager'
 import { SCMovieForm } from './SCMovieForm'
+import { SCMovieList } from './SCMovieList'
 import { MovieLinksManager } from './MovieLinksManager'
 import { BulkLinksManagerContent } from './content/BulkLinksManagerContent'
 import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link } from 'lucide-react'
@@ -147,45 +148,16 @@ export function Dashboard({
         </TabsContent>
 
         <TabsContent value="sc-movies" className="mt-6">
-          {editingSCMovie ? (
-            <SCMovieForm
-              scMovie={editingSCMovie}
-              accessToken={accessToken}
-              onSave={() => {
-                setEditingSCMovie(null)
-                if (onClearEditingSCMovie) {
-                  onClearEditingSCMovie()
-                }
-                if (onDataChanged) {
-                  onDataChanged()
-                }
-              }}
-              onCancel={() => {
-                setEditingSCMovie(null)
-                if (onClearEditingSCMovie) {
-                  onClearEditingSCMovie()
-                }
-              }}
-            />
-          ) : (
-            <div className="text-center space-y-4">
-              <h3 className="text-lg font-medium">SC Movies Management</h3>
-              <p className="text-muted-foreground">
-                Pilih SC movie dari halaman Soft Content untuk mengedit, atau buat SC movie baru melalui form ini.
-              </p>
-              <SCMovieForm
-                accessToken={accessToken}
-                onSave={() => {
-                  if (onDataChanged) {
-                    onDataChanged()
-                  }
-                }}
-                onCancel={() => {
-                  // Do nothing for new movie cancel
-                }}
-              />
-            </div>
-          )}
+          <SCMovieList 
+            accessToken={accessToken}
+            editingSCMovie={editingSCMovie}
+            onClearEditing={() => {
+              setEditingSCMovie(null)
+              if (onClearEditingSCMovie) {
+                onClearEditingSCMovie()
+              }
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="bulk-links" className="mt-6">
