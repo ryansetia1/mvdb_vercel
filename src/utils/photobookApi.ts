@@ -280,16 +280,32 @@ export const photobookHelpers = {
       })
       .map(tag => tag.url)
 
-    // If showing all images and we have a cover, put cover first
-    if (contentRating === undefined && photobook.cover) {
-      const coverIndex = filteredImages.indexOf(photobook.cover)
-      if (coverIndex > 0) {
-        // Remove cover from current position and add to front
-        filteredImages.splice(coverIndex, 1)
-        filteredImages.unshift(photobook.cover)
-      } else if (coverIndex === -1) {
-        // Cover not in filtered images, add it to front
-        filteredImages.unshift(photobook.cover)
+    // Put cover first if it matches the rating filter
+    if (photobook.cover) {
+      // Check if cover should be included based on rating filter
+      let shouldIncludeCover = false
+      
+      if (contentRating === undefined) {
+        // All tab - always include cover
+        shouldIncludeCover = true
+      } else {
+        // NN or N tab - check if cover has the same rating
+        const coverTag = processedPhotobook.imageTags!.find(tag => tag.url === photobook.cover)
+        if (coverTag && coverTag.contentRating === contentRating) {
+          shouldIncludeCover = true
+        }
+      }
+      
+      if (shouldIncludeCover) {
+        const coverIndex = filteredImages.indexOf(photobook.cover)
+        if (coverIndex > 0) {
+          // Remove cover from current position and add to front
+          filteredImages.splice(coverIndex, 1)
+          filteredImages.unshift(photobook.cover)
+        } else if (coverIndex === -1) {
+          // Cover not in filtered images, add it to front
+          filteredImages.unshift(photobook.cover)
+        }
       }
     }
 

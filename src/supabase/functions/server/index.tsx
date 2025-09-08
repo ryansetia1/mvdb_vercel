@@ -3153,5 +3153,79 @@ app.put('/make-server-f3064b20/master/:type/:id/sync', updateSimpleMasterDataWit
 // Delete master data item
 app.delete('/make-server-f3064b20/master/:type/:id', deleteMasterData)
 
+// ==================================================================================
+// MOVIE TYPE COLORS ROUTES
+// ==================================================================================
+
+// Get movie type colors
+app.get('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const colorsData = await kv.get('movie_type_colors')
+    const colors = colorsData ? JSON.parse(colorsData.value) : {}
+    
+    return c.json({ colors })
+  } catch (error) {
+    console.log('Get movie type colors error:', error)
+    return c.json({ error: `Get movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Save movie type colors
+app.post('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const { colors } = await c.req.json()
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    await kv.set('movie_type_colors', JSON.stringify(colors))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Save movie type colors error:', error)
+    return c.json({ error: `Save movie type colors error: ${error}` }, 500)
+  }
+})
+
+// Reset movie type colors to defaults
+app.put('/make-server-e0516fcf/movie-type-colors', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const { colors } = await c.req.json()
+    
+    if (!colors || typeof colors !== 'object') {
+      return c.json({ error: 'Invalid colors data' }, 400)
+    }
+
+    await kv.set('movie_type_colors', JSON.stringify(colors))
+    
+    return c.json({ success: true, colors })
+  } catch (error) {
+    console.log('Reset movie type colors error:', error)
+    return c.json({ error: `Reset movie type colors error: ${error}` }, 500)
+  }
+})
+
 console.log('Server starting with all routes...')
 Deno.serve(app.fetch)

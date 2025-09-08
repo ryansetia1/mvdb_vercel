@@ -1186,6 +1186,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onProfileSelect={handleProfileSelect}
                 onGroupSelect={handleGroupSelect}
                 selectedGroupFromNavigation={contentState.data?.selectedGroup}
+                actresses={actresses}
               />
             )}
 

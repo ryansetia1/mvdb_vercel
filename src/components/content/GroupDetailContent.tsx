@@ -16,6 +16,7 @@ import {
   Maximize
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
+import { Movie, movieApi } from '../../utils/movieApi'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
 import { toast } from 'sonner@2.0.3'
@@ -46,6 +47,7 @@ export function GroupDetailContent({
 }: GroupDetailContentProps) {
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [groupMembers, setGroupMembers] = useState<MasterDataItem[]>([])
+  const [movies, setMovies] = useState<Movie[]>([])
   const [sortBy, setSortBy] = useState('name')
   const [isLoading, setIsLoading] = useState(true)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -61,14 +63,37 @@ export function GroupDetailContent({
   const loadActresses = async () => {
     try {
       setIsLoading(true)
-      const actressesData = await masterDataApi.getByType('actress', accessToken)
+      
+      // Load both actresses and movies data
+      const [actressesData, moviesData] = await Promise.all([
+        masterDataApi.getByType('actress', accessToken),
+        movieApi.getMovies(accessToken)
+      ])
+      
+      setMovies(moviesData || [])
+      
+      // Calculate movie counts for each actress
+      const actressesWithMovieCount = (actressesData || []).map(actress => {
+        const actressMovies = (moviesData || []).filter(movie => {
+          const actressField = movie.actress
+          if (typeof actressField === 'string') {
+            return actressField.toLowerCase().includes(actress.name?.toLowerCase() || '')
+          }
+          return false
+        })
+        
+        return {
+          ...actress,
+          movieCount: actressMovies.length
+        }
+      })
       
       // Filter actresses that belong to this group
-      const members = (actressesData || []).filter(actress => 
+      const members = actressesWithMovieCount.filter(actress => 
         actress.selectedGroups && actress.selectedGroups.includes(group.name)
       )
       
-      setActresses(actressesData || [])
+      setActresses(actressesWithMovieCount)
       setGroupMembers(members)
     } catch (error) {
       console.error('Error loading actresses:', error)

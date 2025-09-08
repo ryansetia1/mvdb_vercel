@@ -5,7 +5,6 @@ import { MovieList } from './MovieList'
 import { MasterDataManager } from './MasterDataManager'
 import { ActorManager } from './ActorManager'
 import { BulkAssignmentManager } from './BulkAssignmentManager'
-import { BulkAssignmentDebugger } from './BulkAssignmentDebugger'
 import { SCMovieForm } from './SCMovieForm'
 import { MovieLinksManager } from './MovieLinksManager'
 import { BulkLinksManagerContent } from './content/BulkLinksManagerContent'
@@ -239,12 +238,6 @@ export function Dashboard({
         <TabsContent value="bulk-assignment" className="mt-6">
           <div className="space-y-6">
             <BulkAssignmentManager accessToken={accessToken} />
-            
-            {/* Debug Section */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-4">Debug Tools</h3>
-              <BulkAssignmentDebugger accessToken={accessToken} />
-            </div>
           </div>
         </TabsContent>
 

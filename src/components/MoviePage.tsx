@@ -378,6 +378,7 @@ export function MoviePage({
               >
                 {coverUrl ? (
                   <ImageWithFallback
+                    key={coverUrl} // Force re-render when URL changes
                     src={coverUrl}
                     alt={selectedMovie.titleEn || selectedMovie.titleJp || 'Movie cover'}
                     className="w-full h-full object-contain"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -9,7 +9,7 @@ import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { GroupFormDialog } from '../groupForm/GroupFormDialog'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
 
 interface GroupsContentProps {
@@ -18,6 +18,7 @@ interface GroupsContentProps {
   onProfileSelect?: (type: 'actress' | 'actor', name: string) => void
   onGroupSelect?: (group: MasterDataItem) => void
   selectedGroupFromNavigation?: string
+  actresses?: MasterDataItem[]
 }
 
 interface GroupFormData {
@@ -38,7 +39,7 @@ const sortOptions = [
   { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => actress.movieCount || 0 },
 ]
 
-export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGroupSelect, selectedGroupFromNavigation }: GroupsContentProps) {
+export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGroupSelect, selectedGroupFromNavigation, actresses: passedActresses }: GroupsContentProps) {
   const [groups, setGroups] = useState<MasterDataItem[]>([])
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -61,7 +62,7 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
 
   useEffect(() => {
     loadData()
-  }, [accessToken])
+  }, [accessToken, passedActresses])
 
   // Handle selectedGroupFromNavigation when data is loaded
   useEffect(() => {
@@ -81,15 +82,21 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const loadData = async () => {
     try {
       setIsLoading(true)
-      console.log('🔄 Loading groups and actresses data...')
+      console.log('🔄 Loading groups data...')
       
-      const [groupsData, actressesData] = await Promise.all([
-        masterDataApi.getByType('group', accessToken),
-        masterDataApi.getByType('actress', accessToken)
-      ])
+      const groupsData = await masterDataApi.getByType('group', accessToken)
       
       console.log('📊 Groups loaded:', groupsData?.length || 0)
-      console.log('👩 Actresses loaded:', actressesData?.length || 0)
+      
+      // Use passed actresses if available, otherwise load our own
+      let actressesData = passedActresses
+      if (!actressesData) {
+        console.log('🔄 Loading actresses data...')
+        actressesData = await masterDataApi.getByType('actress', accessToken)
+        console.log('👩 Actresses loaded:', actressesData?.length || 0)
+      } else {
+        console.log('👩 Using passed actresses:', actressesData?.length || 0)
+      }
       
       // Debug: log actresses with group data
       if (actressesData && actressesData.length > 0) {

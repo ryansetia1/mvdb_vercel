@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, ChevronLeft, ChevronRight, Copy, ExternalLink, User } from 'lucide-react'
+import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, ChevronLeft, ChevronRight, Copy, ExternalLink, User, Heart } from 'lucide-react'
 import { copyToClipboard } from '../utils/clipboard'
 import { toast } from 'sonner'
 
@@ -30,6 +30,10 @@ interface ModernLightboxProps {
   showNavigation?: boolean
   // New metadata props
   metadata?: LightboxMetadata
+  // Favorite props
+  isFavorite?: boolean
+  onToggleFavorite?: () => void
+  accessToken?: string
 }
 
 export function ModernLightbox({ 
@@ -42,7 +46,10 @@ export function ModernLightbox({
   onNext,
   onPrevious,
   showNavigation = false,
-  metadata
+  metadata,
+  isFavorite = false,
+  onToggleFavorite,
+  accessToken
 }: ModernLightboxProps) {
   const [zoom, setZoom] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -499,6 +506,25 @@ export function ModernLightbox({
                 
                 <div className="w-px h-6 bg-white/20 mx-1" />
                 
+                {/* Favorite Button */}
+                {onToggleFavorite && accessToken && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onToggleFavorite()
+                    }}
+                    className={`text-white hover:bg-white/20 h-8 w-8 p-0 transition-all duration-200 ${
+                      isFavorite ? 'text-red-400 hover:text-red-300' : ''
+                    }`}
+                    title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  >
+                    <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+                  </Button>
+                )}
+                
                 <Button
                   variant="ghost"
                   size="sm"
@@ -585,12 +611,11 @@ export function ModernLightbox({
               alt={alt}
               className="select-none"
               style={{
-                // Remove max-width/max-height constraints that prevent scaling
-                maxWidth: 'none',
-                maxHeight: 'none',
+                // Set initial size to fit viewport nicely
+                maxWidth: '90vw',
+                maxHeight: '90vh',
                 width: 'auto',
                 height: 'auto',
-                // Set initial size to fit viewport when zoom = 1
                 objectFit: 'contain',
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
@@ -613,8 +638,8 @@ export function ModernLightbox({
               onClick={(e) => {
                 e.stopPropagation()
                 if (zoom === 1) {
-                  console.log('Image clicked - zooming in')
-                  handleZoomIn()
+                  console.log('Image clicked - zooming to 2x')
+                  setZoom(2.0) // Zoom to 2x
                 }
               }}
               draggable={false}
@@ -652,7 +677,7 @@ export function ModernLightbox({
                       </span>
                     )}
                     <span className="inline-flex items-center gap-4 hidden sm:flex">
-                      <span>↑ ↓ to zoom</span>
+                      <span>+ - to zoom</span>
                       <span>•</span>
                       <span>Drag to pan</span>
                       <span>•</span>

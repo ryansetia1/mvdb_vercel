@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import { ModernLightbox } from '../ModernLightbox'
@@ -12,7 +12,7 @@ import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { DateDurationInputs } from '../DateDurationInputs'
 import { TagsManager } from '../TagsManager'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 // Refactored components and helpers
 import { parseLinks, calculateAgeGaps, processCoverUrl } from './movieDetail/MovieDetailHelpers'
@@ -60,7 +60,7 @@ export function MovieDetailContent({
   const [editingSection, setEditingSection] = useState<string | null>(null)
 
   // Use current movie data for cover URL
-  const currentMovie = isEditing ? editedMovie : movie
+  const currentMovie = (isEditing || editingSection) ? editedMovie : movie
   const coverUrl = processCoverUrl(currentMovie)
 
   // Update edited movie when movie prop changes
@@ -281,6 +281,7 @@ export function MovieDetailContent({
                   {coverUrl ? (
                     // Fixed 3:2 aspect ratio with object-cover to handle all image types
                     <ImageWithFallback
+                      key={coverUrl} // Force re-render when URL changes
                       src={coverUrl}
                       alt={currentMovie.titleEn || currentMovie.titleJp || 'Movie cover'}
                       className="w-full h-full object-cover"

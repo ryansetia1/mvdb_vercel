@@ -7,8 +7,11 @@ import { Badge } from './ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { 
   getTypeColors, 
+  getTypeColorsFromDatabase,
   saveTypeColors, 
+  saveTypeColorsToDatabase,
   resetTypeColors, 
+  resetTypeColorsToDatabase,
   initializeTypeColors,
   DEFAULT_TYPE_COLORS,
   MovieTypeColorConfig 
@@ -28,30 +31,56 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
   const [selectedMasterType, setSelectedMasterType] = useState<string>('')
 
   useEffect(() => {
-    // Initialize colors with defaults on first load
-    initializeTypeColors()
-    
-    // Clean up any incorrect type names that don't match master data
-    const currentColors = getTypeColors()
-    const cleaned = { ...currentColors }
-    
-    // Fix the 2version -> 2vers issue
-    if (cleaned['2version'] && !cleaned['2vers']) {
-      cleaned['2vers'] = cleaned['2version']
-      delete cleaned['2version']
-      console.log('Fixed type name: 2version -> 2vers')
+    const loadColors = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Initialize colors with defaults on first load
+        initializeTypeColors()
+        
+        // Load colors from database if access token is available
+        let currentColors: MovieTypeColorConfig
+        if (accessToken) {
+          currentColors = await getTypeColorsFromDatabase(accessToken)
+        } else {
+          currentColors = getTypeColors()
+        }
+        
+        // Clean up any incorrect type names that don't match master data
+        const cleaned = { ...currentColors }
+        
+        // Fix the 2version -> 2vers issue
+        if (cleaned['2version'] && !cleaned['2vers']) {
+          cleaned['2vers'] = cleaned['2version']
+          delete cleaned['2version']
+          console.log('Fixed type name: 2version -> 2vers')
+        }
+        
+        // Save the cleaned version if any changes were made
+        if (JSON.stringify(cleaned) !== JSON.stringify(currentColors)) {
+          if (accessToken) {
+            await saveTypeColorsToDatabase(cleaned, accessToken)
+          } else {
+            saveTypeColors(cleaned)
+          }
+        }
+        
+        setColors(cleaned)
+        
+        if (accessToken) {
+          loadMasterDataTypes()
+        }
+      } catch (error) {
+        console.error('Error loading colors:', error)
+        // Fallback to localStorage
+        const fallbackColors = getTypeColors()
+        setColors(fallbackColors)
+      } finally {
+        setIsLoading(false)
+      }
     }
     
-    // Save the cleaned version if any changes were made
-    if (JSON.stringify(cleaned) !== JSON.stringify(currentColors)) {
-      saveTypeColors(cleaned)
-    }
-    
-    setColors(cleaned)
-    
-    if (accessToken) {
-      loadMasterDataTypes()
-    }
+    loadColors()
   }, [accessToken])
 
   const loadMasterDataTypes = async () => {
@@ -68,7 +97,7 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
       console.log('Loaded master data types:', typeNames)
       
       // Sync existing color settings with master data
-      const currentColors = getTypeColors()
+      const currentColors = accessToken ? await getTypeColorsFromDatabase(accessToken) : getTypeColors()
       const syncedColors = { ...currentColors }
       let hasChanges = false
       
@@ -86,7 +115,11 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
       
       // Save synced colors if there were changes
       if (hasChanges) {
-        saveTypeColors(syncedColors)
+        if (accessToken) {
+          await saveTypeColorsToDatabase(syncedColors, accessToken)
+        } else {
+          saveTypeColors(syncedColors)
+        }
         setColors(syncedColors)
         toast.info('Type colors synced with master data')
       }
@@ -99,14 +132,19 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
     }
   }
 
-  const handleColorChange = (type: string, color: string) => {
+  const handleColorChange = async (type: string, color: string) => {
     const updated = { ...colors, [type]: color }
     setColors(updated)
     
     try {
-      saveTypeColors(updated)
+      if (accessToken) {
+        await saveTypeColorsToDatabase(updated, accessToken)
+      } else {
+        saveTypeColors(updated)
+      }
+      
       // Verify the save by re-reading from storage
-      const verified = getTypeColors()
+      const verified = accessToken ? await getTypeColorsFromDatabase(accessToken) : getTypeColors()
       if (verified[type] === color) {
         toast.success(`Updated color for "${type}" type`)
       } else {
@@ -119,7 +157,7 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
     }
   }
 
-  const handleAddTypeColor = () => {
+  const handleAddTypeColor = async () => {
     if (!selectedMasterType) {
       toast.error('Please select a type from master data')
       return
@@ -134,10 +172,21 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
 
     const updated = { ...colors, [typeToAdd]: newColor }
     setColors(updated)
-    saveTypeColors(updated)
-    setSelectedMasterType('')
-    setNewColor('#3b82f6')
-    toast.success(`Added color for type "${typeToAdd}"`)
+    
+    try {
+      if (accessToken) {
+        await saveTypeColorsToDatabase(updated, accessToken)
+      } else {
+        saveTypeColors(updated)
+      }
+      
+      setSelectedMasterType('')
+      setNewColor('#3b82f6')
+      toast.success(`Added color for type "${typeToAdd}"`)
+    } catch (error) {
+      console.error('Error adding type color:', error)
+      toast.error(`Failed to add color for type "${typeToAdd}"`)
+    }
   }
 
   // Helper function to get contrast text color
@@ -155,18 +204,39 @@ export function MovieTypeColorSettings({ accessToken }: Props) {
     return /^#[0-9A-Fa-f]{6}$/.test(color)
   }
 
-  const handleRemoveType = (type: string) => {
+  const handleRemoveType = async (type: string) => {
     const updated = { ...colors }
     delete updated[type]
     setColors(updated)
-    saveTypeColors(updated)
-    toast.success(`Removed type "${type}"`)
+    
+    try {
+      if (accessToken) {
+        await saveTypeColorsToDatabase(updated, accessToken)
+      } else {
+        saveTypeColors(updated)
+      }
+      toast.success(`Removed type "${type}"`)
+    } catch (error) {
+      console.error('Error removing type color:', error)
+      toast.error(`Failed to remove type "${type}"`)
+    }
   }
 
-  const handleReset = () => {
-    resetTypeColors()
-    setColors(getTypeColors()) // Get the reset colors from storage
-    toast.success('Reset to default colors')
+  const handleReset = async () => {
+    try {
+      if (accessToken) {
+        await resetTypeColorsToDatabase(accessToken)
+        const resetColors = await getTypeColorsFromDatabase(accessToken)
+        setColors(resetColors)
+      } else {
+        resetTypeColors()
+        setColors(getTypeColors()) // Get the reset colors from storage
+      }
+      toast.success('Reset to default colors')
+    } catch (error) {
+      console.error('Error resetting colors:', error)
+      toast.error('Failed to reset colors')
+    }
   }
 
   const handleSyncWithMasterData = async () => {
