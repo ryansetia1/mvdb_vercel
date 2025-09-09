@@ -3,7 +3,7 @@ import { Badge } from '../../ui/badge'
 import { ImageWithFallback } from '../../figma/ImageWithFallback'
 import { Photobook } from '../../../utils/photobookApi'
 import { Images, Shield, Calendar, ExternalLink } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface PhotobookSelectionProps {
   selectedPhotobook: Photobook
@@ -31,9 +31,17 @@ export function PhotobookSelection({
           <div 
             className="w-20 h-28 mx-auto mb-2 rounded overflow-hidden bg-gray-100 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all duration-200"
             onClick={() => {
+              console.log('PhotobookSelection clicked:', {
+                hasOnPhotobookSelect: !!onPhotobookSelect,
+                selectedPhotobook: selectedPhotobook?.titleEn,
+                photobookId: selectedPhotobook?.id
+              })
+              
               if (onPhotobookSelect && selectedPhotobook) {
+                console.log('Calling onPhotobookSelect with:', selectedPhotobook)
                 onPhotobookSelect(selectedPhotobook)
               } else {
+                console.log('onPhotobookSelect not available, showing toast')
                 toast.info(`Navigate to ${selectedPhotobook.titleEn} detail page`)
               }
             }}

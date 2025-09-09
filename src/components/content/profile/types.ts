@@ -8,9 +8,9 @@ export interface ProfileContentProps {
   name: string
   accessToken: string
   onBack: () => void
-  onMovieSelect: (movieId: string) => void
-  onSCMovieSelect?: (scMovieId: string) => void
-  onPhotobookSelect?: (photobookId: string) => void
+  onMovieSelect: (movie: Movie | string) => void
+  onSCMovieSelect?: (scMovie: SCMovie | string) => void
+  onPhotobookSelect?: (photobook: Photobook) => void
   onGroupSelect?: (groupName: string) => void
   onEditProfile?: (type: 'actor' | 'actress' | 'director', name: string) => void
 }

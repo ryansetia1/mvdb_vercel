@@ -335,6 +335,25 @@ export function CastManager({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           
+          {/* Show chips if less than 8 people and no search query */}
+          {!searchQuery && availablePeople.length > 0 && availablePeople.length <= 8 && (
+            <div className="flex flex-wrap gap-2">
+              {availablePeople.map((person) => (
+                <Button
+                  key={person.id}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  onClick={() => addExistingPerson(person)}
+                  disabled={castMembers.some(member => member.name === person.name)}
+                >
+                  <Icon className="h-3 w-3 mr-1" />
+                  {person.name}
+                </Button>
+              ))}
+            </div>
+          )}
+          
           {/* Show search results only */}
           {searchQuery && filteredPeople.length > 0 && (
             <Card>
@@ -379,6 +398,12 @@ export function CastManager({
                 `No ${typeLabels[type].toLowerCase()}s available in the restricted selection.` :
                 `No ${typeLabels[type].toLowerCase()}s available. Create a new one below.`
               }
+            </p>
+          )}
+          
+          {!searchQuery && availablePeople.length > 8 && (
+            <p className="text-sm text-muted-foreground py-2">
+              Type to search from {availablePeople.length} available {typeLabels[type].toLowerCase()}s
             </p>
           )}
         </div>
