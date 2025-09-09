@@ -62,7 +62,6 @@ import { SimpleFavoritesContent } from './content/SimpleFavoritesContent'
 import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
-import { MovieDataParser } from './MovieDataParser'
 import { customNavApi, CustomNavItem } from '../utils/customNavApi'
 import { ThemeToggle } from './ThemeToggle'
 import { DraggableCustomNavItem } from './DraggableCustomNavItem'
@@ -76,7 +75,7 @@ interface UnifiedAppProps {
 interface NavItem {
   id: string
   label: string
-  type: 'movies' | 'soft' | 'photobooks' | 'actors' | 'actresses' | 'series' | 'studios' | 'tags' | 'groups' | 'favorites' | 'custom' | 'admin' | 'parser'
+  type: 'movies' | 'soft' | 'photobooks' | 'actors' | 'actresses' | 'series' | 'studios' | 'tags' | 'groups' | 'favorites' | 'custom' | 'admin'
   filterType?: string
   filterValue?: string
   icon?: React.ReactNode
@@ -103,7 +102,6 @@ type ContentMode =
   | 'filteredActresses'
   | 'admin'
   | 'advancedSearch'
-  | 'parser'
 
 interface ContentState {
   mode: ContentMode
@@ -239,7 +237,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     { id: 'soft', label: 'Soft', type: 'soft', icon: <PlayCircle className="h-4 w-4" /> },
     { id: 'photobooks', label: 'Photobooks', type: 'photobooks', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'favorites', label: 'Favorites', type: 'favorites', icon: <Heart className="h-4 w-4" /> },
-    { id: 'parser', label: 'Parser', type: 'parser', icon: <FileText className="h-4 w-4" /> },
     { id: 'actors', label: 'Actors', type: 'actors', icon: <User className="h-4 w-4" /> },
     { id: 'actresses', label: 'Actresses', type: 'actresses', icon: <Users className="h-4 w-4" /> },
     { id: 'series', label: 'Series', type: 'series', icon: <PlayCircle className="h-4 w-4" /> },
@@ -589,19 +586,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     })
   }
 
-  const handleParserSave = async (movie: Movie) => {
-    try {
-      await movieApi.createMovie(movie, accessToken)
-      await reloadData() // Reload movies data
-      
-      // Navigate back to movies view
-      setContentState({ mode: 'movies', title: 'Movies' })
-      setActiveNavItem('movies')
-    } catch (error) {
-      console.error('Failed to save movie:', error)
-      // You might want to show an error message to the user here
-    }
-  }
 
   const handleBack = () => {
     // Check if there's a previous state in navigation history
@@ -1005,7 +989,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <div className="hidden md:flex items-center gap-1">
                 {customNavItems.map((item, index) => (
                   <DraggableCustomNavItem
-                    key={item.id}
                     item={item}
                     index={index}
                     activeNavItem={activeNavItem}
@@ -1316,13 +1299,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               />
             )}
 
-            {contentState.mode === 'parser' && (
-              <MovieDataParser
-                accessToken={accessToken}
-                onSave={handleParserSave}
-                onCancel={handleBack}
-              />
-            )}
           </div>
         )}
       </main>

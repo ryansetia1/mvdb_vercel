@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { MovieList } from './MovieList'
 import { MasterDataManager } from './MasterDataManager'
 import { ActorManager } from './ActorManager'
@@ -9,7 +8,11 @@ import { SCMovieForm } from './SCMovieForm'
 import { SCMovieList } from './SCMovieList'
 import { MovieLinksManager } from './MovieLinksManager'
 import { BulkLinksManagerContent } from './content/BulkLinksManagerContent'
-import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link } from 'lucide-react'
+import { MovieDataParser } from './MovieDataParser'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link, FileText } from 'lucide-react'
+import { movieApi, Movie } from '../utils/movieApi'
+import { toast } from 'sonner'
 
 interface DashboardProps {
   accessToken: string
@@ -47,6 +50,23 @@ export function Dashboard({
   const [editingMovie, setEditingMovie] = useState<any>(externalEditingMovie || null)
   const [editingSCMovie, setEditingSCMovie] = useState<any>(externalEditingSCMovie || null)
   const [editingProfile, setEditingProfile] = useState<{ type: 'actor' | 'actress', name: string } | null>(externalEditingProfile || null)
+
+  // Handle movie save from parser
+  const handleParserSave = async (movie: Movie) => {
+    try {
+      console.log('Saving movie from parser:', movie)
+      const savedMovie = await movieApi.createMovie(movie, accessToken)
+      console.log('Movie saved successfully:', savedMovie)
+      toast.success('Movie berhasil disimpan!')
+      
+      if (onDataChanged) {
+        onDataChanged()
+      }
+    } catch (error: any) {
+      console.error('Error saving movie from parser:', error)
+      toast.error(`Gagal menyimpan movie: ${error.message || error}`)
+    }
+  }
 
   // Update editing movie when external prop changes
   useEffect(() => {
@@ -99,40 +119,73 @@ export function Dashboard({
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="movies" className="flex items-center gap-2">
-            <Film className="h-4 w-4" />
-            HC Movies
-          </TabsTrigger>
-          <TabsTrigger value="sc-movies" className="flex items-center gap-2">
-            <PlayCircle className="h-4 w-4" />
-            SC Movies
-          </TabsTrigger>
-          <TabsTrigger value="bulk-links" className="flex items-center gap-2">
-            <Link className="h-4 w-4" />
-            Bulk Add Links
-          </TabsTrigger>
-          <TabsTrigger value="movie-links" className="flex items-center gap-2">
-            <ArrowRightLeft className="h-4 w-4" />
-            Movie Links
-          </TabsTrigger>
-          <TabsTrigger value="actors" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Actors
-          </TabsTrigger>
-          <TabsTrigger value="actresses" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Actresses
-          </TabsTrigger>
-          <TabsTrigger value="bulk-assignment" className="flex items-center gap-2">
-            <ArrowRightLeft className="h-4 w-4" />
-            Bulk Assignment
-          </TabsTrigger>
-          <TabsTrigger value="master-data" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Master Data
-          </TabsTrigger>
-        </TabsList>
+        <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide">
+          <TabsList className="h-auto p-0 bg-transparent justify-start flex-nowrap gap-1 min-w-max">
+            <TabsTrigger 
+              value="movies" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Film className="h-4 w-4" />
+              <span>HC Movies</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="sc-movies" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <PlayCircle className="h-4 w-4" />
+              <span>SC Movies</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="parser" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Parser</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bulk-links" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Link className="h-4 w-4" />
+              <span>Bulk Links</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="movie-links" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              <span>Movie Links</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="actors" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <User className="h-4 w-4" />
+              <span>Actors</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="actresses" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Users className="h-4 w-4" />
+              <span>Actresses</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bulk-assignment" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              <span>Bulk Assignment</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="master-data" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Master Data</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="movies" className="mt-6">
           <MovieList 
@@ -156,6 +209,16 @@ export function Dashboard({
               if (onClearEditingSCMovie) {
                 onClearEditingSCMovie()
               }
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="parser" className="mt-6">
+          <MovieDataParser 
+            accessToken={accessToken}
+            onSave={handleParserSave}
+            onCancel={() => {
+              console.log('Parser cancelled')
             }}
           />
         </TabsContent>
