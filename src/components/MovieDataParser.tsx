@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
+import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, mergeMovieData, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { Movie } from '../utils/movieApi'
 import { masterDataApi } from '../utils/masterDataApi'
@@ -7,14 +7,16 @@ import { MasterDataForm } from './MasterDataForm'
 import { MultipleMatchSelector } from './MultipleMatchSelector'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
+import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
 
 interface MovieDataParserProps {
   accessToken: string
   onSave: (movie: Movie) => void
   onCancel: () => void
+  existingMovie?: Movie
 }
 
-export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataParserProps) {
+export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }: MovieDataParserProps) {
   const [rawData, setRawData] = useState('')
   const [parsedData, setParsedData] = useState<ParsedMovieData | null>(null)
   const [matchedData, setMatchedData] = useState<MatchedData | null>(null)
@@ -35,6 +37,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
   const [showDuplicateWarning, setShowDuplicateWarning] = useState<{
     existingMovie: Movie
     newMovieCode: string
+  } | null>(null)
+  const [mergeMode, setMergeMode] = useState<{
+    existingMovie: Movie
+    isActive: boolean
   } | null>(null)
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set())
   const [dmcode, setDmcode] = useState('')
@@ -77,6 +83,93 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
   useEffect(() => {
     loadMasterData()
   }, [])
+
+  // Pre-fill form with existing movie data when provided
+  useEffect(() => {
+    if (existingMovie) {
+      console.log('Pre-filling parser with existing movie data:', existingMovie)
+      console.log('Movie titleEn:', existingMovie.titleEn)
+      console.log('Movie titleJp:', existingMovie.titleJp)
+      console.log('Movie dmcode:', existingMovie.dmcode)
+      console.log('Movie type:', existingMovie.type)
+      console.log('Movie studio:', existingMovie.studio)
+      console.log('Movie director:', existingMovie.director)
+      
+      // Pre-fill basic fields
+      if (existingMovie.dmcode) {
+        setDmcode(existingMovie.dmcode)
+      }
+      if (existingMovie.titleEn) {
+        setTitleEn(existingMovie.titleEn)
+      }
+      if (existingMovie.type) {
+        setMovieType(existingMovie.type)
+      }
+      if (existingMovie.cover) {
+        setCover(existingMovie.cover)
+      }
+      if (existingMovie.gallery) {
+        setGallery(existingMovie.gallery)
+      }
+      if (existingMovie.cropCover !== undefined) {
+        setCropCover(existingMovie.cropCover)
+      }
+      
+      // Pre-fill raw data with movie information for parsing
+      // Only include fields that are relevant and have meaningful data
+      const relevantFields = []
+      
+      if (existingMovie.titleEn || existingMovie.titleJp) {
+        relevantFields.push(`Title: ${existingMovie.titleEn || existingMovie.titleJp}`)
+      }
+      if (existingMovie.titleJp && existingMovie.titleJp !== existingMovie.titleEn) {
+        relevantFields.push(`Japanese Title: ${existingMovie.titleJp}`)
+      }
+      if (existingMovie.dmcode) {
+        relevantFields.push(`Code: ${existingMovie.dmcode}`)
+      }
+      if (existingMovie.releaseDate) {
+        relevantFields.push(`Release Date: ${existingMovie.releaseDate}`)
+      }
+      if (existingMovie.duration) {
+        relevantFields.push(`Duration: ${existingMovie.duration}`)
+      }
+      if (existingMovie.director) {
+        relevantFields.push(`Director: ${existingMovie.director}`)
+      }
+      if (existingMovie.studio) {
+        relevantFields.push(`Studio: ${existingMovie.studio}`)
+      }
+      if (existingMovie.series) {
+        relevantFields.push(`Series: ${existingMovie.series}`)
+      }
+      if (existingMovie.type && existingMovie.type !== 'click') {
+        relevantFields.push(`Type: ${existingMovie.type}`)
+      }
+      if (existingMovie.actress) {
+        relevantFields.push(`Actress: ${existingMovie.actress}`)
+      }
+      if (existingMovie.actors) {
+        relevantFields.push(`Actors: ${existingMovie.actors}`)
+      }
+      if (existingMovie.tags) {
+        relevantFields.push(`Tags: ${existingMovie.tags}`)
+      }
+      if (existingMovie.cover) {
+        relevantFields.push(`Cover: ${existingMovie.cover}`)
+      }
+      if (existingMovie.gallery) {
+        relevantFields.push(`Gallery: ${existingMovie.gallery}`)
+      }
+      
+      const rawDataString = relevantFields.join('\n')
+      
+      console.log('Generated raw data string:', rawDataString)
+      console.log('Raw data string length:', rawDataString.length)
+      
+      setRawData(rawDataString)
+    }
+  }, [existingMovie])
 
   // Cleanup timeouts on component unmount
   useEffect(() => {
@@ -223,23 +316,179 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!parsedData || !matchedData) return
 
-    // Create updated parsed data with dmcode, titleEn, and movieType
-    const updatedParsedData = {
-      ...parsedData,
-      dmcode: dmcode,
-      titleEn: titleEn
-    }
+    // Check if we're in merge mode
+    if (mergeMode?.isActive) {
+      try {
+        setLoading(true)
+        
+        // Create updated parsed data with dmcode, titleEn, and movieType
+        const updatedParsedData = {
+          ...parsedData,
+          dmcode: dmcode,
+          titleEn: titleEn
+        }
 
-    const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems)
-    // Override movie type with user selection and add cover/gallery
-    movie.type = movieType
-    movie.cover = cover
-    movie.gallery = gallery
-    movie.cropCover = cropCover
-    onSave(movie)
+        const newMovieData = convertToMovie(updatedParsedData, matchedData, ignoredItems)
+        // Override movie type with user selection and add cover/gallery
+        newMovieData.type = movieType
+        newMovieData.cover = cover
+        newMovieData.gallery = gallery
+        newMovieData.cropCover = cropCover
+
+        // Merge with existing movie data
+        const mergedMovie = { ...mergeMode.existingMovie }
+        
+        // Update fields with new data (only if new data exists)
+        if (newMovieData.titleEn) mergedMovie.titleEn = newMovieData.titleEn
+        if (newMovieData.releaseDate) mergedMovie.releaseDate = newMovieData.releaseDate
+        if (newMovieData.duration) mergedMovie.duration = newMovieData.duration
+        
+        // Update director using matched data
+        if (matchedData.directors && matchedData.directors.length > 0) {
+          const matchedDirector = matchedData.directors[0]
+          if (matchedDirector.matched && !ignoredItems.has('directors-0')) {
+            const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
+            if (directorName && directorName.trim()) {
+              mergedMovie.director = directorName
+            }
+          }
+        }
+        
+        // Update studio using matched data
+        if (matchedData.studios && matchedData.studios.length > 0) {
+          const matchedStudio = matchedData.studios[0]
+          if (matchedStudio.matched && !ignoredItems.has('studios-0')) {
+            const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
+            if (studioName && studioName.trim()) {
+              mergedMovie.studio = studioName
+            }
+          }
+        }
+        
+        // Update series using matched data
+        if (matchedData.series && matchedData.series.length > 0) {
+          const matchedSeries = matchedData.series[0]
+          if (matchedSeries.matched && !ignoredItems.has('series-0')) {
+            const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
+            if (seriesName && seriesName.trim()) {
+              mergedMovie.series = seriesName
+            }
+          }
+        }
+        
+        // Merge actresses and actors using matched data (only add new ones, don't duplicate)
+        if (matchedData.actresses && matchedData.actresses.length > 0) {
+          const existingActresses = mergedMovie.actress ? mergedMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
+          
+          // Get matched actress names (prefer English name, fallback to Japanese)
+          const matchedActressNames = matchedData.actresses
+            .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
+            .map(item => item.matched.name || item.matched.jpname || item.original)
+            .filter(name => name && name.trim())
+          
+          // Only add actresses that don't already exist
+          const uniqueNewActresses = matchedActressNames.filter(actress => 
+            !existingActresses.some(existing => 
+              existing.toLowerCase() === actress.toLowerCase() ||
+              existing.includes(actress) ||
+              actress.includes(existing)
+            )
+          )
+          
+          if (uniqueNewActresses.length > 0) {
+            mergedMovie.actress = [...existingActresses, ...uniqueNewActresses].join(', ')
+          }
+        }
+        
+        if (matchedData.actors && matchedData.actors.length > 0) {
+          const existingActors = mergedMovie.actors ? mergedMovie.actors.split(',').map(a => a.trim()).filter(a => a) : []
+          
+          // Get matched actor names (prefer English name, fallback to Japanese)
+          const matchedActorNames = matchedData.actors
+            .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
+            .map(item => item.matched.name || item.matched.jpname || item.original)
+            .filter(name => name && name.trim())
+          
+          // Only add actors that don't already exist
+          const uniqueNewActors = matchedActorNames.filter(actor => 
+            !existingActors.some(existing => 
+              existing.toLowerCase() === actor.toLowerCase() ||
+              existing.includes(actor) ||
+              actor.includes(existing)
+            )
+          )
+          
+          if (uniqueNewActors.length > 0) {
+            mergedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
+          }
+        }
+
+        // Update timestamp
+        mergedMovie.updatedAt = new Date().toISOString()
+
+        // Call the merge API with matched data
+        const response = await mergeMovieApi(
+          mergeMode.existingMovie.id!,
+          accessToken,
+          {
+            parsedData: updatedParsedData,
+            matchedData: matchedData,
+            ignoredItems: Array.from(ignoredItems),
+            selectedFields: Object.keys(newMovieData).filter(key => 
+              newMovieData[key as keyof typeof newMovieData] && 
+              key !== 'id' && 
+              key !== 'createdAt' && 
+              key !== 'updatedAt'
+            )
+          }
+        )
+
+        if (response.success) {
+          // Reset form and close merge mode
+          setRawData('')
+          setParsedData(null)
+          setMatchedData(null)
+          setError('')
+          setIgnoredItems(new Set())
+          setDmcode('')
+          setTitleEn('')
+          setMovieType('')
+          setCover('')
+          setGallery('')
+          setCropCover(false)
+          setAppliedTemplate(null)
+          setMergeMode(null)
+          
+          // Show success message
+          alert(`Data berhasil dilengkapi! ${response.message}`)
+        } else {
+          throw new Error('Failed to merge data')
+        }
+      } catch (error) {
+        console.error('Error merging data:', error)
+        setError('Gagal melengkapi data. Silakan coba lagi.')
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Normal save flow
+      const updatedParsedData = {
+        ...parsedData,
+        dmcode: dmcode,
+        titleEn: titleEn
+      }
+
+      const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems)
+      // Override movie type with user selection and add cover/gallery
+      movie.type = movieType
+      movie.cover = cover
+      movie.gallery = gallery
+      movie.cropCover = cropCover
+      onSave(movie)
+    }
   }
 
   const handleContinueWithDuplicate = () => {
@@ -275,6 +524,46 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
     setCover('')
     setGallery('')
     setCropCover(false)
+  }
+
+  const handleMergeData = () => {
+    if (!parsedData || !showDuplicateWarning) return
+
+    // Pre-fill fields with existing data from database
+    const existingMovie = showDuplicateWarning.existingMovie
+    
+    // Pre-fill English title if it exists
+    if (existingMovie.titleEn) {
+      setTitleEn(existingMovie.titleEn)
+    }
+    
+    // Pre-fill other fields that might be useful
+    if (existingMovie.dmcode) {
+      setDmcode(existingMovie.dmcode)
+    }
+    
+    if (existingMovie.type) {
+      setMovieType(existingMovie.type)
+    }
+    
+    if (existingMovie.cover) {
+      setCover(existingMovie.cover)
+    }
+    
+    if (existingMovie.gallery) {
+      setGallery(existingMovie.gallery)
+    }
+
+    // Set merge mode and close duplicate warning
+    setMergeMode({
+      existingMovie: existingMovie,
+      isActive: true
+    })
+    setShowDuplicateWarning(null)
+  }
+
+  const handleCancelMerge = () => {
+    setMergeMode(null)
   }
 
   const translateTitle = async () => {
@@ -620,6 +909,30 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
         <p className="text-gray-600">
           Paste movie data below and the system will parse it and match with existing database entries.
         </p>
+        
+        {/* Merge Mode Indicator */}
+        {mergeMode?.isActive && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="font-medium text-blue-800 dark:text-blue-200">
+                Mode Melengkapi Data
+              </span>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              Anda sedang melengkapi data untuk movie: <span className="font-mono font-bold">{mergeMode.existingMovie.code}</span>
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              Pilih aktris/aktor yang sesuai, lalu klik "Save Movie" untuk melengkapi data.
+            </p>
+            <button
+              onClick={handleCancelMerge}
+              className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+            >
+              Batalkan mode melengkapi data
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Input Section */}
@@ -678,6 +991,132 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
             </div>
           </div>
         )}
+        
+        {/* New Data Preview for Merge Mode */}
+        {mergeMode?.isActive && parsedData && matchedData && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <h3 className="font-semibold text-blue-800 dark:text-blue-200">
+                Data Baru yang Akan Ditambahkan
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {/* Basic Info */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-700 dark:text-blue-300">Informasi Dasar</h4>
+                {parsedData.titleEn && !mergeMode.existingMovie.titleEn && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Title (EN):</span>
+                    <span className="font-medium">{parsedData.titleEn}</span>
+                  </div>
+                )}
+                {parsedData.releaseDate && !mergeMode.existingMovie.releaseDate && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Release Date:</span>
+                    <span className="font-medium">{parsedData.releaseDate}</span>
+                  </div>
+                )}
+                {parsedData.duration && !mergeMode.existingMovie.duration && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                    <span className="font-medium">{parsedData.duration}</span>
+                  </div>
+                )}
+                {parsedData.director && !mergeMode.existingMovie.director && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Director:</span>
+                    <span className="font-medium">{parsedData.director}</span>
+                  </div>
+                )}
+                {parsedData.studio && !mergeMode.existingMovie.studio && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Studio:</span>
+                    <span className="font-medium">{parsedData.studio}</span>
+                  </div>
+                )}
+                {parsedData.series && !mergeMode.existingMovie.series && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Series:</span>
+                    <span className="font-medium">{parsedData.series}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Cast & Crew */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-700 dark:text-blue-300">Cast & Crew</h4>
+                {matchedData.actresses && matchedData.actresses.length > 0 && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Actresses:</span>
+                    <div className="mt-1 space-y-1">
+                      {matchedData.actresses
+                        .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
+                        .map((item, index) => {
+                          const matchedName = item.matched.name || item.matched.jpname || item.original
+                          const existingActresses = mergeMode.existingMovie.actress ? mergeMode.existingMovie.actress.split(',').map(a => a.trim()) : []
+                          const isNew = !existingActresses.some(existing => 
+                            existing.toLowerCase() === matchedName.toLowerCase() ||
+                            existing.includes(matchedName) ||
+                            matchedName.includes(existing)
+                          )
+                          
+                          if (isNew) {
+                            return (
+                              <div key={index} className="flex items-center gap-2">
+                                <span className="text-green-600 dark:text-green-400">+</span>
+                                <span className="font-medium">{matchedName}</span>
+                              </div>
+                            )
+                          }
+                          return null
+                        })}
+                    </div>
+                  </div>
+                )}
+                
+                {matchedData.actors && matchedData.actors.length > 0 && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Actors:</span>
+                    <div className="mt-1 space-y-1">
+                      {matchedData.actors
+                        .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
+                        .map((item, index) => {
+                          const matchedName = item.matched.name || item.matched.jpname || item.original
+                          const existingActors = mergeMode.existingMovie.actors ? mergeMode.existingMovie.actors.split(',').map(a => a.trim()) : []
+                          const isNew = !existingActors.some(existing => 
+                            existing.toLowerCase() === matchedName.toLowerCase() ||
+                            existing.includes(matchedName) ||
+                            matchedName.includes(existing)
+                          )
+                          
+                          if (isNew) {
+                            return (
+                              <div key={index} className="flex items-center gap-2">
+                                <span className="text-green-600 dark:text-green-400">+</span>
+                                <span className="font-medium">{matchedName}</span>
+                              </div>
+                            )
+                          }
+                          return null
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-3 text-xs text-blue-600 dark:text-blue-400">
+              💡 Data yang sudah ada di database tidak akan ditampilkan di sini. Hanya data baru yang akan ditambahkan.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Parsed Data Display */}
@@ -699,13 +1138,24 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
             <div className="mt-4">
               <div className="flex items-center gap-2 mb-2">
                 <strong>Title (EN):</strong>
-                <input
-                  type="text"
-                  value={titleEn}
-                  onChange={(e) => setTitleEn(e.target.value)}
-                  placeholder="English title (auto-translated or manual)"
-                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder="English title (auto-translated or manual)"
+                    className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      mergeMode?.isActive && mergeMode.existingMovie.titleEn && titleEn === mergeMode.existingMovie.titleEn
+                        ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                  {mergeMode?.isActive && mergeMode.existingMovie.titleEn && titleEn === mergeMode.existingMovie.titleEn && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-green-600 dark:text-green-400 font-medium">
+                      From DB
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={translateTitle}
                   disabled={translatingTitle || !parsedData.titleJp}
@@ -717,12 +1167,17 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
               </div>
               <div className="flex items-center gap-2">
                 <strong>Movie Type:</strong>
-                <select
-                  value={movieType}
-                  onChange={(e) => handleMovieTypeChange(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={availableTypes.length === 0}
-                >
+                <div className="relative">
+                  <select
+                    value={movieType}
+                    onChange={(e) => handleMovieTypeChange(e.target.value)}
+                    className={`px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      mergeMode?.isActive && movieType && movieType !== mergeMode.existingMovie.type
+                        ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20'
+                        : 'border-gray-300'
+                    }`}
+                    disabled={availableTypes.length === 0}
+                  >
                   {availableTypes.length === 0 ? (
                     <option value="">Loading types...</option>
                   ) : (
@@ -733,13 +1188,36 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
                     ))
                   )}
                 </select>
+                {mergeMode?.isActive && movieType && movieType !== mergeMode.existingMovie.type && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-orange-600 dark:text-orange-400 font-medium">
+                    New
+                  </div>
+                )}
+                </div>
               </div>
             </div>
             
             {/* Cover and Gallery Templates */}
             {(cover || gallery) && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Template Applied</h4>
+              <div className={`mt-4 p-3 border rounded-lg ${
+                mergeMode?.isActive && (
+                  (cover && cover !== mergeMode.existingMovie.cover) ||
+                  (gallery && gallery !== mergeMode.existingMovie.gallery)
+                )
+                  ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'
+                  : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100">Template Applied</h4>
+                  {mergeMode?.isActive && (
+                    (cover && cover !== mergeMode.existingMovie.cover) ||
+                    (gallery && gallery !== mergeMode.existingMovie.gallery)
+                  ) && (
+                    <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded">
+                      New Data
+                    </span>
+                  )}
+                </div>
                 {cover && (
                   <div className="mb-2">
                     <strong className="text-sm text-blue-800">Cover:</strong>
@@ -787,13 +1265,24 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
             <div className="mt-4">
               <div className="flex items-center gap-2">
                 <strong>DM Code:</strong>
-                <input
-                  type="text"
-                  value={dmcode}
-                  onChange={(e) => setDmcode(e.target.value)}
-                  placeholder="Auto-generated dmcode"
-                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={dmcode}
+                    onChange={(e) => setDmcode(e.target.value)}
+                    placeholder="Auto-generated dmcode"
+                    className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode
+                        ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                  {mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-green-600 dark:text-green-400 font-medium">
+                      From DB
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     const regenerated = generateDmcode(parsedData.code, parsedData.studio)
@@ -877,10 +1366,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
           isOpen={true}
           onClose={handleCancelDuplicate}
           onContinue={handleContinueWithDuplicate}
+          onMerge={handleMergeData}
           existingMovie={showDuplicateWarning.existingMovie}
           newMovieCode={showDuplicateWarning.newMovieCode}
         />
       )}
+
     </div>
   )
 }

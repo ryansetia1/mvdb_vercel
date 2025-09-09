@@ -6,6 +6,7 @@ interface DuplicateMovieWarningProps {
   isOpen: boolean
   onClose: () => void
   onContinue: () => void
+  onMerge: () => void
   existingMovie: Movie
   newMovieCode: string
 }
@@ -14,6 +15,7 @@ export function DuplicateMovieWarning({
   isOpen,
   onClose,
   onContinue,
+  onMerge,
   existingMovie,
   newMovieCode
 }: DuplicateMovieWarningProps) {
@@ -54,7 +56,7 @@ export function DuplicateMovieWarning({
                 Movie code <span className="font-mono font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">{newMovieCode}</span> already exists in the database.
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Do you want to continue adding this movie anyway, or would you like to review the existing movie first?
+                Anda dapat memilih untuk melengkapi data yang sudah ada dengan informasi baru, atau menambahkan movie baru.
               </p>
             </div>
 
@@ -119,14 +121,21 @@ export function DuplicateMovieWarning({
                 onClick={onClose}
                 className="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 font-medium transition-colors"
               >
-                Cancel
+                Batal
+              </button>
+              <button
+                onClick={onMerge}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium transition-colors shadow-sm"
+              >
+                <Eye className="h-4 w-4" />
+                Lengkapi Data
               </button>
               <button
                 onClick={onContinue}
                 className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 font-medium transition-colors shadow-sm"
               >
                 <AlertTriangle className="h-4 w-4" />
-                Continue Anyway
+                Tambah Baru
               </button>
             </div>
           </div>

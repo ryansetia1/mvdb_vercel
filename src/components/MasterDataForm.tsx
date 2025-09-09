@@ -16,6 +16,11 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
   const [error, setError] = useState('')
   const [translating, setTranslating] = useState(false)
   const [convertingRomaji, setConvertingRomaji] = useState(false)
+  const [duplicateError, setDuplicateError] = useState<{
+    message: string
+    existingItem: MasterDataItem | null
+    showUseExisting: boolean
+  } | null>(null)
 
 
 
@@ -193,6 +198,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Don't submit if there's a duplicate error
+    if (duplicateError) {
+      return
+    }
+    
     setLoading(true)
     setError('')
 
@@ -254,7 +265,80 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
       onSave(newItem)
     } catch (err: any) {
       console.error('Error creating master data:', err)
+      console.log('Error message:', err.message)
+      console.log('Error type:', typeof err)
+      console.log('Error includes already exists:', err.message?.includes('already exists'))
+      
+      // Check if it's a duplicate error - check multiple possible error messages
+      const isDuplicateError = err.message && (
+        err.message.includes('already exists') ||
+        err.message.includes('Studio with this name already exists') ||
+        err.message.includes('duplicate') ||
+        err.message.includes('exists')
+      )
+      
+      console.log('Is duplicate error:', isDuplicateError)
+      
+      if (isDuplicateError) {
+        // Try to find the existing item
+        try {
+          console.log('Searching for existing items...')
+          const existingItems = await masterDataApi.getByType(type, accessToken)
+          console.log('Found existing items:', existingItems.length)
+          
+          const existingItem = existingItems.find(item => 
+            item.name?.toLowerCase() === formData.name?.toLowerCase()
+          )
+          
+          console.log('Found existing item:', existingItem)
+          
+          if (existingItem) {
+            setDuplicateError({
+              message: err.message,
+              existingItem,
+              showUseExisting: true
+            })
+            setError('') // Clear regular error
+            return
+          }
+        } catch (searchErr) {
+          console.error('Error searching for existing item:', searchErr)
+        }
+      }
+      
       setError(err.message || 'Failed to create item')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUseExisting = () => {
+    if (duplicateError?.existingItem) {
+      onSave(duplicateError.existingItem)
+    }
+  }
+
+  const handleUpdateExisting = async () => {
+    if (!duplicateError?.existingItem) return
+    
+    try {
+      setLoading(true)
+      setError('')
+      
+      // Update the existing item with Japanese name if it's not already set
+      const existingItem = duplicateError.existingItem
+      const updateData = { ...existingItem }
+      
+      // For studio, add Japanese name if not already present
+      if (type === 'studio' && formData.jpname && !existingItem.jpname) {
+        updateData.jpname = formData.jpname
+        await masterDataApi.updateExtended('studio', existingItem.id, updateData, accessToken)
+      }
+      
+      onSave(updateData)
+    } catch (err: any) {
+      console.error('Error updating existing item:', err)
+      setError(err.message || 'Failed to update existing item')
     } finally {
       setLoading(false)
     }
@@ -279,6 +363,55 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
+          </div>
+        )}
+
+        {duplicateError && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="text-yellow-800 mb-3">
+              <p className="font-medium">{duplicateError.message}</p>
+              {duplicateError.existingItem && (
+                <p className="text-sm mt-1">
+                  Existing {type}: <strong>{duplicateError.existingItem.name}</strong>
+                  {duplicateError.existingItem.jpname && (
+                    <span> ({duplicateError.existingItem.jpname})</span>
+                  )}
+                </p>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleUseExisting}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Use Existing
+              </button>
+              
+              {type === 'studio' && formData.jpname && duplicateError.existingItem && !duplicateError.existingItem.jpname && (
+                <button
+                  type="button"
+                  onClick={handleUpdateExisting}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Update with Japanese Name
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setDuplicateError(null)
+                  setError('')
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
@@ -538,7 +671,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!duplicateError}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
             >
               {loading ? 'Menyimpan...' : 'Simpan'}

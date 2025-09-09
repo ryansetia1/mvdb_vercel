@@ -1,6 +1,6 @@
 import { Button } from '../../ui/button'
 import { SimpleFavoriteButton } from '../../SimpleFavoriteButton'
-import { ArrowLeft, Edit, Save, X } from 'lucide-react'
+import { ArrowLeft, Edit, Save, X, FileText } from 'lucide-react'
 import { Movie } from '../../../utils/movieApi'
 
 interface MovieActionButtonsProps {
@@ -12,6 +12,7 @@ interface MovieActionButtonsProps {
   onEdit: () => void
   onSave: () => void
   onCancel: () => void
+  onParseMovie?: () => void
 }
 
 export function MovieActionButtons({
@@ -22,7 +23,8 @@ export function MovieActionButtons({
   onBack,
   onEdit,
   onSave,
-  onCancel
+  onCancel,
+  onParseMovie
 }: MovieActionButtonsProps) {
   return (
     <div className="flex justify-between items-center">
@@ -48,6 +50,19 @@ export function MovieActionButtons({
           size="lg"
           variant="outline"
         />
+
+        {/* Parse Movie Button */}
+        {onParseMovie && (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={onParseMovie}
+            className="flex items-center gap-2 px-6 py-3"
+          >
+            <FileText className="h-5 w-5" />
+            Parse Movie
+          </Button>
+        )}
 
         {/* Edit/Save/Cancel Buttons */}
         {showEditButton && (

@@ -34,6 +34,7 @@ interface MovieDetailContentProps {
   onProfileSelect: (type: 'actor' | 'actress' | 'director', name: string) => void
   onFilterSelect: (filterType: string, filterValue: string, title?: string) => void
   onEditMovie?: (movie: Movie) => void
+  onParseMovie?: (movie: Movie) => void
   showEditButton?: boolean
   onBack?: () => void
   onMovieUpdated?: (updatedMovie: Movie) => void
@@ -46,6 +47,7 @@ export function MovieDetailContent({
   onProfileSelect, 
   onFilterSelect,
   onEditMovie,
+  onParseMovie,
   showEditButton = false,
   onBack,
   onMovieUpdated
@@ -270,6 +272,7 @@ export function MovieDetailContent({
           onEdit={() => setIsEditing(true)}
           onSave={handleSaveMovie}
           onCancel={handleCancelEdit}
+          onParseMovie={onParseMovie}
         />
       </section>
 

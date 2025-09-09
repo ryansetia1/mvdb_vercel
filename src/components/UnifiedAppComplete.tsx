@@ -206,6 +206,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [showEditMovie, setShowEditMovie] = useState<Movie | null>(null)
   const [showEditSCMovie, setShowEditSCMovie] = useState<SCMovie | null>(null)
   const [showEditProfile, setShowEditProfile] = useState<{ type: 'actor' | 'actress' | 'director', name: string } | null>(null)
+  const [showParseMovie, setShowParseMovie] = useState<Movie | null>(null)
   
   // Navigation items - start with default items only
   const [navItems, setNavItems] = useState<NavItem[]>([
@@ -592,6 +593,14 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     // Switch to admin mode to show the edit form
     setContentState({ mode: 'admin', title: 'Admin Panel - Edit Movie' })
     setActiveNavItem('admin')
+  }
+
+  const handleParseMovie = (movie: Movie) => {
+    // Switch to admin mode with parser tab active
+    setContentState({ mode: 'admin', title: 'Admin Panel - Parse Movie' })
+    setActiveNavItem('admin')
+    // Set the movie to be parsed (pre-fill the parser with movie data)
+    setShowParseMovie(movie)
   }
 
   const handleEditSCMovie = (scMovie: SCMovie) => {
@@ -997,6 +1006,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               movie={contentState.data}
               onBack={handleBack}
               onEdit={handleEditMovie}
+              onParseMovie={handleParseMovie}
               onProfileSelect={handleProfileSelect}
               accessToken={accessToken}
               actresses={actresses}
@@ -1070,10 +1080,12 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               editMovie={showEditMovie}
               editSCMovie={showEditSCMovie}
               editProfile={showEditProfile}
+              parseMovie={showParseMovie}
               onCloseEdit={() => {
                 setShowEditMovie(null)
                 setShowEditSCMovie(null)
                 setShowEditProfile(null)
+                setShowParseMovie(null)
               }}
               actresses={actresses}
               actors={actors}
