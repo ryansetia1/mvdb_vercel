@@ -473,12 +473,20 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   // 2. Ubah handlePhotobookSelect agar menerima Photobook (bukan string)
   const handlePhotobookSelect = (photobook: Photobook) => {
+    console.log('handlePhotobookSelect called with:', {
+      photobookId: photobook.id,
+      titleEn: photobook.titleEn,
+      titleJp: photobook.titleJp
+    })
+    
     setNavigationHistory(prev => [...prev, contentState])
     setContentState({
       mode: 'photobookDetail',
       title: photobook.titleEn || photobook.titleJp || 'Photobook Details',
       data: photobook
     })
+    
+    console.log('Navigation state updated to photobookDetail mode')
   }
 
   const handleSCMovieSelect = async (scMovieInput: SCMovie | string) => {
@@ -829,11 +837,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   // Tambahkan fungsi pembungkus untuk ProfileContent
-  const handlePhotobookSelectProfile = (photobookId: string) => {
-    const photobook = photobooks.find(p => p.id === photobookId)
-    if (photobook) {
-      handlePhotobookSelect(photobook)
-    }
+  const handlePhotobookSelectProfile = (photobook: Photobook) => {
+    handlePhotobookSelect(photobook)
   }
 
   if (isLoading) {

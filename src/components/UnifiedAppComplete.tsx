@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
@@ -442,6 +442,12 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   const handlePhotobookSelect = (photobook: Photobook) => {
+    console.log('handlePhotobookSelect called with:', {
+      photobookId: photobook.id,
+      titleEn: photobook.titleEn,
+      titleJp: photobook.titleJp
+    })
+    
     // Save current state to history before navigating to photobook detail
     setNavigationHistory(prev => [...prev, contentState])
     
@@ -450,6 +456,8 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
       title: photobook.titleEn || photobook.titleJp || 'Photobook Details',
       data: photobook
     })
+    
+    console.log('Navigation state updated to photobookDetail mode')
   }
 
   const handleSCMovieSelect = async (scMovieInput: SCMovie | string) => {
