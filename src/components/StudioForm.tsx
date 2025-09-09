@@ -15,11 +15,15 @@ interface StudioFormProps {
 
 interface FormData {
   name: string
+  jpname: string
+  alias: string
   studioLinks: string
 }
 
 const initialFormData: FormData = {
   name: '',
+  jpname: '',
+  alias: '',
   studioLinks: ''
 }
 
@@ -52,19 +56,27 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
     try {
       let result
       if (editingId) {
-        result = await masterDataApi.updateStudio(
-          editingId,
-          formData.name.trim(),
-          formData.studioLinks.trim(),
-          accessToken
-        )
+        const updateData: any = {
+          name: formData.name.trim(),
+          jpname: formData.jpname.trim() || null,
+          alias: formData.alias.trim() || null,
+          studioLinks: formData.studioLinks.trim() || null
+        }
+        
+        console.log('Updating studio with data:', updateData)
+        
+        result = await masterDataApi.updateExtended('studio', editingId, updateData, accessToken)
+        console.log('Update result:', result)
         onDataChange(data.map(item => item.id === editingId ? result : item))
       } else {
-        result = await masterDataApi.createStudio(
-          formData.name.trim(),
-          formData.studioLinks.trim(),
-          accessToken
-        )
+        const createData: any = {
+          name: formData.name.trim(),
+          jpname: formData.jpname.trim() || null,
+          alias: formData.alias.trim() || null,
+          studioLinks: formData.studioLinks.trim() || null
+        }
+        
+        result = await masterDataApi.createExtended('studio', createData, accessToken)
         onDataChange([...data, result])
       }
 
@@ -80,6 +92,8 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
   const handleEdit = (item: MasterDataItem) => {
     setFormData({
       name: item.name || '',
+      jpname: item.jpname || '',
+      alias: item.alias || '',
       studioLinks: item.studioLinks || ''
     })
     setEditingId(item.id)
@@ -106,9 +120,11 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
     
     const query = searchQuery.toLowerCase()
     const name = item.name?.toLowerCase() || ''
+    const jpname = item.jpname?.toLowerCase() || ''
+    const alias = item.alias?.toLowerCase() || ''
     const links = item.studioLinks?.toLowerCase() || ''
     
-    return name.includes(query) || links.includes(query)
+    return name.includes(query) || jpname.includes(query) || alias.includes(query) || links.includes(query)
   })
 
   return (
@@ -126,13 +142,33 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name">Nama Studio *</Label>
+              <Label htmlFor="name">Nama Studio (English) *</Label>
               <Input
                 id="name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Masukkan nama studio"
+                placeholder="Masukkan nama studio dalam bahasa Inggris"
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="jpname">Nama Jepang</Label>
+              <Input
+                id="jpname"
+                value={formData.jpname || ''}
+                onChange={(e) => handleInputChange('jpname', e.target.value)}
+                placeholder="Masukkan nama studio dalam bahasa Jepang"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="alias">Alias</Label>
+              <Input
+                id="alias"
+                value={formData.alias || ''}
+                onChange={(e) => handleInputChange('alias', e.target.value)}
+                placeholder="Masukkan alias studio (opsional)"
               />
             </div>
 
@@ -140,7 +176,7 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
               <Label htmlFor="studioLinks">Studio Links</Label>
               <Textarea
                 id="studioLinks"
-                value={formData.studioLinks}
+                value={formData.studioLinks || ''}
                 onChange={(e) => handleInputChange('studioLinks', e.target.value)}
                 placeholder="Masukkan links studio (pisahkan dengan baris baru)"
                 rows={4}
@@ -216,6 +252,21 @@ export function StudioForm({ accessToken, data, onDataChange }: StudioFormProps)
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h4 className="font-medium">{item.name}</h4>
+                      
+                      {(item.jpname || item.alias) && (
+                        <div className="mt-1 space-y-1">
+                          {item.jpname && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium">Jepang:</span> {item.jpname}
+                            </p>
+                          )}
+                          {item.alias && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium">Alias:</span> {item.alias}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       
                       {item.studioLinks && (
                         <div className="mt-2">

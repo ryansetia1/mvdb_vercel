@@ -30,7 +30,8 @@ import {
   Filter,
   LogOut,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  FileText
 } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
@@ -584,6 +585,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       data: groupData
     })
   }
+
 
   const handleBack = () => {
     // Check if there's a previous state in navigation history
@@ -1296,6 +1298,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onMovieClick={handleMovieSelect}
               />
             )}
+
           </div>
         )}
       </main>

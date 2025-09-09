@@ -12,9 +12,7 @@ import {
   fetchTemplateGroups, 
   saveTemplateGroup, 
   deleteTemplateGroup, 
-  applyTemplateGroup,
-  testApiConnectivity,
-  testApiWithAnonKey
+  applyTemplateGroup
 } from './coverTemplateManager/api'
 
 interface CoverTemplateManagerProps {
@@ -58,13 +56,6 @@ export function CoverTemplateManager({ accessToken }: CoverTemplateManagerProps)
   // Load template groups on mount
   useEffect(() => {
     loadTemplateGroups()
-    // Test API connectivity for debugging
-    testApiConnectivity(accessToken).then(result => {
-      console.log('API connectivity test result:', result)
-      if (!result.isConnected) {
-        console.warn('API connectivity issues detected:', result.details)
-      }
-    })
   }, [accessToken])
 
   const loadTemplateGroups = async () => {
@@ -92,7 +83,7 @@ export function CoverTemplateManager({ accessToken }: CoverTemplateManagerProps)
         }
       }
       
-      setError(errorMessage + ' Use the "Test API" button to diagnose connection issues.')
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -295,40 +286,6 @@ export function CoverTemplateManager({ accessToken }: CoverTemplateManagerProps)
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={async () => {
-                  try {
-                    console.log('Manual API connectivity test started...')
-                    const result = await testApiConnectivity(accessToken)
-                    
-                    if (result.isConnected) {
-                      toast.success(`API Connected (${result.details.responseTime}ms)`, {
-                        description: `Health: ${result.details.healthCheck ? '✓' : '✗'}, Auth: ${result.details.authentication ? '✓' : '✗'}`
-                      })
-                    } else {
-                      toast.error('API Connection Failed', {
-                        description: result.details.error || 'Unknown error'
-                      })
-                      
-                      // Try alternative test with anon key
-                      console.log('Trying alternative test with anon key...')
-                      const anonResult = await testApiWithAnonKey()
-                      if (anonResult) {
-                        toast.info('Anon key test successful - issue might be with authentication')
-                      } else {
-                        toast.error('Both auth and anon key tests failed - server may be down')
-                      }
-                    }
-                  } catch (error) {
-                    console.error('Manual API test error:', error)
-                    toast.error(`API Test Error: ${error.message}`)
-                  }
-                }}
-              >
-                Test API
-              </Button>
               <Button onClick={handleAddNew} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Add Template Group

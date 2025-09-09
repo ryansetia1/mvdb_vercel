@@ -72,7 +72,11 @@ export function MoviePage({
         if (selectedMovie.actress) {
           selectedMovie.actress.split(',').forEach(actressName => {
             const trimmedName = actressName.trim()
-            const actress = actresses.find(a => a.name === trimmedName)
+            const actress = actresses.find(a => 
+              a.name === trimmedName || 
+              a.jpname === trimmedName || 
+              a.alias === trimmedName
+            )
             if (actress) data[trimmedName] = actress
           })
         }
@@ -81,14 +85,22 @@ export function MoviePage({
         if (selectedMovie.actors) {
           selectedMovie.actors.split(',').forEach(actorName => {
             const trimmedName = actorName.trim()
-            const actor = actors.find(a => a.name === trimmedName)
+            const actor = actors.find(a => 
+              a.name === trimmedName || 
+              a.jpname === trimmedName || 
+              a.alias === trimmedName
+            )
             if (actor) data[trimmedName] = actor
           })
         }
 
         // Add director data
         if (selectedMovie.director) {
-          const director = directors.find(d => d.name === selectedMovie.director)
+          const director = directors.find(d => 
+            d.name === selectedMovie.director || 
+            d.jpname === selectedMovie.director || 
+            d.alias === selectedMovie.director
+          )
           if (director) data[selectedMovie.director] = director
         }
 

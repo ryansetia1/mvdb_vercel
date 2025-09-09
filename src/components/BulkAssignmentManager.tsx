@@ -472,7 +472,7 @@ export function BulkAssignmentManager({ accessToken }: BulkAssignmentManagerProp
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-h-full overflow-y-auto">
       <Card>
         <CardHeader>
           <CardTitle>Bulk Assignment Manager</CardTitle>

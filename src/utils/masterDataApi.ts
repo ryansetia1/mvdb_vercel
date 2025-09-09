@@ -233,6 +233,7 @@ export const masterDataApi = {
   // Update extended item
   async updateExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log('API call - updateExtended:', { type, id, data })
+    console.log('JSON payload being sent:', JSON.stringify(data, null, 2))
     
     const response = await fetch(`${BASE_URL}/master/${type}/${id}/extended`, {
       method: 'PUT',
