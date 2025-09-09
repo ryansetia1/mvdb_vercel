@@ -539,7 +539,7 @@ export async function createStudioData(c: Context) {
   try {
     console.log('Server: Creating studio data')
     const body = await c.req.json()
-    const { name, studioLinks } = body
+    const { name, jpname, alias, studioLinks } = body
     console.log('Server: Studio data:', body)
 
     if (!name?.trim()) {
@@ -586,6 +586,8 @@ export async function createStudioData(c: Context) {
       name: name.trim(),
       type: 'studio',
       createdAt: new Date().toISOString(),
+      jpname: jpname?.trim() || undefined,
+      alias: alias?.trim() || undefined,
       studioLinks: studioLinks?.trim() || undefined
     }
 
@@ -1096,7 +1098,7 @@ export async function updateStudioData(c: Context) {
     console.log('Server: Updating studio data with ID:', id)
     
     const body = await c.req.json()
-    const { name, studioLinks } = body
+    const { name, jpname, alias, studioLinks } = body
     console.log('Server: Studio update data:', body)
 
     if (!name?.trim()) {
@@ -1139,6 +1141,8 @@ export async function updateStudioData(c: Context) {
     const updatedItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      alias: alias?.trim() || undefined,
       studioLinks: studioLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }

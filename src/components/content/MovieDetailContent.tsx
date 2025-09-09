@@ -179,7 +179,11 @@ export function MovieDetailContent({
         if (movie.actress) {
           movie.actress.split(',').forEach(actressName => {
             const trimmedName = actressName.trim()
-            const actress = actresses.find(a => a.name === trimmedName)
+            const actress = actresses.find(a => 
+              a.name === trimmedName || 
+              a.jpname === trimmedName || 
+              a.alias === trimmedName
+            )
             if (actress) data[trimmedName] = actress
           })
         }
@@ -188,21 +192,37 @@ export function MovieDetailContent({
         if (movie.actors) {
           movie.actors.split(',').forEach(actorName => {
             const trimmedName = actorName.trim()
-            const actor = actors.find(a => a.name === trimmedName)
+            const actor = actors.find(a => 
+              a.name === trimmedName || 
+              a.jpname === trimmedName || 
+              a.alias === trimmedName
+            )
             if (actor) data[trimmedName] = actor
           })
         }
 
         // Add director data - check in directors, actors, and actresses
         if (movie.director) {
-          let director = directors.find(d => d.name === movie.director)
+          let director = directors.find(d => 
+            d.name === movie.director || 
+            d.jpname === movie.director || 
+            d.alias === movie.director
+          )
           if (!director) {
             // If not found in directors table, check in actors table
-            director = actors.find(a => a.name === movie.director)
+            director = actors.find(a => 
+              a.name === movie.director || 
+              a.jpname === movie.director || 
+              a.alias === movie.director
+            )
           }
           if (!director) {
             // If not found in actors table, check in actresses table
-            director = actresses.find(a => a.name === movie.director)
+            director = actresses.find(a => 
+              a.name === movie.director || 
+              a.jpname === movie.director || 
+              a.alias === movie.director
+            )
           }
           if (director) data[movie.director] = director
         }

@@ -14,6 +14,7 @@ interface MasterDataItem {
   studioLinks?: string
   labelLinks?: string
   jpname?: string
+  alias?: string
   profilePicture?: string
   website?: string
   description?: string
@@ -632,8 +633,8 @@ async function updateStudioData(c: Context) {
     console.log('Server: Updating studio data for ID:', id)
     
     const body = await c.req.json()
-    const { name, studioLinks } = body
-    console.log('Server: Update studio data received:', { name, studioLinks })
+    const { name, jpname, alias, studioLinks } = body
+    console.log('Server: Update studio data received:', { name, jpname, alias, studioLinks })
 
     if (!name?.trim()) {
       return c.json({ error: 'Studio name is required' }, 400)
@@ -674,6 +675,8 @@ async function updateStudioData(c: Context) {
     const updatedItem: MasterDataItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      alias: alias?.trim() || undefined,
       studioLinks: studioLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }
