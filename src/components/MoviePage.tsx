@@ -18,6 +18,7 @@ interface MoviePageProps {
   movie: Movie
   accessToken: string
   onEdit?: (movie: Movie) => void
+  onParseMovie?: (movie: Movie) => void
   onBack?: () => void
   showEditButton?: boolean
   isAdminMode?: boolean
@@ -39,6 +40,7 @@ export function MoviePage({
   movie, 
   accessToken, 
   onEdit, 
+  onParseMovie,
   onBack, 
   showEditButton = true,
   isAdminMode = false

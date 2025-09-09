@@ -566,6 +566,67 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
 }
 
 /**
+ * Merge parsed data with existing movie data
+ */
+export function mergeMovieData(
+  existingMovie: Movie,
+  parsedData: ParsedMovieData,
+  selectedFields: Set<string>
+): Movie {
+  const mergedMovie = { ...existingMovie }
+
+  // Update selected fields with parsed data
+  if (selectedFields.has('titleEn') && parsedData.titleEn) {
+    mergedMovie.titleEn = parsedData.titleEn
+  }
+
+  if (selectedFields.has('releaseDate') && parsedData.releaseDate) {
+    mergedMovie.releaseDate = parsedData.releaseDate
+  }
+
+  if (selectedFields.has('duration') && parsedData.duration) {
+    mergedMovie.duration = parsedData.duration
+  }
+
+  if (selectedFields.has('director') && parsedData.director) {
+    mergedMovie.director = parsedData.director
+  }
+
+  if (selectedFields.has('studio') && parsedData.studio) {
+    mergedMovie.studio = parsedData.studio
+  }
+
+  if (selectedFields.has('series') && parsedData.series) {
+    mergedMovie.series = parsedData.series
+  }
+
+  if (selectedFields.has('actress') && parsedData.actresses.length > 0) {
+    // Merge actresses - combine existing and new, remove duplicates
+    const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()) : []
+    const newActresses = parsedData.actresses
+    const combinedActresses = [...new Set([...existingActresses, ...newActresses])]
+    mergedMovie.actress = combinedActresses.join(', ')
+  }
+
+  if (selectedFields.has('actors') && parsedData.actors.length > 0) {
+    // Merge actors - combine existing and new, remove duplicates
+    const existingActors = existingMovie.actors ? existingMovie.actors.split(',').map(a => a.trim()) : []
+    const newActors = parsedData.actors
+    const combinedActors = [...new Set([...existingActors, ...newActors])]
+    mergedMovie.actors = combinedActors.join(', ')
+  }
+
+  // Update timestamp
+  mergedMovie.updatedAt = new Date().toISOString()
+
+  console.log('=== MERGED MOVIE DATA ===')
+  console.log('Selected fields:', Array.from(selectedFields))
+  console.log('Merged movie:', mergedMovie)
+
+  return mergedMovie
+}
+
+/**
  * Helper function to check if a cast member matches search query including aliases
  * This is a simplified version of the one in masterDataApi.ts
  */

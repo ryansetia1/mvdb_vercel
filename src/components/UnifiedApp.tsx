@@ -230,6 +230,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [showEditMovie, setShowEditMovie] = useState<Movie | null>(null)
   const [showEditSCMovie, setShowEditSCMovie] = useState<SCMovie | null>(null)
   const [showEditProfile, setShowEditProfile] = useState<{ type: 'actor' | 'actress' | 'director', name: string } | null>(null)
+  const [showParseMovie, setShowParseMovie] = useState<Movie | null>(null)
   
   // Navigation items - start with default items only
   const [navItems, setNavItems] = useState<NavItem[]>([
@@ -652,6 +653,14 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActiveNavItem('admin')
   }
 
+  const handleParseMovie = (movie: Movie) => {
+    // Switch to admin mode with parser tab active
+    setContentState({ mode: 'admin', title: 'Admin Panel - Parse Movie' })
+    setActiveNavItem('admin')
+    // Set the movie to be parsed (pre-fill the parser with movie data)
+    setShowParseMovie(movie)
+  }
+
   const handleEditSCMovie = (scMovie: SCMovie) => {
     setShowEditSCMovie(scMovie)
     // Switch to admin mode to show the edit form
@@ -1055,6 +1064,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             editingMovie={showEditMovie}
             editingSCMovie={showEditSCMovie}
             editingProfile={showEditProfile}
+            parseMovie={showParseMovie}
             onClearEditingMovie={() => setShowEditMovie(null)}
             onClearEditingSCMovie={() => setShowEditSCMovie(null)}
             onClearEditingProfile={() => setShowEditProfile(null)}
@@ -1064,6 +1074,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               setShowEditMovie(null)
               setShowEditSCMovie(null)
               setShowEditProfile(null)
+              setShowParseMovie(null)
             }}
             onDataChanged={reloadData}
           />
@@ -1218,6 +1229,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onProfileSelect={handleProfileSelect}
                 onFilterSelect={handleFilterSelect}
                 onEditMovie={handleEditMovie}
+                onParseMovie={handleParseMovie}
                 showEditButton={true}
                 onBack={handleBack}
                 onMovieUpdated={(updatedMovie) => {

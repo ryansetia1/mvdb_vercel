@@ -26,6 +26,7 @@ interface DashboardProps {
   onClearEditingSCMovie?: () => void
   onClearEditingProfile?: () => void
   onDataChanged?: () => void
+  parseMovie?: any
 }
 
 export function Dashboard({ 
@@ -39,9 +40,11 @@ export function Dashboard({
   onClearEditingMovie,
   onClearEditingSCMovie,
   onClearEditingProfile,
-  onDataChanged
+  onDataChanged,
+  parseMovie: externalParseMovie
 }: DashboardProps) {
   const [activeTab, setActiveTab] = useState(
+    externalParseMovie ? 'parser' : 
     externalEditingMovie ? 'movies' : 
     externalEditingSCMovie ? 'sc-movies' :
     externalEditingProfile ? (externalEditingProfile.type === 'actress' ? 'actresses' : 'actors') : 
@@ -75,6 +78,14 @@ export function Dashboard({
       setActiveTab('movies') // Switch to movies tab when editing
     }
   }, [externalEditingMovie])
+
+  // Update parse movie when external prop changes
+  useEffect(() => {
+    if (externalParseMovie) {
+      setEditingMovie(externalParseMovie)
+      setActiveTab('parser') // Switch to parser tab when parsing
+    }
+  }, [externalParseMovie])
 
   // Update editing SC movie when external prop changes
   useEffect(() => {
@@ -220,6 +231,7 @@ export function Dashboard({
             onCancel={() => {
               console.log('Parser cancelled')
             }}
+            existingMovie={editingMovie}
           />
         </TabsContent>
 
