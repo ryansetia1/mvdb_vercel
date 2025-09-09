@@ -24,6 +24,7 @@ export function ManualLinksGridSection({
   const [newUrl, setNewUrl] = useState('')
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingLink, setEditingLink] = useState<ManualLink | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const handleAddManualLink = () => {
     if (!newUrl.trim()) return
@@ -69,6 +70,7 @@ export function ManualLinksGridSection({
   const handleEditLink = (index: number) => {
     setEditingIndex(index)
     setEditingLink({ ...manualLinks[index] })
+    setIsEditDialogOpen(true)
   }
 
   const handleSaveEdit = () => {
@@ -80,11 +82,13 @@ export function ManualLinksGridSection({
 
     setEditingIndex(null)
     setEditingLink(null)
+    setIsEditDialogOpen(false)
   }
 
   const handleCancelEdit = () => {
     setEditingIndex(null)
     setEditingLink(null)
+    setIsEditDialogOpen(false)
   }
 
   const handleDeleteLink = (index: number) => {
@@ -192,8 +196,8 @@ export function ManualLinksGridSection({
           </div>
         </div>
 
-        {/* Image Grid - Updated to show 4 images per row with larger thumbnails */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {/* Image Grid - Updated to show 2 images per row with larger thumbnails */}
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {/* Existing Images */}
           {manualLinks.map((link, index) => {
             const status = getTaggingStatus(link)
@@ -204,7 +208,7 @@ export function ManualLinksGridSection({
                   <ImageWithFallback
                     src={link.url}
                     alt={`Manual image ${index + 1}`}
-                    className="w-full h-32 object-cover"
+                    className="w-full h-96 object-contain bg-gray-50"
                   />
                   
                   {/* Image number */}
@@ -262,7 +266,11 @@ export function ManualLinksGridSection({
                       
                       {/* Action buttons */}
                       <div className="flex gap-1">
-                        <Dialog>
+                        <Dialog open={isEditDialogOpen && editingIndex === index} onOpenChange={(open) => {
+                          if (!open) {
+                            handleCancelEdit()
+                          }
+                        }}>
                           <DialogTrigger asChild>
                             <Button
                               type="button"
@@ -274,123 +282,130 @@ export function ManualLinksGridSection({
                               <Edit className="h-3 w-3" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Edit Image Tags</DialogTitle>
+                          <DialogContent className="!max-w-[1200px] max-h-[98vh] overflow-hidden">
+                            <DialogHeader className="pb-3">
+                              <DialogTitle className="text-xl">Edit Image Tags</DialogTitle>
                             </DialogHeader>
                             {editingIndex === index && editingLink && (
-                              <div className="space-y-4">
-                                {/* Image preview */}
-                                <div className="flex justify-center">
-                                  <ImageWithFallback
-                                    src={link.url}
-                                    alt="Editing image"
-                                    className="w-48 h-48 object-cover rounded border"
-                                  />
-                                </div>
-                                
-                                {/* URL display */}
-                                <div>
-                                  <Label className="text-xs">Image URL</Label>
-                                  <div className="flex items-center gap-2 text-xs">
-                                    <a
-                                      href={link.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:underline flex items-center gap-1 truncate flex-1"
-                                    >
-                                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                                      <span className="truncate">{link.url}</span>
-                                    </a>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-h-[88vh] overflow-y-auto">
+                                {/* Left side - Image preview */}
+                                <div className="space-y-4">
+                                  <div className="flex justify-center">
+                                    <ImageWithFallback
+                                      src={link.url}
+                                      alt="Editing image"
+                                      className="w-full max-w-lg h-96 object-contain rounded border bg-gray-50"
+                                    />
+                                  </div>
+                                  
+                                  {/* URL display */}
+                                  <div className="space-y-1">
+                                    <Label className="text-sm font-medium">Image URL</Label>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <a
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline flex items-center gap-1 truncate flex-1"
+                                      >
+                                        <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                        <span className="truncate">{link.url}</span>
+                                      </a>
+                                    </div>
                                   </div>
                                 </div>
 
-                                {/* Actresses */}
-                                <div>
-                                  <Label className="text-xs flex items-center gap-1">
-                                    Actresses in this image
-                                    {selectedActresses.length > 0 && (
-                                      <Lock className="h-3 w-3 text-amber-600" />
+                                {/* Right side - Form fields */}
+                                <div className="space-y-6">
+                                  {/* Actresses */}
+                                  <div className="space-y-2">
+                                    <Label className="text-base font-medium flex items-center gap-2">
+                                      Actresses in this image
+                                      {selectedActresses.length > 0 && (
+                                        <Lock className="h-5 w-5 text-amber-600" />
+                                      )}
+                                    </Label>
+                                    {selectedActresses.length > 0 ? (
+                                      // Restricted mode: only show selected actresses
+                                      <CastManager
+                                        type="actress"
+                                        currentCast={editingLink.actresses.join(', ')}
+                                        onCastChange={(actresses) => 
+                                          setEditingLink({
+                                            ...editingLink,
+                                            actresses: actresses.split(',').map(a => a.trim()).filter(Boolean)
+                                          })
+                                        }
+                                        accessToken={accessToken}
+                                        allowMultiple={true}
+                                        placeholder="Select from available actresses"
+                                        restrictToNames={selectedActresses}
+                                      />
+                                    ) : (
+                                      // Unrestricted mode: show all actresses
+                                      <CastManager
+                                        type="actress"
+                                        currentCast={editingLink.actresses.join(', ')}
+                                        onCastChange={(actresses) => 
+                                          setEditingLink({
+                                            ...editingLink,
+                                            actresses: actresses.split(',').map(a => a.trim()).filter(Boolean)
+                                          })
+                                        }
+                                        accessToken={accessToken}
+                                        allowMultiple={true}
+                                        placeholder="Select actresses in this image"
+                                      />
                                     )}
-                                  </Label>
-                                  {selectedActresses.length > 0 ? (
-                                    // Restricted mode: only show selected actresses
-                                    <CastManager
-                                      type="actress"
-                                      currentCast={editingLink.actresses.join(', ')}
-                                      onCastChange={(actresses) => 
+                                  </div>
+
+                                  {/* Content Rating */}
+                                  <div className="space-y-2">
+                                    <Label className="text-base font-medium flex items-center gap-2">
+                                      <Shield className="h-5 w-5" />
+                                      Content Rating
+                                    </Label>
+                                    <Select 
+                                      value={ratingToSelectValue(editingLink.contentRating)} 
+                                      onValueChange={(value) =>
                                         setEditingLink({
                                           ...editingLink,
-                                          actresses: actresses.split(',').map(a => a.trim()).filter(Boolean)
+                                          contentRating: selectValueToRating(value as ContentRatingSelectValue)
                                         })
                                       }
-                                      accessToken={accessToken}
-                                      allowMultiple={true}
-                                      placeholder="Select from available actresses"
-                                      restrictToNames={selectedActresses}
-                                    />
-                                  ) : (
-                                    // Unrestricted mode: show all actresses
-                                    <CastManager
-                                      type="actress"
-                                      currentCast={editingLink.actresses.join(', ')}
-                                      onCastChange={(actresses) => 
-                                        setEditingLink({
-                                          ...editingLink,
-                                          actresses: actresses.split(',').map(a => a.trim()).filter(Boolean)
-                                        })
-                                      }
-                                      accessToken={accessToken}
-                                      allowMultiple={true}
-                                      placeholder="Select actresses in this image"
-                                    />
-                                  )}
-                                </div>
+                                    >
+                                      <SelectTrigger className="h-10 text-base">
+                                        <SelectValue placeholder="Select content rating (optional)" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No Rating</SelectItem>
+                                        <SelectItem value="N">N (Partial)</SelectItem>
+                                        <SelectItem value="NN">NN (Full)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
 
-                                {/* Content Rating */}
-                                <div>
-                                  <Label className="text-xs flex items-center gap-1">
-                                    <Shield className="h-3 w-3" />
-                                    Content Rating
-                                  </Label>
-                                  <Select 
-                                    value={ratingToSelectValue(editingLink.contentRating)} 
-                                    onValueChange={(value) =>
-                                      setEditingLink({
-                                        ...editingLink,
-                                        contentRating: selectValueToRating(value as ContentRatingSelectValue)
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select content rating (optional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">No Rating</SelectItem>
-                                      <SelectItem value="N">N (Partial)</SelectItem>
-                                      <SelectItem value="NN">NN (Full)</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                {/* Action buttons */}
-                                <div className="flex gap-2 justify-end">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleCancelEdit}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="default"
-                                    size="sm"
-                                    onClick={handleSaveEdit}
-                                  >
-                                    Save Changes
-                                  </Button>
+                                  {/* Action buttons */}
+                                  <div className="flex gap-4 justify-end pt-6">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="lg"
+                                      onClick={handleCancelEdit}
+                                      className="px-8 py-2"
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="default"
+                                      size="lg"
+                                      onClick={handleSaveEdit}
+                                      className="px-8 py-2"
+                                    >
+                                      Save Changes
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -476,47 +491,62 @@ export function ManualLinksGridSection({
 
         {/* Add New Manual Link Dialog */}
         <Dialog open={isAddingManual} onOpenChange={setIsAddingManual}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Image Link</DialogTitle>
+          <DialogContent className="!max-w-[1200px] max-h-[98vh] overflow-hidden">
+            <DialogHeader className="pb-3">
+              <DialogTitle className="text-xl">Add New Image Link</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm">Image URL</Label>
-                <Input
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="https://example.com/image.jpg"
-                  className="text-sm"
-                />
-              </div>
-              
-              {/* Preview */}
-              {newUrl && (
-                <div className="flex justify-center">
-                  <ImageWithFallback
-                    src={newUrl}
-                    alt="Preview"
-                    className="w-48 h-48 object-cover rounded border"
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-h-[88vh] overflow-y-auto">
+              {/* Left side - Image preview */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">Image URL</Label>
+                  <Input
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="h-10 text-base"
                   />
                 </div>
-              )}
+                
+                {/* Preview */}
+                {newUrl && (
+                  <div className="flex justify-center">
+                    <ImageWithFallback
+                      src={newUrl}
+                      alt="Preview"
+                      className="w-full max-w-lg h-96 object-contain rounded border bg-gray-50"
+                    />
+                  </div>
+                )}
+              </div>
               
-              <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsAddingManual(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleAddManualLink}
-                  disabled={!newUrl.trim()}
-                >
-                  Add Image
-                </Button>
+              {/* Right side - Action buttons */}
+              <div className="flex flex-col justify-center space-y-6">
+                <div className="text-center text-muted-foreground">
+                  <p className="text-base">Enter an image URL above to see a preview</p>
+                  <p className="text-sm mt-2">Supported formats: JPG, PNG, GIF, WebP</p>
+                </div>
+                
+                <div className="flex gap-4 justify-center pt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setIsAddingManual(false)}
+                    className="px-8 py-2"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={handleAddManualLink}
+                    disabled={!newUrl.trim()}
+                    className="px-8 py-2"
+                  >
+                    Add Image
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>
