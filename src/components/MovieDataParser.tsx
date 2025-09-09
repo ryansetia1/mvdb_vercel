@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { Movie } from '../utils/movieApi'
@@ -50,17 +50,26 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
     templateName: string
     appliedFields: string[]
   } | null>(null)
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
+  const [lastAppliedTemplate, setLastAppliedTemplate] = useState<string | null>(null)
+  const templateNotificationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Template auto-apply hook
   const { applyDefaultTemplate, isLoading: templateLoading } = useTemplateAutoApply({
     accessToken,
     onTemplateApplied: (template, appliedFields) => {
+      // Clear any existing timeout
+      if (templateNotificationTimeoutRef.current) {
+        clearTimeout(templateNotificationTimeoutRef.current)
+      }
+      
       setAppliedTemplate({
         templateName: template.name,
         appliedFields
       })
+      
       // Auto hide notification after 5 seconds
-      setTimeout(() => setAppliedTemplate(null), 5000)
+      templateNotificationTimeoutRef.current = setTimeout(() => setAppliedTemplate(null), 5000)
     }
   })
 
@@ -69,17 +78,31 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
     loadMasterData()
   }, [])
 
+  // Cleanup timeouts on component unmount
+  useEffect(() => {
+    return () => {
+      if (templateNotificationTimeoutRef.current) {
+        clearTimeout(templateNotificationTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Auto-apply template when movie type changes and we have parsed data
   useEffect(() => {
-    if (movieType && parsedData && dmcode && !templateLoading) {
+    if (movieType && parsedData && dmcode && !templateLoading && !isApplyingTemplate) {
       console.log('🎬 Auto-applying template on type change for type:', movieType)
       
       // Set crop cover based on type
       setCropCover(shouldEnableAutoCrop(movieType))
       
-      applyTemplateForType(movieType)
+      // Use a small delay to prevent rapid successive calls
+      const timeoutId = setTimeout(() => {
+        applyTemplateForType(movieType)
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
-  }, [movieType, parsedData, dmcode, templateLoading])
+  }, [movieType, parsedData, dmcode, templateLoading, isApplyingTemplate])
 
   const loadMasterData = async () => {
     try {
@@ -180,13 +203,16 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
         setMatchedData(matched)
         
         // Auto-apply template after parsing and matching is complete
-        if (movieType && generatedDmcode) {
+        if (movieType && generatedDmcode && !isApplyingTemplate) {
           console.log('🎬 Auto-applying template after parse for type:', movieType)
           
           // Set crop cover based on type
           setCropCover(shouldEnableAutoCrop(movieType))
           
-          await applyTemplateForType(movieType)
+          // Use a delay to prevent conflict with useEffect
+          setTimeout(() => {
+            applyTemplateForType(movieType)
+          }, 200)
         }
       })
     } catch (error) {
@@ -274,21 +300,33 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
 
   // Apply template when movie type changes
   const applyTemplateForType = async (type: string) => {
-    if (!parsedData || !dmcode) return
+    if (!parsedData || !dmcode || isApplyingTemplate) return
+
+    const templateKey = `${type}-${dmcode}`
+    if (lastAppliedTemplate === templateKey) {
+      console.log('⏭️ Skipping template application - already applied:', templateKey)
+      return
+    }
 
     console.log('🎬 Applying template for type:', type)
+    setIsApplyingTemplate(true)
     
-    const result = await applyDefaultTemplate({
-      type: type,
-      dmcode: dmcode,
-      currentCover: cover,
-      currentGallery: gallery
-    })
-    
-    if (result) {
-      console.log('✅ Template applied:', result)
-      if (result.cover) setCover(result.cover)
-      if (result.gallery) setGallery(result.gallery)
+    try {
+      const result = await applyDefaultTemplate({
+        type: type,
+        dmcode: dmcode,
+        currentCover: cover,
+        currentGallery: gallery
+      })
+      
+      if (result) {
+        console.log('✅ Template applied:', result)
+        if (result.cover) setCover(result.cover)
+        if (result.gallery) setGallery(result.gallery)
+        setLastAppliedTemplate(templateKey)
+      }
+    } finally {
+      setIsApplyingTemplate(false)
     }
   }
 
@@ -305,10 +343,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel }: MovieDataPars
     // Set crop cover based on type
     setCropCover(shouldEnableAutoCrop(newType))
     
-    // Apply template for the new type
-    if (parsedData && dmcode) {
-      await applyTemplateForType(newType)
-    }
+    // Apply template for the new type (useEffect will handle this automatically)
+    // No need to call applyTemplateForType here to prevent duplicate calls
   }
 
   const handleIgnoreItem = (typeKey: keyof MatchedData, index: number) => {

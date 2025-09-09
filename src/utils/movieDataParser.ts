@@ -453,11 +453,12 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   console.log('Ignored items:', ignoredItems)
   
   // Filter out ignored items and use matched data when available
-  const filteredActresses = parsedData.actresses.filter((_, index) => {
-    if (!ignoredItems) return true
-    const itemKey = `actresses-${index}`
-    return !ignoredItems.has(itemKey)
-  }).map((name, index) => {
+  const filteredActresses = parsedData.actresses.map((name, index) => {
+    // Check if this actress is ignored
+    if (ignoredItems?.has(`actresses-${index}`)) {
+      return null // Mark as ignored
+    }
+    
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actresses[index]
     if (matchedItem?.matched) {
@@ -468,13 +469,17 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     }
     console.log(`Actress ${name} not matched, using original name`)
     return name
-  })
+  }).filter(name => name !== null) // Remove ignored items
   
-  const filteredActors = parsedData.actors.filter((_, index) => {
-    if (!ignoredItems) return true
-    const itemKey = `actors-${index}`
-    return !ignoredItems.has(itemKey)
-  }).map((name, index) => {
+  // Remove duplicates from actresses list
+  const uniqueActresses = [...new Set(filteredActresses)]
+  
+  const filteredActors = parsedData.actors.map((name, index) => {
+    // Check if this actor is ignored
+    if (ignoredItems?.has(`actors-${index}`)) {
+      return null // Mark as ignored
+    }
+    
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actors[index]
     if (matchedItem?.matched) {
@@ -485,7 +490,10 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     }
     console.log(`Actor ${name} not matched, using original name`)
     return name
-  })
+  }).filter(name => name !== null) // Remove ignored items
+  
+  // Remove duplicates from actors list
+  const uniqueActors = [...new Set(filteredActors)]
   
   // Check if director is ignored and use matched data
   const isDirectorIgnored = ignoredItems?.has('directors-0')
@@ -541,15 +549,15 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     director,
     studio,
     series,
-    actress: filteredActresses.join(', '),
-    actors: filteredActors.join(', '),
+    actress: uniqueActresses.join(', '),
+    actors: uniqueActors.join(', '),
     dmcode: parsedData.dmcode || '',
     type: 'HC' // Default to HC for parsed movies
   }
   
   console.log('=== FINAL MOVIE DATA ===')
-  console.log('Final actresses:', finalMovie.actress)
-  console.log('Final actors:', finalMovie.actors)
+  console.log('Final actresses (deduplicated):', finalMovie.actress)
+  console.log('Final actors (deduplicated):', finalMovie.actors)
   console.log('Final director:', finalMovie.director)
   console.log('Final studio:', finalMovie.studio)
   console.log('Final series:', finalMovie.series)
