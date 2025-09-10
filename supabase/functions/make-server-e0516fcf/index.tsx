@@ -3720,5 +3720,68 @@ app.get('/make-server-f3064b20/debug/kv-keys', async (c) => {
   }
 })
 
+// Get value by key from KV store
+app.get('/make-server-e0516fcf/kv-store/get/:key', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    const key = c.req.param('key')
+    if (!key) {
+      return c.json({ error: 'Key parameter is required' }, 400)
+    }
+
+    console.log('Server: Getting value for key:', key)
+    
+    const value = await kv.get(key)
+    console.log(`Server: Retrieved value for key ${key}:`, value ? 'exists' : 'null')
+    
+    return c.json({ 
+      key,
+      value,
+      exists: !!value
+    })
+  } catch (error) {
+    console.log('Get KV value error:', error)
+    return c.json({ error: `Get KV value error: ${error}` }, 500)
+  }
+})
+
+// Set value by key in KV store
+app.post('/make-server-e0516fcf/kv-store/set', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    const { key, value } = await c.req.json()
+    
+    if (!key) {
+      return c.json({ error: 'Key is required' }, 400)
+    }
+
+    console.log('Server: Setting value for key:', key)
+    
+    await kv.set(key, value)
+    console.log(`Server: Successfully set value for key ${key}`)
+    
+    return c.json({ 
+      success: true,
+      key,
+      message: 'Value set successfully'
+    })
+  } catch (error) {
+    console.log('Set KV value error:', error)
+    return c.json({ error: `Set KV value error: ${error}` }, 500)
+  }
+})
+
 console.log('Server starting with all routes...')
 Deno.serve(app.fetch)
