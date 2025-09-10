@@ -2297,6 +2297,83 @@ app.get('/make-server-e0516fcf/movie-studios', async (c) => {
   }
 })
 
+// Get template counts for stats
+app.get('/make-server-f3064b20/template-counts', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Get group templates - cover templates are now part of group templates
+    const groupTemplatesResults = await kv.getByPrefix('template_group:')
+    const groupTemplates = groupTemplatesResults.map(item => item.value)
+    
+    return c.json({ 
+      groupTemplates: groupTemplates.length
+    })
+  } catch (error) {
+    console.log('Get template counts error:', error)
+    return c.json({ error: `Get template counts error: ${error}` }, 500)
+  }
+})
+
+// Get favorites for stats
+app.get('/make-server-f3064b20/favorites', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const favorites = await kv.getByPrefix('favorite_')
+    const parsedFavorites = favorites.map(item => {
+      try {
+        return JSON.parse(item.value)
+      } catch (error) {
+        console.error('Error parsing favorite:', error)
+        return null
+      }
+    }).filter(item => item !== null)
+    
+    return c.json(parsedFavorites)
+  } catch (error) {
+    console.log('Get favorites error:', error)
+    return c.json({ error: `Get favorites error: ${error}` }, 500)
+  }
+})
+
+// Get photobooks for stats
+app.get('/make-server-f3064b20/photobooks', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const parsedPhotobooks = photobooks.map(item => {
+      try {
+        return JSON.parse(item.value)
+      } catch (error) {
+        console.error('Error parsing photobook:', error)
+        return null
+      }
+    }).filter(item => item !== null)
+    
+    return c.json(parsedPhotobooks)
+  } catch (error) {
+    console.log('Get photobooks error:', error)
+    return c.json({ error: `Get photobooks error: ${error}` }, 500)
+  }
+})
+
 // BULK ASSIGNMENT ROUTES
 // ==================================================================================
 

@@ -1003,6 +1003,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <div className="hidden md:flex items-center gap-1">
                 {customNavItems.map((item, index) => (
                   <DraggableCustomNavItem
+                    key={item.id}
                     item={item}
                     index={index}
                     activeNavItem={activeNavItem}

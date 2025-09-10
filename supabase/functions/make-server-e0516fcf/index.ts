@@ -3680,5 +3680,28 @@ app.get('/make-server-f3064b20/debug/kv-keys', async (c) => {
   }
 })
 
+// Get template counts for stats
+app.get('/make-server-e0516fcf/template-counts', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Get group templates - cover templates are now part of group templates
+    const groupTemplatesResults = await kv.getByPrefix('template_group:')
+    const groupTemplates = groupTemplatesResults.map(item => item.value)
+    
+    return c.json({ 
+      groupTemplates: groupTemplates.length
+    })
+  } catch (error) {
+    console.log('Get template counts error:', error)
+    return c.json({ error: `Get template counts error: ${error}` }, 500)
+  }
+})
+
 console.log('Server starting with all routes...')
 Deno.serve(app.fetch)

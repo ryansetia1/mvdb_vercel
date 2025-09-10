@@ -3239,6 +3239,74 @@ app.post('/make-server-e0516fcf/favorites/check', async (c) => {
   }
 })
 
+// Get template counts for stats
+app.get('/make-server-e0516fcf/template-counts', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Get group templates - cover templates are now part of group templates
+    const groupTemplatesResults = await kv.getByPrefix('template_group:')
+    const groupTemplates = groupTemplatesResults.map(item => item.value)
+    
+    return c.json({ 
+      groupTemplates: groupTemplates.length
+    })
+  } catch (error) {
+    console.log('Get template counts error:', error)
+    return c.json({ error: `Get template counts error: ${error}` }, 500)
+  }
+})
+
+// Master data routes with e0516fcf prefix
+app.get('/make-server-e0516fcf/master/:type', async (c) => {
+  try {
+    const type = c.req.param('type')
+    console.log(`Server: Getting master data for type: "${type}" (length: ${type?.length})`)
+    console.log(`Server: Type check - raw type:`, JSON.stringify(type))
+    
+    // List of valid types
+    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group']
+    console.log(`Server: Valid types:`, validTypes)
+    console.log(`Server: Type validation - includes check:`, validTypes.includes(type))
+    
+    if (!type) {
+      console.log(`Server: Type parameter is missing or empty`)
+      return c.json({ error: 'Type parameter is required' }, 400)
+    }
+    
+    if (!validTypes.includes(type)) {
+      console.log(`Server: Invalid type parameter: "${type}" - not in valid types list`)
+      return c.json({ error: `Invalid type parameter: ${type}. Valid types are: ${validTypes.join(', ')}` }, 400)
+    }
+
+    console.log(`Server: Fetching data with prefix: master_${type}_`)
+    const data = await kv.getByPrefix(`master_${type}_`)
+    console.log(`Server: Raw data from KV store:`, data)
+    
+    const items = data.map(item => {
+      try {
+        const parsed = JSON.parse(item.value)
+        console.log(`Server: Parsed item:`, parsed)
+        return parsed
+      } catch (parseError) {
+        console.error(`Server: Error parsing item:`, parseError, 'Raw item:', item)
+        return null
+      }
+    }).filter(item => item !== null)
+    
+    console.log(`Server: Returning ${items.length} items for type ${type}`)
+    return c.json({ data: items })
+  } catch (error) {
+    console.error('Server: Get master data error:', error)
+    return c.json({ error: `Failed to get master data: ${error.message}` }, 500)
+  }
+})
+
 // Start the server
 // ==================================================================================
 // MASTER DATA ROUTES (f3064b20 prefix)

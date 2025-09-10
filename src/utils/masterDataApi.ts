@@ -49,7 +49,7 @@ export interface MasterDataItem {
   labelLinks?: string // For label
 }
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20`
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
 
 // Debug logging
 console.log('Master Data API Configuration:')
