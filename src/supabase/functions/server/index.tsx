@@ -3757,5 +3757,109 @@ app.get('/make-server-f3064b20/debug/kv-keys', async (c) => {
   }
 })
 
+// Get all keys from KV store for backup/restore functionality
+app.get('/make-server-e0516fcf/kv-store/all-keys', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    console.log('Server: Getting all keys from KV store for user:', user.id)
+    
+    // Get all keys by selecting all records
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    
+    const { data: allKeys, error } = await supabase
+      .from("kv_store_cd38bf14")
+      .select("key")
+    
+    if (error) {
+      throw new Error(error.message)
+    }
+    
+    console.log(`Server: Found ${allKeys?.length || 0} total keys in KV store`)
+    
+    const keys = allKeys?.map(item => item.key) || []
+    
+    return c.json({ 
+      keys,
+      totalKeys: keys.length,
+      user: user.id
+    })
+  } catch (error) {
+    console.log('Get all KV keys error:', error)
+    return c.json({ error: `Get all KV keys error: ${error}` }, 500)
+  }
+})
+
+// Get value by key from KV store
+app.get('/make-server-e0516fcf/kv-store/get/:key', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    const key = c.req.param('key')
+    if (!key) {
+      return c.json({ error: 'Key parameter is required' }, 400)
+    }
+
+    console.log('Server: Getting value for key:', key)
+    
+    const value = await kv.get(key)
+    console.log(`Server: Retrieved value for key ${key}:`, value ? 'exists' : 'null')
+    
+    return c.json({ 
+      key,
+      value,
+      exists: !!value
+    })
+  } catch (error) {
+    console.log('Get KV value error:', error)
+    return c.json({ error: `Get KV value error: ${error}` }, 500)
+  }
+})
+
+// Set value by key in KV store
+app.post('/make-server-e0516fcf/kv-store/set', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    const { key, value } = await c.req.json()
+    
+    if (!key) {
+      return c.json({ error: 'Key is required' }, 400)
+    }
+
+    console.log('Server: Setting value for key:', key)
+    
+    await kv.set(key, value)
+    console.log(`Server: Successfully set value for key ${key}`)
+    
+    return c.json({ 
+      success: true,
+      key,
+      message: 'Value set successfully'
+    })
+  } catch (error) {
+    console.log('Set KV value error:', error)
+    return c.json({ error: `Set KV value error: ${error}` }, 500)
+  }
+})
+
 console.log('Server starting with all routes...')
 Deno.serve(app.fetch)
