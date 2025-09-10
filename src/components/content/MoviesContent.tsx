@@ -541,7 +541,7 @@ export function MoviesContent({
   return (
     <div className="space-y-6">
       {/* Filters and Sort */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg relative">
+      <div className="flex flex-wrap items-center gap-4 p-4 rounded-lg relative">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
