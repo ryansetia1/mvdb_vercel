@@ -7,6 +7,7 @@ export interface ProfileContentProps {
   type: 'actor' | 'actress' | 'director'
   name: string
   accessToken: string
+  searchQuery?: string
   onBack: () => void
   onMovieSelect: (movie: Movie | string) => void
   onSCMovieSelect?: (scMovie: SCMovie | string) => void

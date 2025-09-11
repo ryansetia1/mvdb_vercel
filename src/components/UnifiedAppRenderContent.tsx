@@ -94,6 +94,7 @@
         searchQuery={searchQuery}
         onProfileSelect={handleProfileSelect}
         accessToken={accessToken}
+        onDataChange={reloadData}
       />
     )}
 
@@ -103,6 +104,7 @@
         searchQuery={searchQuery}
         onProfileSelect={handleProfileSelect}
         accessToken={accessToken}
+        onDataChange={reloadData}
       />
     )}
 
