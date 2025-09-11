@@ -201,33 +201,72 @@ export function StatsContent({ accessToken }: StatsContentProps) {
     value, 
     icon: Icon, 
     subtitle, 
-    color = "default" 
+    color = "default",
+    shadeLevel = "default"
   }: { 
     title: string
     value: number | string
     icon: React.ComponentType<{ className?: string }>
     subtitle?: string
-    color?: "default" | "blue" | "green" | "orange" | "red" | "purple"
+    color?: "default" | "blue" | "green" | "orange" | "red" | "purple" | "cyan" | "emerald" | "amber"
+    shadeLevel?: "primary" | "secondary" | "tertiary" | "quaternary" | "default"
   }) => {
-    const colorClasses = {
-      default: "bg-gray-50 dark:bg-gray-800",
-      blue: "bg-blue-50 dark:bg-blue-900/20",
-      green: "bg-green-50 dark:bg-green-900/20",
-      orange: "bg-orange-50 dark:bg-orange-900/20",
-      red: "bg-red-50 dark:bg-red-900/20",
-      purple: "bg-purple-50 dark:bg-purple-900/20"
+    // Shading system based on importance and category - lighter shades
+    const shadeClasses = {
+      primary: "bg-gray-50 dark:bg-black border-gray-200 dark:border-gray-800 shadow-lg dark:shadow-xl ring-2 dark:ring-gray-800", // Pure black - most important
+      secondary: "bg-gray-50 dark:bg-black border-gray-200 dark:border-gray-800 shadow-md dark:shadow-lg", // Pure black - important
+      tertiary: "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-md", // Dark gray - moderate
+      quaternary: "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 shadow-sm", // Medium gray - less important
+      default: "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-500" // Light gray - least important
     }
 
+    const getShadeStyle = (level: string) => {
+      const shadeMap = {
+        primary: { backgroundColor: 'rgb(0, 0, 0)', color: 'rgb(255, 255, 255)' }, // Pure black
+        secondary: { backgroundColor: 'rgb(0, 0, 0)', color: 'rgb(255, 255, 255)' }, // Pure black
+        tertiary: { backgroundColor: 'rgb(17, 24, 39)', color: 'rgb(255, 255, 255)' }, // gray-900 (upgraded from pure black)
+        quaternary: { backgroundColor: 'rgb(31, 41, 55)', color: 'rgb(255, 255, 255)' }, // gray-800 (upgraded from gray-900)
+        default: { backgroundColor: 'rgb(55, 65, 81)', color: 'rgb(255, 255, 255)' } // gray-700 (upgraded from gray-800)
+      }
+      return shadeMap[level as keyof typeof shadeMap] || shadeMap.default
+    }
+
+    const shadeStyle = getShadeStyle(shadeLevel)
+    const isDarkShade = shadeLevel !== "default"
+
     return (
-      <Card className={`${colorClasses[color]} border-0`}>
+      <Card 
+        className={`${shadeClasses[shadeLevel]} border`}
+        style={isDarkShade ? shadeStyle : undefined}
+      >
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">{title}</p>
-              <p className="text-2xl font-bold">{value}</p>
-              {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+              <p 
+                className={`text-sm font-medium ${isDarkShade ? 'dark:!text-white' : 'text-gray-700 dark:text-white'}`}
+                style={isDarkShade ? { color: 'rgb(255, 255, 255)' } : undefined}
+              >
+                {title}
+              </p>
+              <p 
+                className={`text-2xl font-bold ${isDarkShade ? 'dark:!text-white' : 'text-gray-900 dark:text-white'}`}
+                style={isDarkShade ? { color: 'rgb(255, 255, 255)' } : undefined}
+              >
+                {value}
+              </p>
+              {subtitle && (
+                <p 
+                  className={`text-xs mt-1 ${isDarkShade ? 'dark:!text-gray-200' : 'text-gray-600 dark:text-gray-200'}`}
+                  style={isDarkShade ? { color: 'rgb(229, 231, 235)' } : undefined}
+                >
+                  {subtitle}
+                </p>
+              )}
             </div>
-            <Icon className="h-8 w-8 text-muted-foreground" />
+            <Icon 
+              className={`h-8 w-8 ${isDarkShade ? 'dark:!text-white' : 'text-gray-600 dark:text-white'}`}
+              style={isDarkShade ? { color: 'rgb(255, 255, 255)' } : undefined}
+            />
           </div>
         </CardContent>
       </Card>
@@ -244,7 +283,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
     className?: string 
   }) => (
     <div className={`space-y-4 ${className}`}>
-      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <h3 className="text-lg font-semibold text-foreground dark:text-white">{title}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {children}
       </div>
@@ -267,14 +306,14 @@ export function StatsContent({ accessToken }: StatsContentProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Statistik Database</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl font-bold text-foreground dark:text-white">Statistik Database</h2>
+          <p className="text-muted-foreground dark:text-gray-300">
             Ringkasan lengkap semua data dalam database
           </p>
         </div>
         <div className="flex items-center gap-4">
           {lastUpdated && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground dark:text-gray-400">
               Terakhir diperbarui: {lastUpdated.toLocaleString('id-ID')}
             </p>
           )}
@@ -283,6 +322,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
             disabled={loading}
             variant="outline"
             size="sm"
+            className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -297,6 +337,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.movies.total} 
           icon={Film} 
           color="blue"
+          shadeLevel="primary"
         />
         <StatCard 
           title="Dengan Cover" 
@@ -304,34 +345,39 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           icon={Image} 
           subtitle={`${Math.round((stats.movies.withCover / stats.movies.total) * 100)}% dari total`}
           color="green"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Dengan Gallery" 
           value={stats.movies.withGallery} 
           icon={FolderOpen} 
           subtitle={`${Math.round((stats.movies.withGallery / stats.movies.total) * 100)}% dari total`}
-          color="purple"
+          color="green"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Dengan Watch Links" 
           value={stats.movies.withWatchLinks} 
           icon={PlayCircle} 
           subtitle={`${Math.round((stats.movies.withWatchLinks / stats.movies.total) * 100)}% dari total`}
-          color="cyan"
+          color="blue"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Dengan Download Links" 
           value={stats.movies.withDownloadLinks} 
           icon={Download} 
           subtitle={`${Math.round((stats.movies.withDownloadLinks / stats.movies.total) * 100)}% dari total`}
-          color="emerald"
+          color="green"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Dengan Censored Links" 
           value={stats.movies.withCensoredLinks} 
           icon={Settings} 
           subtitle={`${Math.round((stats.movies.withCensoredLinks / stats.movies.total) * 100)}% dari total`}
-          color="amber"
+          color="orange"
+          shadeLevel="quaternary"
         />
         {Object.entries(stats.movies.byType).map(([type, count]) => (
           <StatCard 
@@ -339,7 +385,8 @@ export function StatsContent({ accessToken }: StatsContentProps) {
             title={`Type: ${type}`} 
             value={count} 
             icon={Tag} 
-            color="orange"
+            color="blue"
+            shadeLevel="quaternary"
           />
         ))}
       </StatSection>
@@ -351,18 +398,21 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.scMovies.total} 
           icon={PlayCircle} 
           color="blue"
+          shadeLevel="primary"
         />
         <StatCard 
           title="Real Cut" 
           value={stats.scMovies.realCut} 
           icon={Film} 
           color="red"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Regular Censorship" 
           value={stats.scMovies.regularCensorship} 
           icon={Film} 
           color="orange"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Dengan English Subs" 
@@ -370,6 +420,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           icon={Calendar} 
           subtitle={`${Math.round((stats.scMovies.withEnglishSubs / stats.scMovies.total) * 100)}% dari total`}
           color="green"
+          shadeLevel="tertiary"
         />
       </StatSection>
 
@@ -380,48 +431,56 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.actors} 
           icon={User} 
           color="blue"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Actresses" 
           value={stats.actresses} 
           icon={Users} 
           color="purple"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Directors" 
           value={stats.directors} 
           icon={User} 
           color="green"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Studios" 
           value={stats.studios} 
           icon={Building} 
           color="orange"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Series" 
           value={stats.series} 
           icon={Film} 
           color="blue"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Labels" 
           value={stats.labels} 
           icon={Tag} 
           color="red"
+          shadeLevel="quaternary"
         />
         <StatCard 
           title="Groups" 
           value={stats.groups} 
           icon={Users} 
           color="purple"
+          shadeLevel="quaternary"
         />
         <StatCard 
           title="Tags" 
           value={stats.tags} 
           icon={Tag} 
           color="green"
+          shadeLevel="quaternary"
         />
       </StatSection>
 
@@ -432,6 +491,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.photobooks.total} 
           icon={BookOpen} 
           color="blue"
+          shadeLevel="primary"
         />
         <StatCard 
           title="Dengan Images" 
@@ -439,6 +499,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           icon={Image} 
           subtitle={`${Math.round((stats.photobooks.withImages / stats.photobooks.total) * 100)}% dari total`}
           color="green"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Top Actress" 
@@ -450,6 +511,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
             `${Object.entries(stats.photobooks.byActress)
               .sort(([,a], [,b]) => b - a)[0][1]} photobooks` : ''}
           color="purple"
+          shadeLevel="tertiary"
         />
       </StatSection>
 
@@ -460,36 +522,42 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.favorites.total} 
           icon={Heart} 
           color="red"
+          shadeLevel="primary"
         />
         <StatCard 
           title="Movie Favorites" 
           value={stats.favorites.movies} 
           icon={Film} 
           color="blue"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Image Favorites" 
           value={stats.favorites.images} 
           icon={Image} 
           color="green"
+          shadeLevel="secondary"
         />
         <StatCard 
           title="Cast Favorites" 
           value={stats.favorites.cast} 
           icon={Users} 
           color="purple"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Series Favorites" 
           value={stats.favorites.series} 
           icon={Film} 
           color="orange"
+          shadeLevel="tertiary"
         />
         <StatCard 
           title="Photobook Favorites" 
           value={stats.favorites.photobooks} 
           icon={BookOpen} 
           color="red"
+          shadeLevel="tertiary"
         />
       </StatSection>
 
@@ -501,6 +569,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           icon={Users} 
           color="purple"
           subtitle={stats.templates.groupTemplates === 0 ? "Endpoint belum di-deploy" : ""}
+          shadeLevel="quaternary"
         />
       </StatSection>
 
@@ -512,6 +581,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           icon={LinkIcon} 
           color="indigo"
           subtitle={`${stats.movieLinks.total} movie-to-movie relationships`}
+          shadeLevel="tertiary"
         />
       </StatSection>
 

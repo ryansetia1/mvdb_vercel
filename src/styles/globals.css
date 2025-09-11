@@ -42,40 +42,40 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: oklch(0.08 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.08 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.95 0 0);
+  --primary-foreground: oklch(0.08 0 0);
+  --secondary: oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.18 0 0);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.5 0.2 25);
+  --destructive-foreground: oklch(0.95 0 0);
+  --border: oklch(0.25 0 0);
+  --input: oklch(0.18 0 0);
+  --ring: oklch(0.5 0 0);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --chart-1: oklch(0.6 0.2 264);
+  --chart-2: oklch(0.7 0.15 162);
+  --chart-3: oklch(0.8 0.15 70);
+  --chart-4: oklch(0.65 0.2 303);
+  --chart-5: oklch(0.7 0.2 16);
+  --sidebar: oklch(0.1 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.6 0.2 264);
+  --sidebar-primary-foreground: oklch(0.95 0 0);
+  --sidebar-accent: oklch(0.18 0 0);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.25 0 0);
+  --sidebar-ring: oklch(0.5 0 0);
 }
 
 @theme inline {
@@ -227,6 +227,122 @@ html {
   /* Ensure dark mode styles are applied */
   .dark {
     color-scheme: dark;
+  }
+  
+  /* Enhanced dark mode contrast */
+  .dark .text-muted-foreground {
+    color: oklch(0.65 0 0) !important;
+  }
+  
+  .dark .text-foreground {
+    color: oklch(0.95 0 0) !important;
+  }
+  
+  .dark .border {
+    border-color: oklch(0.25 0 0) !important;
+  }
+  
+  .dark .bg-card {
+    background-color: rgb(17, 24, 39) !important; /* gray-900 */
+  }
+  
+  /* Black system for all cards */
+  .dark [class*="bg-gray-100"],
+  .dark [class*="bg-gray-200"],
+  .dark [class*="bg-gray-300"],
+  .dark [class*="bg-gray-400"],
+  .dark [class*="bg-gray-500"],
+  .dark [class*="bg-gray-600"],
+  .dark [class*="bg-gray-700"],
+  .dark [class*="bg-gray-800"],
+  .dark [class*="bg-gray-900"] {
+    background-color: rgb(17, 24, 39) !important; /* gray-900 */
+  }
+  
+  /* Force white text on all cards */
+  .dark .text-gray-700,
+  .dark .text-gray-900,
+  .dark .text-gray-600 {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Override card component for all cards */
+  .dark [data-slot="card"] {
+    background-color: rgb(17, 24, 39) !important; /* gray-900 */
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Ensure text-card-foreground is white */
+  .dark .text-card-foreground {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* NUCLEAR OPTION - Force all cards to be black with white text */
+  .dark [data-slot="card"],
+  .dark .bg-card,
+  .dark [class*="bg-gray"],
+  .dark .bg-black,
+  .dark .card,
+  .dark div[class*="bg-"] {
+    background-color: rgb(17, 24, 39) !important; /* gray-900 */
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Force all text inside cards to be white */
+  .dark [data-slot="card"] *,
+  .dark .bg-card *,
+  .dark [class*="bg-gray"] *,
+  .dark .card *,
+  .dark div[class*="bg-"] * {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Specific overrides for stat cards */
+  .dark [data-slot="card"] p,
+  .dark [data-slot="card"] span,
+  .dark [data-slot="card"] div,
+  .dark [data-slot="card"] svg {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Special styling for Total Movies card - highest specificity */
+  .dark [data-slot="card"].!bg-black {
+    background-color: rgb(0, 0, 0) !important; /* pure black */
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  .dark [data-slot="card"].!bg-black * {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  .dark [data-slot="card"].!bg-black p,
+  .dark [data-slot="card"].!bg-black span,
+  .dark [data-slot="card"].!bg-black div,
+  .dark [data-slot="card"].!bg-black svg {
+    color: rgb(255, 255, 255) !important; /* white */
+  }
+  
+  /* Force inline styles to override everything for special cards */
+  [data-slot="card"][style*="background-color: rgb(0, 0, 0)"] {
+    background-color: rgb(0, 0, 0) !important;
+    color: rgb(255, 255, 255) !important;
+  }
+  
+  [data-slot="card"][style*="background-color: rgb(0, 0, 0)"] * {
+    color: rgb(255, 255, 255) !important;
+  }
+  
+  /* Support for all shade levels - lighter version */
+  [data-slot="card"][style*="background-color: rgb(17, 24, 39)"],
+  [data-slot="card"][style*="background-color: rgb(31, 41, 55)"],
+  [data-slot="card"][style*="background-color: rgb(55, 65, 81)"] {
+    color: rgb(255, 255, 255) !important;
+  }
+  
+  [data-slot="card"][style*="background-color: rgb(17, 24, 39)"] *,
+  [data-slot="card"][style*="background-color: rgb(31, 41, 55)"] *,
+  [data-slot="card"][style*="background-color: rgb(55, 65, 81)"] * {
+    color: rgb(255, 255, 255) !important;
   }
   
   /* Force dark mode icon transitions */
