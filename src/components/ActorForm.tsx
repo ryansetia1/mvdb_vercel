@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
 import { ClickableAvatar } from './ClickableAvatar'
+import { ImageSearchIframe } from './ImageSearchIframe'
 import { toast } from 'sonner@2.0.3'
 
 interface ActorFormProps {
@@ -57,6 +58,18 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [groups, setGroups] = useState<MasterDataItem[]>([]) // Available groups for actresses
   const [hasUserChangedGroups, setHasUserChangedGroups] = useState(false) // Track if user manually changed groups
+  const [showImageSearch, setShowImageSearch] = useState(false) // Control image search iframe visibility
+  const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
+
+  // Reset autoSearchImage after it's been used
+  useEffect(() => {
+    if (autoSearchImage) {
+      const timer = setTimeout(() => {
+        setAutoSearchImage(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [autoSearchImage])
   
   const isEditing = Boolean(initialData)
 
@@ -319,6 +332,31 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     handleInputChange('profilePictures', [...formData.profilePictures, ''])
   }
 
+  const handleImageSelect = (imageUrl: string) => {
+    // Find the first empty field or add a new one
+    const emptyIndex = formData.profilePictures.findIndex(pic => !pic.trim())
+    
+    if (emptyIndex !== -1) {
+      // Fill the first empty field
+      handleProfilePicturesChange(emptyIndex, imageUrl)
+    } else {
+      // Add a new field with the selected image
+      handleInputChange('profilePictures', [...formData.profilePictures, imageUrl])
+    }
+    
+    toast.success('URL gambar berhasil ditambahkan ke field foto')
+  }
+
+  const pasteToField = async (index: number) => {
+    try {
+      const text = await navigator.clipboard.readText()
+      handleProfilePicturesChange(index, text)
+      toast.success('URL berhasil ditempel dari clipboard')
+    } catch (err) {
+      toast.error('Gagal membaca dari clipboard')
+    }
+  }
+
   const removeProfilePictureField = (index: number) => {
     console.log(`ActorForm: Handling delete for profile picture field at index ${index}`)
     console.log('ActorForm: Current profilePictures:', formData.profilePictures)
@@ -477,13 +515,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('ActorForm: handleSubmit called')
     e.preventDefault()
+    console.log('ActorForm: preventDefault called')
     
     if (!validateForm()) {
       toast.error('Mohon perbaiki kesalahan pada form')
       return
     }
 
+    console.log('ActorForm: Starting submit process')
     setIsLoading(true)
     
     try {
@@ -602,6 +643,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       }
 
       if (onSaved) {
+        console.log('ActorForm: Calling onSaved with result:', result)
         onSaved(result)
       }
       
@@ -610,6 +652,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         setFormData(initialFormData)
       }
       
+      // Close dialog immediately
       if (onClose) {
         onClose()
       }
@@ -854,12 +897,47 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>URL Foto Profil (Multiple)</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addProfilePictureField}>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={() => {
+                    setShowImageSearch(true)
+                    setAutoSearchImage(true)
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={!formData.name?.trim()}
+                >
+                  <Search className="h-4 w-4 mr-1" />
+                  Cari Gambar dengan "{formData.name || 'Nama'}"
+                </Button>
+              </div>
+              
+              {/* Image Search Iframe */}
+              {showImageSearch && (
+                <ImageSearchIframe
+                  onImageSelect={handleImageSelect}
+                  searchQuery={formData.name}
+                  name={formData.name}
+                  jpname={formData.jpname}
+                  type={type}
+                  className="mb-4"
+                  autoSearch={autoSearchImage}
+                />
+              )}
+
+              {/* Add Photo Button */}
+              <div className="flex justify-end">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addProfilePictureField}
+                >
                   <Plus className="h-4 w-4 mr-1" />
                   Tambah Foto
                 </Button>
               </div>
-              
+
               {/* Preview existing photos */}
               {formData.profilePictures.some(p => p.trim()) && (
                 <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
@@ -889,23 +967,34 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                         <p className="text-sm text-destructive">{errors[`profilePicture_${index}`]}</p>
                       )}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeProfilePictureField(index)}
-                      title={
-                        formData.profilePictures.length === 1 
-                          ? "Kosongkan field foto" 
-                          : `Hapus field foto ${index + 1}`
-                      }
-                    >
-                      {formData.profilePictures.length === 1 ? (
-                        <RotateCcw className="h-4 w-4" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => pasteToField(index)}
+                        title="Tempel URL dari clipboard"
+                      >
+                        <Clipboard className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeProfilePictureField(index)}
+                        title={
+                          formData.profilePictures.length === 1 
+                            ? "Kosongkan field foto" 
+                            : `Hapus field foto ${index + 1}`
+                        }
+                      >
+                        {formData.profilePictures.length === 1 ? (
+                          <RotateCcw className="h-4 w-4" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

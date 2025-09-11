@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink, Calendar, User, Tag, Edit } from 'lucide-react
 import { MasterDataItem, masterDataApi, calculateAge } from '../utils/masterDataApi'
 import { Movie, movieApi } from '../utils/movieApi'
 import { PhotoCycler } from './PhotoCycler'
+import { ImageSlideshow } from './ImageSlideshow'
 import { CroppedImage } from './CroppedImage'
 import { ModernLightbox } from './ModernLightbox'
 import { processTemplate } from '../utils/templateUtils'
@@ -179,30 +180,21 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
           {profilePictures.length > 0 && (
             <Card>
               <CardContent className="p-6">
-                {profilePictures.length === 1 ? (
-                  // Single photo - show as full image
-                  <div 
-                    className="w-full aspect-[3/4] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => handleImageClick(0)}
-                  >
-                    <img
-                      src={profilePictures[0]}
-                      alt={profileData?.name || name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  // Multiple photos - show cycling with thumbnail grid
-                  <div className="space-y-4">
-                    <PhotoCycler
-                      photos={profilePictures}
-                      name={profileData?.name || name}
-                      className="w-full aspect-[3/4] rounded-lg overflow-hidden cursor-pointer"
-                      interval={3000}
-                      onClick={() => handleImageClick(0)}
-                    />
-                    
-                    {/* Show all photos as clickable thumbnails */}
+                <div className="space-y-4">
+                  {/* Main slideshow */}
+                  <ImageSlideshow
+                    images={profilePictures}
+                    alt={profileData?.name || name}
+                    autoPlay={profilePictures.length > 1}
+                    interval={3000}
+                    showDots={profilePictures.length > 1}
+                    showCounter={true}
+                    onImageClick={() => handleImageClick(0)}
+                    className="w-full"
+                  />
+                  
+                  {/* Show all photos as clickable thumbnails */}
+                  {profilePictures.length > 1 && (
                     <div className="grid grid-cols-3 gap-2">
                       {profilePictures.map((pic, index) => (
                         <div
@@ -218,8 +210,8 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
                 
                 {profilePictures.length > 1 && (
                   <p className="text-xs text-muted-foreground text-center mt-3">

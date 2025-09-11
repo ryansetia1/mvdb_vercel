@@ -62,13 +62,29 @@ export const masterDataApi = {
   async healthCheck(): Promise<{ status: string, timestamp: string }> {
     console.log(`Frontend API: Health check to ${BASE_URL}/health`)
     
+    let controller: AbortController | null = null
+    let timeoutId: NodeJS.Timeout | null = null
+    
     try {
+      controller = new AbortController()
+      timeoutId = setTimeout(() => {
+        console.log('Frontend API: Health check timeout after 15s')
+        controller?.abort()
+      }, 15000)
+      
       const response = await fetch(`${BASE_URL}/health`, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       })
+
+      // Clear timeout immediately after response
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
 
       console.log('Frontend API: Health check response status:', response.status)
       
@@ -82,6 +98,12 @@ export const masterDataApi = {
       console.log('Frontend API: Health check result:', result)
       return result
     } catch (error) {
+      // Clean up timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      
       console.error('Frontend API: Health check exception:', error)
       throw error
     }
@@ -90,12 +112,20 @@ export const masterDataApi = {
   async getByType(type: string, accessToken?: string, retryCount = 0): Promise<MasterDataItem[]> {
     console.log(`Frontend API: Fetching ${type} data from ${BASE_URL}/master/${type} (attempt ${retryCount + 1})`)
     
+    let controller: AbortController | null = null
+    let timeoutId: NodeJS.Timeout | null = null
+    
     try {
       const authToken = accessToken || publicAnonKey
       console.log(`Frontend API: Using ${accessToken ? 'access token' : 'public key'} for ${type} request`)
       
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      controller = new AbortController()
+      // Increase timeout to 30 seconds and add exponential backoff for retries
+      const timeoutDuration = 30000 + (retryCount * 10000) // 30s, 40s, 50s
+      timeoutId = setTimeout(() => {
+        console.log(`Frontend API: Request timeout after ${timeoutDuration}ms for ${type}`)
+        controller?.abort()
+      }, timeoutDuration)
       
       const response = await fetch(`${BASE_URL}/master/${type}`, {
         headers: {
@@ -105,7 +135,12 @@ export const masterDataApi = {
         signal: controller.signal
       })
 
-      clearTimeout(timeoutId)
+      // Clear timeout immediately after response
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      
       console.log(`Frontend API: Response status for ${type}:`, response.status)
       
       if (!response.ok) {
@@ -118,17 +153,25 @@ export const masterDataApi = {
       console.log(`Frontend API: Successfully fetched ${type} data:`, result)
       return result.data || []
     } catch (error) {
+      // Clean up timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      
       console.error(`Frontend API: Exception while fetching ${type} (attempt ${retryCount + 1}):`, error)
       
-      // Retry logic for network errors
+      // Enhanced retry logic for network errors
       if (retryCount < 2 && (
         error instanceof TypeError && error.message.includes('Failed to fetch') ||
         error.name === 'AbortError' ||
         error.message.includes('ERR_CONNECTION_CLOSED') ||
-        error.message.includes('ERR_NETWORK')
+        error.message.includes('ERR_NETWORK') ||
+        error.message.includes('signal is aborted')
       )) {
-        console.log(`Frontend API: Retrying ${type} fetch in ${(retryCount + 1) * 1000}ms...`)
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000))
+        const retryDelay = (retryCount + 1) * 2000 // 2s, 4s
+        console.log(`Frontend API: Retrying ${type} fetch in ${retryDelay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
         return this.getByType(type, accessToken, retryCount + 1)
       }
       
@@ -559,7 +602,7 @@ export function castMatchesQuery(castMember: MasterDataItem, query: string): boo
 
 // Helper function to get all aliases for a cast member
 export function getAllAliases(castMember: MasterDataItem): string[] {
-  const aliases = []
+  const aliases: string[] = []
   
   // Add main alias
   if (castMember.alias?.trim()) {

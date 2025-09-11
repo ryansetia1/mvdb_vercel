@@ -258,6 +258,16 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
   }
 
+  // Update actors state locally without reloading
+  const updateActorLocally = (updatedActor: MasterDataItem) => {
+    setActors(prev => prev.map(actor => actor.id === updatedActor.id ? updatedActor : actor))
+  }
+
+  // Update actresses state locally without reloading
+  const updateActressLocally = (updatedActress: MasterDataItem) => {
+    setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
+  }
+
   // Load initial data
   const loadData = async () => {
     try {
@@ -958,6 +968,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               searchQuery={searchQuery}
               onProfileSelect={handleProfileSelect}
               accessToken={accessToken}
+              onDataChange={updateActorLocally}
             />
           )}
 
@@ -967,6 +978,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               searchQuery={searchQuery}
               onProfileSelect={handleProfileSelect}
               accessToken={accessToken}
+              onDataChange={updateActressLocally}
             />
           )}
 

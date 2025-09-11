@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -119,35 +119,38 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
       setActors(prev => prev.filter(a => a.id !== actor.id))
       toast.success(`${typeLabel} "${actor.name}" berhasil dihapus`)
       
-      // Trigger external data refresh
-      if (onDataChanged) {
-        onDataChanged()
-      }
+      // Note: Removed loadActors() call to prevent unnecessary refresh
+      // Data is already updated locally in state
     } catch (error: any) {
       console.error('Error deleting actor:', error)
       toast.error(`Gagal menghapus ${typeLabel.toLowerCase()}: ${error.message}`)
     }
   }
 
-  const handleFormSaved = (savedActor: MasterDataItem) => {
+  const handleFormSaved = useCallback(async (savedActor: MasterDataItem) => {
+    console.log('ActorManager: handleFormSaved called with data:', savedActor)
     if (editingActor) {
       // Update existing
-      setActors(prev => prev.map(a => a.id === savedActor.id ? savedActor : a))
+      console.log('ActorManager: Updating existing actor')
+      setActors(prev => {
+        const updated = prev.map(a => a.id === savedActor.id ? { ...savedActor, updatedAt: Date.now() } : a)
+        console.log('ActorManager: Updated actors array:', updated)
+        return updated
+      })
     } else {
       // Add new
+      console.log('ActorManager: Adding new actor')
       setActors(prev => [...prev, savedActor].sort((a, b) => (a.name || '').localeCompare(b.name || '')))
     }
+    console.log('ActorManager: Closing form')
     setShowForm(false)
     setEditingActor(undefined)
     
-    // Trigger external data refresh
-    if (onDataChanged) {
-      console.log('ActorManager: Triggering external data refresh after save')
-      setTimeout(() => {
-        onDataChanged()
-      }, 100) // Small delay to ensure database is updated
-    }
-  }
+    // Force a small delay to ensure state update is processed
+    setTimeout(() => {
+      console.log('ActorManager: State update completed')
+    }, 100)
+  }, [editingActor])
 
   const handleFormClose = () => {
     setShowForm(false)
@@ -256,7 +259,7 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
                   }
                   
                   return (
-                    <Card key={actor.id} className="group hover:shadow-lg transition-all duration-200">
+                    <Card key={`${actor.id}-${(actor as any).updatedAt || actor.createdAt}`} className="group hover:shadow-lg transition-all duration-200">
                       <CardContent className="p-0">
                         {/* Profile Picture */}
                         <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">

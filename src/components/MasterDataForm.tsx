@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { masterDataApi } from '../utils/masterDataApi'
-import { Languages, Type } from 'lucide-react'
+import { Languages, Type, Search } from 'lucide-react'
+import { ImageSearchIframe } from './ImageSearchIframe'
 
 interface MasterDataFormProps {
   type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
@@ -21,6 +22,18 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     existingItem: MasterDataItem | null
     showUseExisting: boolean
   } | null>(null)
+  const [showImageSearch, setShowImageSearch] = useState(false)
+  const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
+
+  // Reset autoSearchImage after it's been used
+  useEffect(() => {
+    if (autoSearchImage) {
+      const timer = setTimeout(() => {
+        setAutoSearchImage(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [autoSearchImage])
 
 
 
@@ -148,6 +161,10 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     } finally {
       setConvertingRomaji(false)
     }
+  }
+
+  const handleImageSelect = (imageUrl: string) => {
+    setFormData({ ...formData, profilePicture: imageUrl })
   }
 
   // Simple Japanese to Romaji conversion function
@@ -644,9 +661,38 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
               )}
               {(type === 'actress' || type === 'actor' || type === 'director') && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Link Foto Profile
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Link Foto Profile
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowImageSearch(true)
+                        setAutoSearchImage(true)
+                      }}
+                      className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                      disabled={!formData.name?.trim()}
+                    >
+                      <Search className="h-4 w-4" />
+                      Cari Gambar dengan "{formData.name || 'Nama'}"
+                    </button>
+                  </div>
+                  
+                  {/* Image Search Iframe */}
+                  {showImageSearch && (
+                    <div className="mb-4">
+                      <ImageSearchIframe
+                        onImageSelect={handleImageSelect}
+                        searchQuery={formData.name}
+                        name={formData.name}
+                        jpname={formData.jpname}
+                        type={type}
+                        autoSearch={autoSearchImage}
+                      />
+                    </div>
+                  )}
+                  
                   <input
                     type="url"
                     value={formData.profilePicture}

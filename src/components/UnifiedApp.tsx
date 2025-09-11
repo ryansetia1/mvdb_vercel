@@ -189,6 +189,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showNavCustomizer, setShowNavCustomizer] = useState(false)
   
+  // Previous content state to detect navigation changes
+  const [previousContentState, setPreviousContentState] = useState<ContentState | null>(null)
+  
   // Navigation customizer states
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedItem, setSelectedItem] = useState('')
@@ -213,6 +216,58 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     mode: 'movies',
     title: 'Movies'
   })
+
+  // Reset search bar when navigating to different pages
+  useEffect(() => {
+    if (previousContentState && previousContentState.mode !== contentState.mode) {
+      // Always reset search bar when navigating away from profile page
+      if (previousContentState.mode === 'profile') {
+        setSearchQuery('')
+      }
+      // Reset if we're navigating to a different main section (not sub-pages like movieDetail, profile, etc.)
+      else {
+        const mainSections = ['movies', 'soft', 'photobooks', 'favorites', 'actors', 'actresses', 'series', 'studios', 'groups', 'tags', 'admin', 'advancedSearch']
+        const isMainSectionChange = mainSections.includes(contentState.mode) && mainSections.includes(previousContentState.mode)
+        
+        if (isMainSectionChange) {
+          setSearchQuery('')
+        }
+      }
+    }
+    setPreviousContentState(contentState)
+  }, [contentState, previousContentState])
+
+  // Get contextual search placeholder based on current page
+  const getSearchPlaceholder = () => {
+    switch (contentState.mode) {
+      case 'actors':
+        return 'Search actors...'
+      case 'actresses':
+        return 'Search actresses...'
+      case 'movies':
+        return 'Search movies...'
+      case 'soft':
+        return 'Search soft content...'
+      case 'photobooks':
+        return 'Search photobooks...'
+      case 'series':
+        return 'Search series...'
+      case 'studios':
+        return 'Search studios...'
+      case 'groups':
+        return 'Search groups...'
+      case 'tags':
+        return 'Search tags...'
+      case 'favorites':
+        return 'Search favorites...'
+      case 'admin':
+        return 'Search admin content...'
+      case 'advancedSearch':
+        return 'Advanced search...'
+      default:
+        return 'Search movies, actors, actresses...'
+    }
+  }
 
   // Navigation history stack for preserving filters and previous states
   const [navigationHistory, setNavigationHistory] = useState<ContentState[]>([])
@@ -295,6 +350,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     } catch (error) {
       // Failed to reload photobooks - handled silently
     }
+  }
+
+  // Update actors state locally without reloading
+  const updateActorLocally = (updatedActor: MasterDataItem) => {
+    setActors(prev => prev.map(actor => actor.id === updatedActor.id ? updatedActor : actor))
+  }
+
+  // Update actresses state locally without reloading
+  const updateActressLocally = (updatedActress: MasterDataItem) => {
+    setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
   }
 
   // Load initial data
@@ -517,6 +582,21 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
           actorName,
           actressName
         }
+      })
+      return
+    }
+
+    // Handle profile navigation from search results
+    if (typeof movie === 'string' && (movie.startsWith('actress:') || movie.startsWith('actor:') || movie.startsWith('director:'))) {
+      const [profileType, profileName] = movie.split(':')
+      
+      // Save current state to history before navigating to profile
+      setNavigationHistory(prev => [...prev, contentState])
+      
+      setContentState({
+        mode: 'profile',
+        title: profileName,
+        data: { type: profileType as 'actor' | 'actress' | 'director', name: profileName }
       })
       return
     }
@@ -1098,7 +1178,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
                 <Input
-                  placeholder="Search movies, actors, actresses..."
+                  placeholder={getSearchPlaceholder()}
                   value={searchQuery}
                   onChange={(e) => {
                     const q = e.target.value
@@ -1214,6 +1294,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 onProfileSelect={handleProfileSelect}
                 accessToken={accessToken}
+                onDataChange={updateActorLocally}
               />
             )}
 
@@ -1223,6 +1304,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 onProfileSelect={handleProfileSelect}
                 accessToken={accessToken}
+                onDataChange={updateActressLocally}
               />
             )}
 
@@ -1350,6 +1432,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 type={contentState.data.type}
                 name={contentState.data.name}
                 accessToken={accessToken}
+                searchQuery={searchQuery}
                 onBack={handleBack}
                 onMovieSelect={handleMovieSelect}
                 onSCMovieSelect={undefined}

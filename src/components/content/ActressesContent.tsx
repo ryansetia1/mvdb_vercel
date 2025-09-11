@@ -6,13 +6,16 @@ import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Button } from '../ui/button'
-import { User, Calendar, ImageOff, Filter, X } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { ActorForm } from '../ActorForm'
+import { User, Calendar, ImageOff, Filter, X, Edit } from 'lucide-react'
 
 interface ActressesContentProps {
   actresses: MasterDataItem[]
   searchQuery: string
   onProfileSelect: (type: 'actress' | 'actor', name: string) => void
   accessToken?: string
+  onDataChange?: (updatedActress: MasterDataItem) => void
 }
 
 const sortOptions = [
@@ -28,11 +31,14 @@ export function ActressesContent({
   actresses, 
   searchQuery, 
   onProfileSelect,
-  accessToken
+  accessToken,
+  onDataChange
 }: ActressesContentProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(24)
   const [sortBy, setSortBy] = useState('name')
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingActress, setEditingActress] = useState<MasterDataItem | null>(null)
 
   const filteredAndSortedActresses = useMemo(() => {
     let filtered = actresses
@@ -63,6 +69,26 @@ export function ActressesContent({
   const totalPages = Math.ceil(filteredAndSortedActresses.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedActresses = filteredAndSortedActresses.slice(startIndex, startIndex + itemsPerPage)
+
+  // Edit functions
+  const handleEditActress = (actress: MasterDataItem) => {
+    setEditingActress(actress)
+    setShowEditDialog(true)
+  }
+
+  const handleActressSaved = (savedActress: MasterDataItem) => {
+    setShowEditDialog(false)
+    setEditingActress(null)
+    // Notify parent component with updated data
+    if (onDataChange) {
+      onDataChange(savedActress)
+    }
+  }
+
+  const handleEditDialogClose = () => {
+    setShowEditDialog(false)
+    setEditingActress(null)
+  }
 
   if (filteredAndSortedActresses.length === 0) {
     return (
@@ -195,16 +221,30 @@ export function ActressesContent({
                     </div>
                   )}
 
-                  {/* Favorite Button */}
+                  {/* Action Buttons */}
                   {accessToken && (
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <SimpleFavoriteButton
-                        type="cast"
-                        itemId={actress.name || ''}
-                        size="sm"
-                        variant="ghost"
-                        className="bg-black/20 hover:bg-black/40 backdrop-blur-sm"
-                      />
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditActress(actress)
+                          }}
+                          title="Edit Actress"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <SimpleFavoriteButton
+                          type="cast"
+                          itemId={actress.name || ''}
+                          size="sm"
+                          variant="ghost"
+                          className="bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -276,6 +316,24 @@ export function ActressesContent({
           )
         })}
       </div>
+
+      {/* Edit Dialog */}
+      {showEditDialog && editingActress && accessToken && (
+        <Dialog open={showEditDialog} onOpenChange={handleEditDialogClose}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Actress: {editingActress.name}</DialogTitle>
+            </DialogHeader>
+            <ActorForm
+              type="actress"
+              accessToken={accessToken}
+              initialData={editingActress}
+              onSaved={handleActressSaved}
+              onClose={handleEditDialogClose}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

@@ -19,7 +19,7 @@ import { photobookApi, photobookHelpers } from '../../utils/photobookApi'
 import { ArrowLeft, Film, Camera, Users, Building, List, Edit } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 
-export function ProfileContent({ type, name, accessToken, onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
+export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
   const [state, setState] = useState<ProfileState>({
     profile: null,
     movies: [],
@@ -50,9 +50,72 @@ export function ProfileContent({ type, name, accessToken, onBack, onMovieSelect,
     filterValue: string
   } | null>(null)
 
+  // State for dynamic search results
+  const [searchResults, setSearchResults] = useState<{
+    actresses: MasterDataItem[]
+    actors: MasterDataItem[]
+    directors: MasterDataItem[]
+  }>({
+    actresses: [],
+    actors: [],
+    directors: []
+  })
+
   useEffect(() => {
     loadData()
   }, [name, type, accessToken])
+
+  // Dynamic search effect
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      performDynamicSearch(searchQuery.trim())
+    } else {
+      // Clear search results when search query is empty
+      setSearchResults({
+        actresses: [],
+        actors: [],
+        directors: []
+      })
+    }
+  }, [searchQuery])
+
+  // Function to perform dynamic search
+  const performDynamicSearch = async (query: string) => {
+    try {
+      const [actresses, actors, directors] = await Promise.all([
+        masterDataApi.getByType('actress', accessToken),
+        masterDataApi.getByType('actor', accessToken),
+        masterDataApi.getByType('director', accessToken)
+      ])
+
+      // Filter results based on search query
+      const filteredActresses = actresses.filter(item => 
+        item.name?.toLowerCase().includes(query.toLowerCase()) ||
+        item.jpname?.toLowerCase().includes(query.toLowerCase()) ||
+        item.alias?.toLowerCase().includes(query.toLowerCase())
+      )
+
+      const filteredActors = actors.filter(item => 
+        item.name?.toLowerCase().includes(query.toLowerCase()) ||
+        item.jpname?.toLowerCase().includes(query.toLowerCase()) ||
+        item.alias?.toLowerCase().includes(query.toLowerCase())
+      )
+
+      const filteredDirectors = directors.filter(item => 
+        item.name?.toLowerCase().includes(query.toLowerCase()) ||
+        item.jpname?.toLowerCase().includes(query.toLowerCase()) ||
+        item.alias?.toLowerCase().includes(query.toLowerCase())
+      )
+
+      setSearchResults({
+        actresses: filteredActresses,
+        actors: filteredActors,
+        directors: filteredDirectors
+      })
+    } catch (error) {
+      console.error('Error performing dynamic search:', error)
+    }
+  }
 
   // Process profile images when profile data is loaded
   useEffect(() => {
@@ -183,6 +246,13 @@ export function ProfileContent({ type, name, accessToken, onBack, onMovieSelect,
     setDirectorFilter(null)
   }
 
+  // Handle navigation to profile from search results
+  const handleProfileNavigation = (profileType: 'actor' | 'actress' | 'director', profileName: string) => {
+    // Use the onMovieSelect callback to trigger navigation
+    // The UnifiedApp will handle the actual navigation
+    onMovieSelect(`${profileType}:${profileName}`)
+  }
+
   // Get filtered images based on current gallery tab
   const getFilteredImages = () => {
     if (!state.selectedPhotobook) return []
@@ -261,6 +331,140 @@ export function ProfileContent({ type, name, accessToken, onBack, onMovieSelect,
             </Button>
           )}
         </div>
+
+        {/* Dynamic Search Results */}
+        {searchQuery.trim() && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900 dark:text-blue-100">
+              Search Results for "{searchQuery}"
+            </h3>
+            <div className="space-y-4">
+              {/* Actresses Results */}
+              {searchResults.actresses.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    Actresses ({searchResults.actresses.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {searchResults.actresses.slice(0, 8).map((actress) => (
+                      <Button
+                        key={actress.name}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Navigate to actress profile
+                          handleProfileNavigation('actress', actress.name)
+                        }}
+                        className="justify-start text-left h-auto p-2"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          {actress.profilePicture && (
+                            <img
+                              src={actress.profilePicture}
+                              alt={actress.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{actress.name}</div>
+                            {actress.jpname && (
+                              <div className="text-xs text-muted-foreground truncate">{actress.jpname}</div>
+                            )}
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actors Results */}
+              {searchResults.actors.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    Actors ({searchResults.actors.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {searchResults.actors.slice(0, 8).map((actor) => (
+                      <Button
+                        key={actor.name}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Navigate to actor profile
+                          handleProfileNavigation('actor', actor.name)
+                        }}
+                        className="justify-start text-left h-auto p-2"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          {actor.profilePicture && (
+                            <img
+                              src={actor.profilePicture}
+                              alt={actor.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{actor.name}</div>
+                            {actor.jpname && (
+                              <div className="text-xs text-muted-foreground truncate">{actor.jpname}</div>
+                            )}
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Directors Results */}
+              {searchResults.directors.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    Directors ({searchResults.directors.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {searchResults.directors.slice(0, 8).map((director) => (
+                      <Button
+                        key={director.name}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Navigate to director profile
+                          handleProfileNavigation('director', director.name)
+                        }}
+                        className="justify-start text-left h-auto p-2"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          {director.profilePicture && (
+                            <img
+                              src={director.profilePicture}
+                              alt={director.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{director.name}</div>
+                            {director.jpname && (
+                              <div className="text-xs text-muted-foreground truncate">{director.jpname}</div>
+                            )}
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Results */}
+              {searchResults.actresses.length === 0 && searchResults.actors.length === 0 && searchResults.directors.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  No results found for "{searchQuery}"
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
           {/* Left Sidebar - Profile Info */}
