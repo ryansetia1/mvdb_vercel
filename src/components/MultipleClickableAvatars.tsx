@@ -36,7 +36,7 @@ export function MultipleClickableAvatars({
         setIsLoading(true)
         const actressNames = names.split(',').map(name => name.trim()).filter(Boolean)
         
-        // Load all actresses from the API
+        // Load all actresses from the API with retry logic
         const allActresses = await masterDataApi.getByType('actress', accessToken)
         
         // Find the matching actresses

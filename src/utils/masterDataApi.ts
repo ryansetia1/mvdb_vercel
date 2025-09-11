@@ -87,20 +87,25 @@ export const masterDataApi = {
     }
   },
   // Get all items by type - now requires access token for authentication
-  async getByType(type: string, accessToken?: string): Promise<MasterDataItem[]> {
-    console.log(`Frontend API: Fetching ${type} data from ${BASE_URL}/master/${type}`)
+  async getByType(type: string, accessToken?: string, retryCount = 0): Promise<MasterDataItem[]> {
+    console.log(`Frontend API: Fetching ${type} data from ${BASE_URL}/master/${type} (attempt ${retryCount + 1})`)
     
     try {
       const authToken = accessToken || publicAnonKey
       console.log(`Frontend API: Using ${accessToken ? 'access token' : 'public key'} for ${type} request`)
       
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      
       const response = await fetch(`${BASE_URL}/master/${type}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       })
 
+      clearTimeout(timeoutId)
       console.log(`Frontend API: Response status for ${type}:`, response.status)
       
       if (!response.ok) {
@@ -113,7 +118,20 @@ export const masterDataApi = {
       console.log(`Frontend API: Successfully fetched ${type} data:`, result)
       return result.data || []
     } catch (error) {
-      console.error(`Frontend API: Exception while fetching ${type}:`, error)
+      console.error(`Frontend API: Exception while fetching ${type} (attempt ${retryCount + 1}):`, error)
+      
+      // Retry logic for network errors
+      if (retryCount < 2 && (
+        error instanceof TypeError && error.message.includes('Failed to fetch') ||
+        error.name === 'AbortError' ||
+        error.message.includes('ERR_CONNECTION_CLOSED') ||
+        error.message.includes('ERR_NETWORK')
+      )) {
+        console.log(`Frontend API: Retrying ${type} fetch in ${(retryCount + 1) * 1000}ms...`)
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000))
+        return this.getByType(type, accessToken, retryCount + 1)
+      }
+      
       throw error
     }
   },

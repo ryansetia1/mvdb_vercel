@@ -62,6 +62,7 @@ import { SimpleFavoritesContent } from './content/SimpleFavoritesContent'
 import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
+import { FilteredCustomNavContent } from './content/FilteredCustomNavContent'
 import { customNavApi, CustomNavItem } from '../utils/customNavApi'
 import { ThemeToggle } from './ThemeToggle'
 import { DraggableCustomNavItem } from './DraggableCustomNavItem'
@@ -87,8 +88,8 @@ type ContentMode =
   | 'photobooks'
   | 'actors' 
   | 'actresses' 
-  | 'series' 
-  | 'studios' 
+  | 'series'
+  | 'studios'
   | 'tags' 
   | 'groups'
   | 'groupDetail'
@@ -99,6 +100,7 @@ type ContentMode =
   | 'photobookDetail'
   | 'profile'
   | 'filteredMovies'
+  | 'customNavFiltered'
   | 'filteredActresses'
   | 'admin'
   | 'advancedSearch'
@@ -226,6 +228,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     itemsPerPage: 24
   })
   
+  // Custom nav items filter state - for preserving filters for each custom nav item
+  const [customNavFilters, setCustomNavFilters] = useState<Record<string, {
+    tagFilter: string
+    studioFilter: string
+    seriesFilter: string
+    typeFilter: string
+    sortBy: string
+    currentPage: number
+    itemsPerPage: number
+  }>>({})
+  
   // Admin mode state
   const [showEditMovie, setShowEditMovie] = useState<Movie | null>(null)
   const [showEditSCMovie, setShowEditSCMovie] = useState<SCMovie | null>(null)
@@ -301,10 +314,22 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         // Load master data
         try {
           const [actorsData, actressesData, directorsData, groupsData] = await Promise.all([
-            masterDataApi.getByType('actor', accessToken).catch(() => []),
-            masterDataApi.getByType('actress', accessToken).catch(() => []),
-            masterDataApi.getByType('director', accessToken).catch(() => []),
-            masterDataApi.getByType('group', accessToken).catch(() => [])
+            masterDataApi.getByType('actor', accessToken).catch((error) => {
+              console.error('Failed to load actors data:', error)
+              return []
+            }),
+            masterDataApi.getByType('actress', accessToken).catch((error) => {
+              console.error('Failed to load actresses data:', error)
+              return []
+            }),
+            masterDataApi.getByType('director', accessToken).catch((error) => {
+              console.error('Failed to load directors data:', error)
+              return []
+            }),
+            masterDataApi.getByType('group', accessToken).catch((error) => {
+              console.error('Failed to load groups data:', error)
+              return []
+            })
           ])
           
           // Add calculated age and movie counts
@@ -403,14 +428,42 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     loadCustomNavItems()
   }, [accessToken])
 
+  // Custom nav filters management
+  const getCustomNavFilters = (navItemId: string) => {
+    return customNavFilters[navItemId] || {
+      tagFilter: 'all',
+      studioFilter: 'all',
+      seriesFilter: 'all',
+      typeFilter: 'all',
+      sortBy: 'releaseDate-desc',
+      currentPage: 1,
+      itemsPerPage: 24
+    }
+  }
+
+  const updateCustomNavFilters = (navItemId: string, updates: Partial<{
+    tagFilter: string
+    studioFilter: string
+    seriesFilter: string
+    typeFilter: string
+    sortBy: string
+    currentPage: number
+    itemsPerPage: number
+  }>) => {
+    setCustomNavFilters(prev => ({
+      ...prev,
+      [navItemId]: {
+        ...getCustomNavFilters(navItemId),
+        ...updates
+      }
+    }))
+  }
+
   // Navigation handlers
   const handleNavClick = (navItem: NavItem) => {
     setActiveNavItem(navItem.id)
     setMobileMenuOpen(false)
     setEditMode(false) // Clear edit mode when navigating
-    
-    // Clear navigation history when starting fresh navigation
-    setNavigationHistory([])
     
     if (navItem.type === 'admin') {
       setContentState({ mode: 'admin', title: 'Admin Panel' })
@@ -422,13 +475,23 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         return
       }
       
-      // For other filters, show filtered movies
+      // Save current state to navigation history before switching to custom nav
+      setNavigationHistory(prev => [...prev, contentState])
+      
+      // For other filters, show filtered movies with custom nav content
       setContentState({ 
-        mode: 'filteredMovies', 
+        mode: 'customNavFiltered', 
         title: `${navItem.label}`,
-        data: { filterType: navItem.filterType, filterValue: navItem.filterValue }
+        data: { 
+          filterType: navItem.filterType, 
+          filterValue: navItem.filterValue,
+          navItemId: navItem.id,
+          customNavLabel: navItem.label
+        }
       })
     } else {
+      // Clear navigation history when starting fresh navigation for default nav items
+      setNavigationHistory([])
       setContentState({ 
         mode: navItem.type as ContentMode, 
         title: navItem.label 
@@ -579,6 +642,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         groupData = foundGroup
       } catch (error) {
         console.error('Failed to find group:', error)
+        // Show error message to user
+        alert('Gagal memuat data group. Silakan coba lagi.')
         return
       }
     } else {
@@ -612,6 +677,15 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       if (previousState.mode === 'filteredMovies' || previousState.mode === 'filteredActresses') {
         // For filtered content, keep the current active nav item
         // since the filter could come from any main section
+      } else if (previousState.mode === 'customNavFiltered') {
+        // Find the custom nav item that matches this state
+        const customNav = customNavItems.find(item => 
+          item.filterType === previousState.data?.filterType && 
+          item.filterValue === previousState.data?.filterValue
+        )
+        if (customNav) {
+          setActiveNavItem(customNav.id)
+        }
       } else if (previousState.mode === 'custom') {
         // Find the custom nav item that matches this state
         const customNav = customNavItems.find(item => 
@@ -1090,7 +1164,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             {contentState.mode !== 'movieDetail' && contentState.mode !== 'scMovieDetail' && contentState.mode !== 'photobookDetail' && contentState.mode !== 'groupDetail' && contentState.mode !== 'profile' && (
               <div className="flex items-center justify-between">
                 {/* Show back button with title for filtered views, just title for main views */}
-                {contentState.mode === 'filteredMovies' ? (
+                {(contentState.mode === 'filteredMovies' || contentState.mode === 'customNavFiltered') ? (
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
                       <Button 
@@ -1306,6 +1380,24 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 onProfileSelect={handleProfileSelect}
                 accessToken={accessToken}
+              />
+            )}
+
+            {contentState.mode === 'customNavFiltered' && contentState.data && (
+              <FilteredCustomNavContent
+                movies={movies}
+                searchQuery={searchQuery}
+                onMovieSelect={handleMovieSelect}
+                onProfileSelect={handleProfileSelect}
+                accessToken={accessToken}
+                actresses={actresses}
+                actors={actors}
+                directors={directors}
+                filterType={contentState.data.filterType}
+                filterValue={contentState.data.filterValue}
+                customNavLabel={contentState.data.customNavLabel}
+                externalFilters={getCustomNavFilters(contentState.data.navItemId)}
+                onFiltersChange={(filters) => updateCustomNavFilters(contentState.data.navItemId, filters)}
               />
             )}
 
