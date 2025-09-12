@@ -251,7 +251,7 @@
     // Buat tombol sederhana
     function createSimpleButton() {
         const button = document.createElement('button');
-        button.textContent = '🔧 Gender Fix V2';
+        button.textContent = '🔧 MVDB COPIER';
         button.setAttribute('data-javdb-extractor', 'true');
         button.style.cssText = `
             position: fixed;
