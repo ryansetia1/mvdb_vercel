@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { MasterDataItem, calculateAge, castMatchesQuery } from '../../utils/masterDataApi'
 import { Card, CardContent } from '../ui/card'
@@ -79,6 +79,7 @@ export function ActressesContent({
     'actresses-content',
     !showEditDialog // Disable when edit dialog is open
   )
+
 
   // Edit functions
   const handleEditActress = (actress: MasterDataItem) => {
@@ -330,7 +331,15 @@ export function ActressesContent({
       {/* Edit Dialog */}
       {showEditDialog && editingActress && accessToken && (
         <Dialog open={showEditDialog} onOpenChange={handleEditDialogClose}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent 
+            className="max-w-4xl max-h-[90vh] overflow-y-auto"
+            style={{
+              maxWidth: '4xl',
+              width: '100%',
+              maxHeight: '90vh',
+              height: '90vh'
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Edit Actress: {editingActress.name}</DialogTitle>
               <DialogDescription>

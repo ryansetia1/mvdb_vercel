@@ -113,6 +113,7 @@ export function CheckTakuLinksDialog({
       setSelectedJapaneseName(nameToUse)
       setCurrentUrl(generateTakuLinksUrl(nameToUse))
       setIframeError(false) // Reset error state when dialog opens
+      
     }
   }, [isOpen, finalNames, selectedName])
 
@@ -124,29 +125,31 @@ export function CheckTakuLinksDialog({
       setIframeError(false)
       setIsLoading(false)
       setIframeKey(0)
+      
     }
   }, [isOpen])
 
-  const handleNameSelect = useCallback((name: string) => {
+  const handleNameSelect = useCallback((name: string, event?: React.MouseEvent) => {
     console.log('Selecting name:', name)
     
-    // Simpan nama yang diklik dan tutup dialog
+    // Prevent event propagation to avoid closing parent dialogs
+    if (event) {
+      event.stopPropagation()
+      event.preventDefault()
+    }
+    
+    // Update the selected name and URL without closing dialog
     setSelectedJapaneseName(name)
     setCurrentUrl(generateTakuLinksUrl(name))
     setIframeError(false)
+    setIsLoading(true)
     
-    // Tutup dialog terlebih dahulu
-    onClose()
-    
-    // Buka kembali dialog dengan nama yang dipilih setelah delay singkat
+    // Reset iframe after a short delay to show loading state
     setTimeout(() => {
-      // Trigger re-open dengan nama yang dipilih
-      const event = new CustomEvent('reopenTakuLinksDialog', { 
-        detail: { selectedName: name } 
-      })
-      window.dispatchEvent(event)
-    }, 100)
-  }, [onClose])
+      setIframeKey(prev => prev + 1)
+      setIsLoading(false)
+    }, 500)
+  }, [])
 
   const handleAddTakuLink = () => {
     if (currentUrl) {
@@ -174,12 +177,12 @@ export function CheckTakuLinksDialog({
       style={{ zIndex: 999999 }}
     >
       <div 
-        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border w-[98vw] h-[98vh] flex flex-col"
+        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border w-[90vw] h-[85vh] flex flex-col overflow-hidden"
         style={{
-          maxWidth: '98vw',
-          maxHeight: '98vh',
-          width: '98vw',
-          height: '98vh',
+          maxWidth: '90vw',
+          maxHeight: '85vh',
+          width: '90vw',
+          height: '85vh',
           zIndex: 999999
         }}
       >
@@ -222,7 +225,7 @@ export function CheckTakuLinksDialog({
                     className={`cursor-pointer transition-colors ${
                       isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-100 dark:hover:bg-blue-900'
                     }`}
-                    onClick={() => !isLoading && handleNameSelect(name)}
+                    onClick={(e) => !isLoading && handleNameSelect(name, e)}
                   >
                     {selectedJapaneseName === name && isLoading ? (
                       <div className="flex items-center gap-1">

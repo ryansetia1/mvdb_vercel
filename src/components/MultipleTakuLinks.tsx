@@ -3,8 +3,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import { Plus, Trash2, ExternalLink, Search } from 'lucide-react'
-import { CheckTakuLinksDialog } from './CheckTakuLinksDialog'
+import { Plus, Trash2, ExternalLink } from 'lucide-react'
+import { TakuLinksIframe } from './TakuLinksIframe'
 
 interface MultipleTakuLinksProps {
   links: string[]
@@ -12,11 +12,18 @@ interface MultipleTakuLinksProps {
   jpname?: string
   alias?: string
   name?: string
+  autoSearch?: boolean // New prop for auto-search trigger
 }
 
-export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', name = '' }: MultipleTakuLinksProps) {
-  const [showCheckDialog, setShowCheckDialog] = useState(false)
-  const [selectedName, setSelectedName] = useState('')
+export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', name = '', autoSearch = false }: MultipleTakuLinksProps) {
+  const [showTakuIframe, setShowTakuIframe] = useState(false)
+
+  // Auto-search effect - show iframe and trigger search when autoSearch prop changes
+  useEffect(() => {
+    if (autoSearch && (jpname || alias || name)) {
+      setShowTakuIframe(true)
+    }
+  }, [autoSearch, jpname, alias, name])
 
   const handleLinkChange = (index: number, value: string) => {
     const newLinks = [...links]
@@ -58,20 +65,6 @@ export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', na
   }
 
 
-  // Listen for custom event to reopen dialog with selected name
-  useEffect(() => {
-    const handleReopenDialog = (event: CustomEvent) => {
-      const { selectedName } = event.detail
-      setSelectedName(selectedName)
-      setShowCheckDialog(true)
-    }
-
-    window.addEventListener('reopenTakuLinksDialog', handleReopenDialog as EventListener)
-    
-    return () => {
-      window.removeEventListener('reopenTakuLinksDialog', handleReopenDialog as EventListener)
-    }
-  }, [])
 
   return (
     <div className="space-y-2">
@@ -82,11 +75,11 @@ export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', na
             type="button" 
             variant="outline" 
             size="sm" 
-            onClick={() => setShowCheckDialog(true)}
+            onClick={() => setShowTakuIframe(!showTakuIframe)}
             className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
           >
-            <Search className="h-4 w-4 mr-1" />
-            Check Taku Links
+            <ExternalLink className="h-4 w-4 mr-1" />
+            {showTakuIframe ? 'Sembunyikan' : 'Cek Taku Links'}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={addLink}>
             <Plus className="h-4 w-4 mr-1" />
@@ -165,19 +158,17 @@ export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', na
         </div>
       </details>
 
-      {/* Check Taku Links Dialog */}
-      <CheckTakuLinksDialog
-        isOpen={showCheckDialog}
-        onClose={() => {
-          setShowCheckDialog(false)
-          setSelectedName('') // Reset selectedName when closing
-        }}
-        jpname={jpname}
-        alias={alias}
-        name={name}
-        selectedName={selectedName}
-        onAddTakuLink={handleAddTakuLink}
-      />
+      {/* Taku Links Iframe */}
+      {showTakuIframe && (
+        <TakuLinksIframe
+          onTakuLinkSelect={handleAddTakuLink}
+          jpname={jpname}
+          alias={alias}
+          name={name}
+          className="mt-4"
+          autoSearch={autoSearch}
+        />
+      )}
     </div>
   )
 }

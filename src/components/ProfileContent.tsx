@@ -11,7 +11,7 @@ import { MovieThumbnail } from './MovieThumbnail'
 import { ModernLightbox } from './ModernLightbox'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { processTemplate } from '../utils/templateUtils'
-import { TakuLinksIframe } from './TakuLinksIframe'
+import { MultipleTakuLinksEnhanced } from './MultipleTakuLinksEnhanced'
 
 interface ProfileContentProps {
   type: 'actor' | 'actress' | 'director'
@@ -326,7 +326,7 @@ export function ProfileContent({ type, name, accessToken, onMovieSelect }: Profi
                   {type === 'actress' && profileData.takulinks && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">Taku Links</h4>
-                      <TakuLinksIframe 
+                      <MultipleTakuLinksEnhanced 
                         takulinks={profileData.takulinks} 
                         variant="default"
                       />

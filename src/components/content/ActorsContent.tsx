@@ -324,7 +324,15 @@ export function ActorsContent({ actors, searchQuery, onProfileSelect, accessToke
       {/* Edit Dialog */}
       {showEditDialog && editingActor && accessToken && (
         <Dialog open={showEditDialog} onOpenChange={handleEditDialogClose}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent 
+            className="max-w-4xl max-h-[90vh] overflow-y-auto"
+            style={{
+              maxWidth: '4xl',
+              width: '100%',
+              maxHeight: '90vh',
+              height: '90vh'
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Edit Actor: {editingActor.name}</DialogTitle>
               <DialogDescription>

@@ -13,7 +13,7 @@ import { ModernLightbox } from './ModernLightbox'
 import { processTemplate } from '../utils/templateUtils'
 import { ActorForm } from './ActorForm'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
-import { TakuLinksIframe } from './TakuLinksIframe'
+import { MultipleTakuLinksEnhanced } from './MultipleTakuLinksEnhanced'
 
 interface ProfilePageProps {
   type: 'actor' | 'actress' | 'director'
@@ -279,7 +279,7 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
                   {type === 'actress' && profileData.takulinks && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">Taku Links</h4>
-                      <TakuLinksIframe 
+                      <MultipleTakuLinksEnhanced 
                         takulinks={profileData.takulinks} 
                         variant="default"
                       />
@@ -387,7 +387,15 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
 
       {/* Edit Dialog */}
       <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-4xl max-h-[90vh] overflow-y-auto"
+          style={{
+            maxWidth: '4xl',
+            width: '100%',
+            maxHeight: '90vh',
+            height: '90vh'
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               Edit {type === 'actress' ? 'Actress' : 'Actor'}
