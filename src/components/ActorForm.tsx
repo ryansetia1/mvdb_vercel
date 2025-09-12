@@ -823,7 +823,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       </div>
       
       {/* Scrollable Content */}
-      <CardContent className="flex-1 overflow-y-auto px-6">
+      <CardContent className="flex-1 overflow-y-auto px-6 pb-20">
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsContent value="basic" className="space-y-4 mt-6 min-h-[500px] w-full">
@@ -1281,6 +1281,36 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               )}
             </div>
 
+            <Separator />
+
+            {/* Tags Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Tags
+              </h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
+                <Textarea
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => handleInputChange('tags', e.target.value)}
+                  placeholder="contoh: cantik, populer, debut 2020"
+                  rows={3}
+                />
+                {formData.tags && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.tags.split(',').map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {tag.trim()}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             </div>
             </TabsContent>
 
@@ -1305,60 +1335,32 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             )}
           </Tabs>
 
-          <Separator />
-
-          {/* Tags Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              Tags
-            </h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
-              <Textarea
-                id="tags"
-                value={formData.tags}
-                onChange={(e) => handleInputChange('tags', e.target.value)}
-                placeholder="contoh: cantik, populer, debut 2020"
-                rows={3}
-              />
-              {formData.tags && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {formData.tags.split(',').map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {tag.trim()}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Submit Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button 
-              type="submit" 
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
-            </Button>
-            
-            {onClose && (
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={onClose}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Batal
-              </Button>
-            )}
-          </div>
         </form>
         </CardContent>
+        
+        {/* Sticky Bottom Buttons */}
+        <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex gap-3 justify-end">
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className="flex items-center gap-2"
+            onClick={handleSubmit}
+          >
+            <Save className="h-4 w-4" />
+            {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+          </Button>
+          
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Batal
+            </Button>
+          )}
+        </div>
       </Card>
     )
 }
