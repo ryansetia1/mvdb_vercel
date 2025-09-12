@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, ChevronUp, ChevronDown } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
@@ -61,6 +62,8 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const [hasUserChangedGroups, setHasUserChangedGroups] = useState(false) // Track if user manually changed groups
   const [showImageSearch, setShowImageSearch] = useState(false) // Control image search iframe visibility
   const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
+  const [autoSearchTakuLinks, setAutoSearchTakuLinks] = useState(false) // Control auto search for Taku Links
+  const [activeTab, setActiveTab] = useState('basic') // Tab state
 
   // Reset autoSearchImage after it's been used
   useEffect(() => {
@@ -71,6 +74,26 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       return () => clearTimeout(timer)
     }
   }, [autoSearchImage])
+
+  // Reset autoSearchTakuLinks after it's been used
+  useEffect(() => {
+    if (autoSearchTakuLinks) {
+      const timer = setTimeout(() => {
+        setAutoSearchTakuLinks(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [autoSearchTakuLinks])
+
+  // Auto-search trigger when tab changes
+  useEffect(() => {
+    if (activeTab === 'media' && (formData.jpname || formData.alias || formData.name)) {
+      setShowImageSearch(true) // Show the iframe first
+      setAutoSearchImage(true) // Then trigger auto-search
+    } else if (activeTab === 'taku' && type === 'actress' && (formData.jpname || formData.alias || formData.name)) {
+      setAutoSearchTakuLinks(true)
+    }
+  }, [activeTab, formData.jpname, formData.alias, formData.name, type])
   
   const isEditing = Boolean(initialData)
 
@@ -765,8 +788,8 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
+    <Card className="w-full max-w-4xl mx-auto flex flex-col h-[90vh]">
+      <CardHeader className="flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <User className="h-5 w-5" />
           {isEditing ? `Edit ${type === 'actress' ? 'Aktris' : 'Aktor'}: ${formData.name}` : `Tambah ${type === 'actress' ? 'Aktris' : 'Aktor'} Baru`}
@@ -776,14 +799,40 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         )}
       </CardHeader>
       
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Info Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
+      {/* Sticky Tabs */}
+      <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className={`grid w-full ${type === 'actress' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsTrigger value="basic" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Informasi Dasar
-            </h3>
+            </TabsTrigger>
+            <TabsTrigger value="media" className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Media & Links
+            </TabsTrigger>
+            {type === 'actress' && (
+              <TabsTrigger value="taku" className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Taku Links
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+        </Tabs>
+      </div>
+      
+      {/* Scrollable Content */}
+      <CardContent className="flex-1 overflow-y-auto px-6 pb-20">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsContent value="basic" className="space-y-4 mt-6 min-h-[500px] w-full">
+              {/* Basic Info Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Informasi Dasar
+                </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -978,10 +1027,10 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               )}
             </div>
           </div>
+            </TabsContent>
 
-          <Separator />
-
-          {/* Profile Pictures Section */}
+            <TabsContent value="media" className="space-y-4 mt-6 min-h-[500px] w-full">
+              {/* Profile Pictures Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium flex items-center gap-2">
               <ImageIcon className="h-4 w-4" />
@@ -1232,71 +1281,86 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               )}
             </div>
 
-            {/* Taku Links (Actress only) */}
-            {type === 'actress' && (
+            <Separator />
+
+            {/* Tags Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Tags
+              </h3>
+              
               <div className="space-y-2">
-                <MultipleTakuLinks
-                  links={formData.takulinks}
-                  onChange={(links) => handleInputChange('takulinks', links)}
+                <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
+                <Textarea
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => handleInputChange('tags', e.target.value)}
+                  placeholder="contoh: cantik, populer, debut 2020"
+                  rows={3}
                 />
+                {formData.tags && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.tags.split(',').map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {tag.trim()}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Tags Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              Tags
-            </h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
-              <Textarea
-                id="tags"
-                value={formData.tags}
-                onChange={(e) => handleInputChange('tags', e.target.value)}
-                placeholder="contoh: cantik, populer, debut 2020"
-                rows={3}
-              />
-              {formData.tags && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {formData.tags.split(',').map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {tag.trim()}
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Submit Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button 
-              type="submit" 
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
-            </Button>
-            
-            {onClose && (
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={onClose}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Batal
-              </Button>
+            </div>
+            </TabsContent>
+
+            {type === 'actress' && (
+              <TabsContent value="taku" className="space-y-4 mt-6 min-h-[500px] w-full">
+                {/* Taku Links Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Taku Links
+                  </h3>
+                  <MultipleTakuLinks
+                    links={formData.takulinks}
+                    onChange={(links) => handleInputChange('takulinks', links)}
+                    jpname={formData.jpname}
+                    alias={formData.alias}
+                    name={formData.name}
+                    autoSearch={autoSearchTakuLinks}
+                  />
+                </div>
+              </TabsContent>
             )}
-          </div>
+          </Tabs>
+
         </form>
-      </CardContent>
-    </Card>
-  )
+        </CardContent>
+        
+        {/* Sticky Bottom Buttons */}
+        <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex gap-3 justify-end">
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className="flex items-center gap-2"
+            onClick={handleSubmit}
+          >
+            <Save className="h-4 w-4" />
+            {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+          </Button>
+          
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Batal
+            </Button>
+          )}
+        </div>
+      </Card>
+    )
 }

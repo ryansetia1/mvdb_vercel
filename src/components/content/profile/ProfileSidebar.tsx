@@ -7,7 +7,7 @@ import { MasterDataItem, calculateAge } from '../../../utils/masterDataApi'
 import { Movie } from '../../../utils/movieApi'
 import { Photobook } from '../../../utils/photobookApi'
 import { User, Calendar, Film, Camera, Images } from 'lucide-react'
-import { TakuLinksIframe } from '../../TakuLinksIframe'
+import { MultipleTakuLinksEnhanced } from '../../MultipleTakuLinksEnhanced'
 import { copyToClipboard } from '../../../utils/clipboard'
 
 interface ProfileSidebarProps {
@@ -82,7 +82,7 @@ export function ProfileSidebar({
           )}
           {/* Taku Links */}
           {profile?.takulinks && profile.takulinks.trim() && (
-            <TakuLinksIframe 
+            <MultipleTakuLinksEnhanced 
               takulinks={profile.takulinks} 
               className="mt-2"
               variant="default"

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { MasterDataItem, calculateAge, castMatchesQuery } from '../../utils/masterDataApi'
 import { Card, CardContent } from '../ui/card'
@@ -79,6 +79,7 @@ export function ActressesContent({
     'actresses-content',
     !showEditDialog // Disable when edit dialog is open
   )
+
 
   // Edit functions
   const handleEditActress = (actress: MasterDataItem) => {
@@ -233,12 +234,12 @@ export function ActressesContent({
 
                   {/* Action Buttons */}
                   {accessToken && (
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-opacity">
                       <div className="flex gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 p-0 bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                          className="h-8 w-8 p-0 bg-white/90 hover:bg-white backdrop-blur-sm text-black shadow-lg"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleEditActress(actress)
@@ -252,7 +253,7 @@ export function ActressesContent({
                           itemId={actress.name || ''}
                           size="sm"
                           variant="ghost"
-                          className="bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                          className="h-8 w-8 p-0 bg-white/90 hover:bg-white backdrop-blur-sm text-black shadow-lg"
                         />
                       </div>
                     </div>
@@ -330,7 +331,15 @@ export function ActressesContent({
       {/* Edit Dialog */}
       {showEditDialog && editingActress && accessToken && (
         <Dialog open={showEditDialog} onOpenChange={handleEditDialogClose}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent 
+            className="max-w-4xl max-h-[90vh] overflow-y-auto"
+            style={{
+              maxWidth: '4xl',
+              width: '100%',
+              maxHeight: '90vh',
+              height: '90vh'
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Edit Actress: {editingActress.name}</DialogTitle>
               <DialogDescription>

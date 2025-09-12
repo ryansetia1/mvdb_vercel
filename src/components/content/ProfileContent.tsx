@@ -742,7 +742,15 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-4xl max-h-[90vh] overflow-y-auto"
+          style={{
+            maxWidth: '4xl',
+            width: '100%',
+            maxHeight: '90vh',
+            height: '90vh'
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               Edit {type === 'actress' ? 'Actress' : 'Actor'}
