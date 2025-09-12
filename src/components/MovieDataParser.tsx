@@ -11,7 +11,7 @@ import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
 import { translateJapaneseToEnglishWithContext, translateMovieTitleWithContext } from '../utils/deepseekTranslationApi'
 import { AITranslationLoading, AITranslationSpinner } from './AITranslationLoading'
 import { ShimmerInput } from './ShimmerInput'
-import { Brain } from 'lucide-react'
+import { Brain, Clipboard } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface MovieDataParserProps {
@@ -64,6 +64,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
   const [lastAppliedTemplate, setLastAppliedTemplate] = useState<string | null>(null)
   const templateNotificationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [pasteStatus, setPasteStatus] = useState<'idle' | 'pasting' | 'success' | 'error'>('idle')
 
   // Template auto-apply hook
   const { applyDefaultTemplate, isLoading: templateLoading } = useTemplateAutoApply({
@@ -250,6 +251,40 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       setError('Failed to load master data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handlePasteFromClipboard = async () => {
+    setPasteStatus('pasting')
+    
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        throw new Error('Clipboard API tidak tersedia')
+      }
+      
+      const clipboardData = await navigator.clipboard.readText()
+      
+      if (clipboardData && clipboardData.trim()) {
+        setRawData(clipboardData)
+        setPasteStatus('success')
+        toast.success('Data berhasil ditempel dari clipboard!')
+        
+        // Reset status setelah 2 detik
+        setTimeout(() => {
+          setPasteStatus('idle')
+        }, 2000)
+      } else {
+        throw new Error('Clipboard kosong')
+      }
+    } catch (error) {
+      console.error('Error reading clipboard:', error)
+      setPasteStatus('error')
+      toast.error('Gagal membaca dari clipboard. Pastikan browser mendukung Clipboard API.')
+      
+      // Reset status setelah 2 detik
+      setTimeout(() => {
+        setPasteStatus('idle')
+      }, 2000)
     }
   }
 
@@ -1009,6 +1044,29 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Loading...' : 'Parse Data'}
+          </button>
+          <button
+            onClick={handlePasteFromClipboard}
+            disabled={pasteStatus === 'pasting'}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${
+              pasteStatus === 'success' 
+                ? 'bg-green-600 text-white' 
+                : pasteStatus === 'error'
+                ? 'bg-red-600 text-white'
+                : pasteStatus === 'pasting'
+                ? 'bg-yellow-600 text-white opacity-75'
+                : 'bg-purple-600 text-white hover:bg-purple-700'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <Clipboard size={16} />
+            {pasteStatus === 'pasting' 
+              ? 'Pasting...' 
+              : pasteStatus === 'success'
+              ? '✅ Pasted!'
+              : pasteStatus === 'error'
+              ? '❌ Failed'
+              : '📋 Paste from Clipboard'
+            }
           </button>
           <button
             onClick={() => {
