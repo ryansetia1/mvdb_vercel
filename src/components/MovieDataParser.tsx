@@ -189,19 +189,17 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   // Auto-apply template when movie type changes and we have parsed data
   useEffect(() => {
     if (movieType && parsedData && dmcode && !templateLoading && !isApplyingTemplate) {
-      console.log('🎬 Auto-applying template on type change for type:', movieType)
-      
       // Set crop cover based on type
       setCropCover(shouldEnableAutoCrop(movieType))
       
-      // Use a small delay to prevent rapid successive calls
+      // Use a longer delay to prevent rapid successive calls and allow state to stabilize
       const timeoutId = setTimeout(() => {
         applyTemplateForType(movieType)
-      }, 100)
+      }, 500) // Increased delay to prevent rapid calls
       
       return () => clearTimeout(timeoutId)
     }
-  }, [movieType, parsedData, dmcode, templateLoading, isApplyingTemplate])
+  }, [movieType, dmcode, templateLoading, isApplyingTemplate]) // Removed parsedData from dependencies to prevent infinite loop
 
   const loadMasterData = async () => {
     try {
@@ -335,18 +333,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       matchWithDatabase(parsed, masterData).then(async (matched) => {
         setMatchedData(matched)
         
-        // Auto-apply template after parsing and matching is complete
-        if (movieType && generatedDmcode && !isApplyingTemplate) {
-          console.log('🎬 Auto-applying template after parse for type:', movieType)
-          
-          // Set crop cover based on type
-          setCropCover(shouldEnableAutoCrop(movieType))
-          
-          // Use a delay to prevent conflict with useEffect
-          setTimeout(() => {
-            applyTemplateForType(movieType)
-          }, 200)
-        }
+        // Template auto-apply is now handled by useEffect only to prevent duplicate calls
+        // No need to call applyTemplateForType here as it will be triggered by useEffect
       })
     } catch (error) {
       console.error('Error parsing data:', error)
@@ -425,8 +413,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           
           // Get matched actress names (prefer English name, fallback to Japanese)
           const matchedActressNames = matchedData.actresses
-            .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
-            .map(item => item.matched!.name || item.matched!.jpname || item.name)
+            .map((item, index) => ({ item, index }))
+            .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
+            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actresses that don't already exist
@@ -448,8 +437,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           
           // Get matched actor names (prefer English name, fallback to Japanese)
           const matchedActorNames = matchedData.actors
-            .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
-            .map(item => item.matched!.name || item.matched!.jpname || item.name)
+            .map((item, index) => ({ item, index }))
+            .filter(({ item, index }) => item.matched && !ignoredItems.has(`actors-${index}`))
+            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actors that don't already exist
@@ -684,11 +674,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
 
     const templateKey = `${type}-${dmcode}`
     if (lastAppliedTemplate === templateKey) {
-      console.log('⏭️ Skipping template application - already applied:', templateKey)
-      return
+      return // Skip silently to reduce console spam
     }
 
-    console.log('🎬 Applying template for type:', type)
     setIsApplyingTemplate(true)
     
     try {
@@ -700,11 +688,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       })
       
       if (result) {
-        console.log('✅ Template applied:', result)
         if (result.cover) setCover(result.cover)
         if (result.gallery) setGallery(result.gallery)
         setLastAppliedTemplate(templateKey)
       }
+    } catch (error) {
+      console.error('Template application failed:', error)
     } finally {
       setIsApplyingTemplate(false)
     }
@@ -720,11 +709,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const handleMovieTypeChange = async (newType: string) => {
     setMovieType(newType)
     
-    // Set crop cover based on type
-    setCropCover(shouldEnableAutoCrop(newType))
-    
-    // Apply template for the new type (useEffect will handle this automatically)
-    // No need to call applyTemplateForType here to prevent duplicate calls
+    // Crop cover will be set by useEffect to prevent duplicate calls
+    // No need to call setCropCover here as it will be handled by useEffect
   }
 
   const handleIgnoreItem = (typeKey: keyof MatchedData, index: number) => {
@@ -1171,8 +1157,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     <span className="text-gray-600 dark:text-gray-400">Actresses:</span>
                     <div className="mt-1 space-y-1">
                       {matchedData.actresses
-                        .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
-                        .map((item, index) => {
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
+                        .map(({ item, index }) => {
                           const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActresses = mergeMode.existingMovie.actress ? mergeMode.existingMovie.actress.split(',').map(a => a.trim()) : []
                           const isNew = !existingActresses.some(existing => 
@@ -1200,8 +1187,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     <span className="text-gray-600 dark:text-gray-400">Actors:</span>
                     <div className="mt-1 space-y-1">
                       {matchedData.actors
-                        .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
-                        .map((item, index) => {
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item, index }) => item.matched && !ignoredItems.has(`actors-${index}`))
+                        .map(({ item, index }) => {
                           const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActors = mergeMode.existingMovie.actors ? mergeMode.existingMovie.actors.split(',').map(a => a.trim()) : []
                           const isNew = !existingActors.some(existing => 

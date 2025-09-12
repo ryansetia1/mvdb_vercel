@@ -1309,7 +1309,7 @@ app.delete('/make-server-f3064b20/movie-links/:id', async (c) => {
 // ==================================================================================
 
 // Get all SC movies
-app.get('/make-server-f3064b20/sc-movies', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies', async (c) => {
   try {
     const scMovies = await kv.getByPrefix('scmovie:')
     return c.json({ scMovies: scMovies.map(m => m.value) })
@@ -1320,7 +1320,7 @@ app.get('/make-server-f3064b20/sc-movies', async (c) => {
 })
 
 // Get single SC movie
-app.get('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const id = c.req.param('id')
     const scMovie = await kv.get(`scmovie:${id}`)
@@ -1337,7 +1337,7 @@ app.get('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Create SC movie (protected route)
-app.post('/make-server-f3064b20/sc-movies', async (c) => {
+app.post('/make-server-e0516fcf/sc-movies', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1366,7 +1366,7 @@ app.post('/make-server-f3064b20/sc-movies', async (c) => {
 })
 
 // Update SC movie (protected route)
-app.put('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.put('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1400,7 +1400,7 @@ app.put('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Delete SC movie (protected route)
-app.delete('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.delete('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1426,7 +1426,7 @@ app.delete('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Search SC movies
-app.get('/make-server-f3064b20/sc-movies/search/:query', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies/search/:query', async (c) => {
   try {
     const query = c.req.param('query').toLowerCase()
     const scMovies = await kv.getByPrefix('scmovie:')

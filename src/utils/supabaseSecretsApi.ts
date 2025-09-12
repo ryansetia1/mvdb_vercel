@@ -1,9 +1,14 @@
 /**
  * Supabase Secrets API Integration
- * Mengambil API key dari Supabase secrets
+ * Mengambil API key dari Supabase secrets dengan dynamic project support
  */
 
-const SUPABASE_FUNCTION_URL = (import.meta as any).env?.VITE_SUPABASE_FUNCTION_URL || 'https://duafhkktqobwwwwtygwn.supabase.co/functions/v1/make-server-e0516fcf'
+import { getProjectConfig } from './projectConfigManager'
+
+const getSupabaseFunctionUrl = () => {
+  const config = getProjectConfig()
+  return config.functionUrl
+}
 
 export interface SupabaseSecretsResponse {
   success: boolean
@@ -16,11 +21,12 @@ export interface SupabaseSecretsResponse {
  */
 export async function getApiKeyFromSupabaseSecrets(accessToken: string, keyName: string = 'mvdb3'): Promise<string | null> {
   try {
+    const functionUrl = getSupabaseFunctionUrl()
     console.log(`Getting secret ${keyName} from Supabase...`)
-    console.log('Function URL:', SUPABASE_FUNCTION_URL)
+    console.log('Function URL:', functionUrl)
     console.log('Access token present:', accessToken ? 'yes' : 'no')
     
-    const response = await fetch(`${SUPABASE_FUNCTION_URL}/kv-store/get/${keyName}`, {
+    const response = await fetch(`${functionUrl}/kv-store/get/${keyName}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

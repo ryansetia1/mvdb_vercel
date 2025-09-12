@@ -10,6 +10,7 @@ import { photobookApi } from '../../utils/photobookApi'
 import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
 import { templateStatsApi } from '../../utils/templateStatsApi'
 import { movieLinksApi } from '../../utils/movieLinksApi'
+import { useCachedData } from '../../hooks/useCachedData'
 import { toast } from 'sonner'
 
 interface StatsData {
@@ -62,6 +63,7 @@ interface StatsContentProps {
 }
 
 export function StatsContent({ accessToken }: StatsContentProps) {
+  const { loadData: loadCachedData } = useCachedData()
   const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -71,7 +73,7 @@ export function StatsContent({ accessToken }: StatsContentProps) {
     try {
       console.log('Fetching stats data...')
       
-      // Fetch all data in parallel
+      // Fetch all data using cached system to reduce API calls
       const [
         movies,
         scMovies,
@@ -88,18 +90,18 @@ export function StatsContent({ accessToken }: StatsContentProps) {
         templateStats,
         movieLinks
       ] = await Promise.all([
-        movieApi.getMovies(accessToken),
-        scMovieApi.getSCMovies(accessToken),
-        masterDataApi.getByType('actor', accessToken),
-        masterDataApi.getByType('actress', accessToken),
-        masterDataApi.getByType('director', accessToken),
-        masterDataApi.getByType('studio', accessToken),
-        masterDataApi.getByType('series', accessToken),
-        masterDataApi.getByType('label', accessToken),
-        masterDataApi.getByType('group', accessToken),
-        masterDataApi.getByType('tag', accessToken),
-        photobookApi.getPhotobooks(accessToken),
-        simpleFavoritesApi.getFavorites(accessToken),
+        loadCachedData('movies', () => movieApi.getMovies(accessToken)),
+        scMovieApi.getSCMovies(accessToken), // SC movies belum di-cache
+        loadCachedData('actors', () => masterDataApi.getByType('actor', accessToken)),
+        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)),
+        masterDataApi.getByType('director', accessToken), // Directors belum di-cache
+        masterDataApi.getByType('studio', accessToken), // Studios belum di-cache
+        masterDataApi.getByType('series', accessToken), // Series belum di-cache
+        masterDataApi.getByType('label', accessToken), // Labels belum di-cache
+        masterDataApi.getByType('group', accessToken), // Groups belum di-cache
+        masterDataApi.getByType('tag', accessToken), // Tags belum di-cache
+        loadCachedData('photobooks', () => photobookApi.getPhotobooks(accessToken)),
+        simpleFavoritesApi.getFavorites(accessToken), // Favorites sudah ada cache internal
         templateStatsApi.getTemplateCounts(accessToken).catch((error) => {
           console.log('Template counts endpoint not available, using fallback:', error.message)
           return { groupTemplates: 0 }

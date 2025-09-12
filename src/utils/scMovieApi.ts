@@ -35,11 +35,11 @@ const getAuthHeader = (accessToken?: string): Record<string, string> => ({
 })
 
 export const scMovieApi = {
-  // Main function used by components (with auth token)
+  // Main function used by components (uses public anon key for GET)
   async getSCMovies(accessToken: string) {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
-        headers: getAuthHeader(accessToken),
+        headers: getAuthHeader(),
       })
       
       const result = await response.json()
@@ -55,7 +55,7 @@ export const scMovieApi = {
     }
   },
 
-  // Alternative function for public access (without auth)
+  // Alternative function for public access (uses public anon key)
   async getAllSCMovies() {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
@@ -96,13 +96,30 @@ export const scMovieApi = {
 
   async createSCMovie(scMovie: SCMovie, accessToken: string) {
     try {
+      console.log('Creating SC movie with data:', scMovie)
+      console.log('Using URL:', `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`)
+      
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
         method: 'POST',
         headers: getAuthHeader(accessToken),
         body: JSON.stringify(scMovie),
       })
       
-      const result = await response.json()
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers)
+      
+      const responseText = await response.text()
+      console.log('Raw response:', responseText)
+      
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        console.error('Response text:', responseText)
+        throw new Error(`Invalid JSON response: ${responseText}`)
+      }
+      
       if (!response.ok) {
         console.log('Create SC movie API error:', result)
         throw new Error(result.error || 'Failed to create SC movie')
@@ -159,7 +176,7 @@ export const scMovieApi = {
   async searchSCMovies(query: string, accessToken?: string) {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies/search/${encodeURIComponent(query)}`, {
-        headers: getAuthHeader(accessToken),
+        headers: getAuthHeader(),
       })
       
       const result = await response.json()

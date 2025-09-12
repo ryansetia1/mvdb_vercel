@@ -62,6 +62,7 @@ import { SimpleFavoritesContent } from './content/SimpleFavoritesContent'
 import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
+import { SCMovieForm } from './SCMovieForm'
 import { FilteredCustomNavContent } from './content/FilteredCustomNavContent'
 import { customNavApi, CustomNavItem } from '../utils/customNavApi'
 import { ThemeToggle } from './ThemeToggle'
@@ -97,6 +98,7 @@ type ContentMode =
   | 'custom'
   | 'movieDetail'
   | 'scMovieDetail'
+  | 'scMovieForm'
   | 'photobookDetail'
   | 'profile'
   | 'filteredMovies'
@@ -841,6 +843,23 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActiveNavItem('admin')
   }
 
+  const handleSCMovieSave = async (scMovie: SCMovie) => {
+    try {
+      if (scMovie.id) {
+        // Update existing SC movie
+        await scMovieApi.updateSCMovie(scMovie.id, scMovie, accessToken)
+      } else {
+        // Create new SC movie
+        await scMovieApi.createSCMovie(scMovie, accessToken)
+      }
+      // Go back to soft content - data will be reloaded automatically by SoftContent
+      setContentState({ mode: 'soft', title: 'Soft Content' })
+      setActiveNavItem('soft')
+    } catch (error) {
+      console.error('Failed to save SC movie:', error)
+    }
+  }
+
   const handleEditProfile = (type: 'actor' | 'actress' | 'director', name: string) => {
     setShowEditProfile({ type, name })
     // Switch to admin mode to show the edit form
@@ -1330,6 +1349,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 accessToken={accessToken}
                 onSCMovieSelect={handleSCMovieSelect}
+                onAddSCMovie={() => setContentState({ mode: 'scMovieForm', title: 'Tambah SC Movie Baru' })}
               />
             )}
 
@@ -1367,6 +1387,14 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onBack={handleBack}
                 onEdit={handleEditSCMovie}
                 onMovieSelect={handleMovieSelect}
+                accessToken={accessToken}
+              />
+            )}
+
+            {contentState.mode === 'scMovieForm' && (
+              <SCMovieForm
+                onSave={handleSCMovieSave}
+                onCancel={handleBack}
                 accessToken={accessToken}
               />
             )}

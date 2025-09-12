@@ -1,4 +1,16 @@
 import { projectId, publicAnonKey } from './supabase/info'
+import { getProjectConfig } from './projectConfigManager'
+
+// Get dynamic getBaseUrl() based on current project configuration
+const getBaseUrl = () => {
+  try {
+    const config = getProjectConfig()
+    return config.functionUrl
+  } catch (error) {
+    console.warn('Failed to get project config, using fallback:', error)
+    return `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
+  }
+}
 
 // Link item structure for labeled links
 export interface LabeledLink {
@@ -49,18 +61,16 @@ export interface MasterDataItem {
   labelLinks?: string // For label
 }
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
-
 // Debug logging
 console.log('Master Data API Configuration:')
 console.log('- Project ID:', projectId)
-console.log('- Base URL:', BASE_URL)
+console.log('- Base URL:', getBaseUrl())
 console.log('- Public Anon Key:', publicAnonKey.substring(0, 50) + '...')
 
 export const masterDataApi = {
   // Health check endpoint
   async healthCheck(): Promise<{ status: string, timestamp: string }> {
-    console.log(`Frontend API: Health check to ${BASE_URL}/health`)
+    console.log(`Frontend API: Health check to ${getBaseUrl()}/health`)
     
     let controller: AbortController | null = null
     let timeoutId: NodeJS.Timeout | null = null
@@ -72,7 +82,7 @@ export const masterDataApi = {
         controller?.abort()
       }, 15000)
       
-      const response = await fetch(`${BASE_URL}/health`, {
+      const response = await fetch(`${getBaseUrl()}/health`, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
           'Content-Type': 'application/json'
@@ -110,7 +120,7 @@ export const masterDataApi = {
   },
   // Get all items by type - now requires access token for authentication
   async getByType(type: string, accessToken?: string, retryCount = 0): Promise<MasterDataItem[]> {
-    console.log(`Frontend API: Fetching ${type} data from ${BASE_URL}/master/${type} (attempt ${retryCount + 1})`)
+    console.log(`Frontend API: Fetching ${type} data from ${getBaseUrl()}/master/${type} (attempt ${retryCount + 1})`)
     
     let controller: AbortController | null = null
     let timeoutId: NodeJS.Timeout | null = null
@@ -127,7 +137,7 @@ export const masterDataApi = {
         controller?.abort()
       }, timeoutDuration)
       
-      const response = await fetch(`${BASE_URL}/master/${type}`, {
+      const response = await fetch(`${getBaseUrl()}/master/${type}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -183,7 +193,7 @@ export const masterDataApi = {
   async create(type: string, name: string, accessToken: string): Promise<MasterDataItem> {
     console.log(`Frontend API: Creating ${type} with name: "${name}"`)
     
-    const response = await fetch(`${BASE_URL}/master/${type}`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -209,7 +219,7 @@ export const masterDataApi = {
   async createExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label', data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log(`Frontend API: Creating extended ${type} with data:`, data)
     
-    const response = await fetch(`${BASE_URL}/master/${type}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}/extended`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -233,7 +243,7 @@ export const masterDataApi = {
 
   // Create label with optional links
   async createLabel(name: string, labelLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/label/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/label/extended`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -253,7 +263,7 @@ export const masterDataApi = {
 
   // Create series with dual language titles
   async createSeries(titleEn: string, titleJp: string, seriesLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/series/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/series/extended`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -273,7 +283,7 @@ export const masterDataApi = {
 
   // Create studio with links
   async createStudio(name: string, studioLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/studio/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/studio/extended`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -296,7 +306,7 @@ export const masterDataApi = {
     console.log('API call - updateExtended:', { type, id, data })
     console.log('JSON payload being sent:', JSON.stringify(data, null, 2))
     
-    const response = await fetch(`${BASE_URL}/master/${type}/${id}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/extended`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -320,7 +330,7 @@ export const masterDataApi = {
 
   // Update series
   async updateSeries(id: string, titleEn: string, titleJp: string, seriesLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/series/${id}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/series/${id}/extended`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -340,7 +350,7 @@ export const masterDataApi = {
 
   // Update studio
   async updateStudio(id: string, name: string, studioLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/studio/${id}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/studio/${id}/extended`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -360,7 +370,7 @@ export const masterDataApi = {
 
   // Update label
   async updateLabel(id: string, name: string, labelLinks: string, accessToken: string): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/label/${id}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/label/${id}/extended`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -380,7 +390,7 @@ export const masterDataApi = {
 
   // Delete item
   async delete(type: string, id: string, accessToken: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/master/${type}/${id}`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -395,7 +405,7 @@ export const masterDataApi = {
 
   // Group-specific methods
   async createGroup(name: string, jpname: string, profilePicture: string, website: string, description: string, accessToken: string, gallery?: string[]): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/group/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/group/extended`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -414,7 +424,7 @@ export const masterDataApi = {
   },
 
   async updateGroup(id: string, name: string, jpname: string, profilePicture: string, website: string, description: string, accessToken: string, gallery?: string[]): Promise<MasterDataItem> {
-    const response = await fetch(`${BASE_URL}/master/group/${id}/extended`, {
+    const response = await fetch(`${getBaseUrl()}/master/group/${id}/extended`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -455,7 +465,7 @@ export const masterDataApi = {
   async updateSimpleWithSync(type: 'type' | 'tag', id: string, name: string, accessToken: string): Promise<{ data: MasterDataItem, sync: { moviesUpdated: number, scMoviesUpdated: number } }> {
     console.log(`Frontend API: Updating simple ${type} with sync - ID: ${id}, name: "${name}"`)
     
-    const response = await fetch(`${BASE_URL}/master/${type}/${id}/sync`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/sync`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -481,7 +491,7 @@ export const masterDataApi = {
   async updateExtendedWithSync(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<{ data: MasterDataItem, sync: { moviesUpdated: number, scMoviesUpdated: number } }> {
     console.log(`Frontend API: Updating extended ${type} with sync - ID: ${id}`, data)
     
-    const response = await fetch(`${BASE_URL}/master/${type}/${id}/extended/sync`, {
+    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/extended/sync`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

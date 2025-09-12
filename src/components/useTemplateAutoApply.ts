@@ -32,24 +32,23 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
       setIsLoading(true)
       setError(null)
 
-      console.log('🚀 Template Auto-Apply Debug:', {
-        studio: options.studio,
-        type: options.type,
-        dmcode: options.dmcode,
-        currentCover: options.currentCover,
-        currentGallery: options.currentGallery,
-        accessToken: accessToken ? 'Present' : 'Missing'
-      })
+      // Reduced logging to prevent console spam
+      // console.log('🚀 Template Auto-Apply Debug:', {
+      //   studio: options.studio,
+      //   type: options.type,
+      //   dmcode: options.dmcode,
+      //   currentCover: options.currentCover,
+      //   currentGallery: options.currentGallery,
+      //   accessToken: accessToken ? 'Present' : 'Missing'
+      // })
 
       // Skip if no studio or type provided
       if (!options.studio && !options.type) {
-        console.log('❌ No studio or type provided')
         return null
       }
 
       // Skip if no dmcode (required for template processing)
       if (!options.dmcode) {
-        console.log('❌ No dmcode provided, template cannot be processed')
         return null
       }
 
@@ -57,45 +56,33 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
       let defaultTemplate: CoverTemplateGroup | null = null
       
       if (options.studio) {
-        console.log('🏢 Searching for studio template:', options.studio)
         try {
           defaultTemplate = await fetchDefaultTemplate(accessToken, { studio: options.studio })
-          if (defaultTemplate) {
-            console.log('✅ Found studio template:', defaultTemplate.name)
-          } else {
-            console.log('❌ No default template found for studio:', options.studio)
-          }
         } catch (error) {
-          console.error('❌ Error fetching studio template:', error)
+          console.error('Error fetching studio template:', error)
         }
       }
       
       // Try type template if no studio template found
       if (!defaultTemplate && options.type) {
-        console.log('📝 Searching for type template:', options.type)
         try {
           defaultTemplate = await fetchDefaultTemplate(accessToken, { type: options.type })
-          if (defaultTemplate) {
-            console.log('✅ Found type template:', defaultTemplate.name)
-          } else {
-            console.log('❌ No default template found for type:', options.type)
-          }
         } catch (error) {
-          console.error('❌ Error fetching type template:', error)
+          console.error('Error fetching type template:', error)
         }
       }
 
       if (!defaultTemplate) {
-        console.log('❌ No default templates found for the given criteria')
         return null // No default template found
       }
 
-      console.log('📋 Template details:', {
-        name: defaultTemplate.name,
-        templateUrl: defaultTemplate.templateUrl,
-        galleryTemplate: defaultTemplate.galleryTemplate,
-        isDefault: defaultTemplate.isDefault
-      })
+      // Reduced logging to prevent console spam
+      // console.log('📋 Template details:', {
+      //   name: defaultTemplate.name,
+      //   templateUrl: defaultTemplate.templateUrl,
+      //   galleryTemplate: defaultTemplate.galleryTemplate,
+      //   isDefault: defaultTemplate.isDefault
+      // })
 
       const appliedFields: string[] = []
       const result: TemplateAutoApplyResult = {
@@ -125,12 +112,6 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
       if (shouldApplyCover) {
         result.cover = defaultTemplate.templateUrl
         appliedFields.push('cover')
-        console.log('✅ Applied cover template:', defaultTemplate.templateUrl)
-      } else {
-        console.log('⏭️ Skipping cover template - field not empty or no template URL', {
-          currentCover: options.currentCover,
-          templateUrl: defaultTemplate.templateUrl
-        })
       }
 
       // Apply gallery template if available and current gallery is empty/minimal or contains placeholder
@@ -140,22 +121,17 @@ export function useTemplateAutoApply({ accessToken, onTemplateApplied }: UseTemp
       if (shouldApplyGallery) {
         result.gallery = defaultTemplate.galleryTemplate
         appliedFields.push('gallery')
-        console.log('✅ Applied gallery template:', defaultTemplate.galleryTemplate)
-      } else {
-        console.log('⏭️ Skipping gallery template - field not empty or no gallery template', {
-          currentGallery: options.currentGallery,
-          galleryTemplate: defaultTemplate.galleryTemplate
-        })
       }
 
       result.appliedFields = appliedFields
 
-      console.log('📊 Template application result:', {
-        appliedFields,
-        templateName: defaultTemplate.name,
-        coverApplied: !!result.cover,
-        galleryApplied: !!result.gallery
-      })
+      // Reduced logging to prevent console spam
+      // console.log('📊 Template application result:', {
+      //   appliedFields,
+      //   templateName: defaultTemplate.name,
+      //   coverApplied: !!result.cover,
+      //   galleryApplied: !!result.gallery
+      // })
 
       // Notify about template application
       if (appliedFields.length > 0 && onTemplateApplied) {

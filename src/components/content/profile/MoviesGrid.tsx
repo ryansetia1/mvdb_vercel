@@ -21,6 +21,7 @@ interface MoviesGridProps {
   onMovieSelect: (movie: Movie) => void
   onSCMovieSelect?: (scMovieId: string) => void
   onFilterSelect?: (filterType: string, filterValue: string, title?: string) => void
+  onProfileSelect?: (type: 'actor' | 'actress' | 'director', name: string) => void
   accessToken?: string
   collaborationInfo?: {
     actorName: string
@@ -34,7 +35,7 @@ interface SeriesInfo {
   firstMovie: Movie
 }
 
-export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSelect, onFilterSelect, accessToken, collaborationInfo }: MoviesGridProps) {
+export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSelect, onFilterSelect, onProfileSelect, accessToken, collaborationInfo }: MoviesGridProps) {
   const [sortBy, setSortBy] = useState<string>('releaseDate_desc')
   const [activeTab, setActiveTab] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
@@ -133,6 +134,94 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
 
   // Check if this is an actress profile for showing Takufied tab
   const isActressProfile = profile?.type === 'actress'
+
+  // Helper function to render clickable actress names
+  const renderClickableActressNames = (actressNames: string) => {
+    if (!actressNames || !onProfileSelect) {
+      return <span className="text-xs text-muted-foreground line-clamp-1">{actressNames}</span>
+    }
+
+    const names = actressNames.split(',').map(name => name.trim()).filter(Boolean)
+    
+    if (names.length === 1) {
+      // Single actress - make it clickable
+      return (
+        <span 
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer line-clamp-1"
+          onClick={(e) => {
+            e.stopPropagation()
+            onProfileSelect('actress', names[0])
+          }}
+        >
+          {names[0]}
+        </span>
+      )
+    } else {
+      // Multiple actresses - make each clickable, separated by commas
+      return (
+        <span className="text-xs text-muted-foreground line-clamp-1">
+          {names.map((name, index) => (
+            <span key={name}>
+              <span 
+                className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onProfileSelect('actress', name)
+                }}
+              >
+                {name}
+              </span>
+              {index < names.length - 1 && ', '}
+            </span>
+          ))}
+        </span>
+      )
+    }
+  }
+
+  // Helper function to render clickable actor names
+  const renderClickableActorNames = (actorNames: string) => {
+    if (!actorNames || !onProfileSelect) {
+      return <span className="text-xs text-muted-foreground line-clamp-1">{actorNames}</span>
+    }
+
+    const names = actorNames.split(',').map(name => name.trim()).filter(Boolean)
+    
+    if (names.length === 1) {
+      // Single actor - make it clickable
+      return (
+        <span 
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer line-clamp-1"
+          onClick={(e) => {
+            e.stopPropagation()
+            onProfileSelect('actor', names[0])
+          }}
+        >
+          {names[0]}
+        </span>
+      )
+    } else {
+      // Multiple actors - make each clickable, separated by commas
+      return (
+        <span className="text-xs text-muted-foreground line-clamp-1">
+          {names.map((name, index) => (
+            <span key={name}>
+              <span 
+                className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onProfileSelect('actor', name)
+                }}
+              >
+                {name}
+              </span>
+              {index < names.length - 1 && ', '}
+            </span>
+          ))}
+        </span>
+      )
+    }
+  }
 
   // Fetch SC Movies when component mounts
   useEffect(() => {
@@ -531,6 +620,20 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                     </p>
                   )}
 
+                  {/* Actress names for actor profiles */}
+                  {profile?.type === 'actor' && movie.actress && (
+                    <div>
+                      {renderClickableActressNames(movie.actress)}
+                    </div>
+                  )}
+
+                  {/* Actor names for actress profiles */}
+                  {profile?.type === 'actress' && movie.actors && (
+                    <div>
+                      {renderClickableActorNames(movie.actors)}
+                    </div>
+                  )}
+
                   {/* Release Date and Age + Max Gap */}
                   {movie.releaseDate && (
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -648,6 +751,13 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
                     <p className="text-xs text-gray-600 line-clamp-1">
                       {scMovie.titleJp}
                     </p>
+                  )}
+
+                  {/* Cast for SC movies */}
+                  {scMovie.cast && (
+                    <div>
+                      {renderClickableActressNames(scMovie.cast)}
+                    </div>
                   )}
 
                   {/* Release Date and Age */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useGlobalKeyboardPagination } from '../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
@@ -129,17 +129,6 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
     onClearEditing?.()
   }
 
-  if (showForm) {
-    return (
-      <SCMovieForm
-        scMovie={localEditingMovie || undefined}
-        onSave={handleFormSubmit}
-        onCancel={handleFormCancel}
-        accessToken={accessToken}
-      />
-    )
-  }
-
   // Pagination calculations
   const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -155,11 +144,22 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
     !showForm // Disable when form is open
   )
 
+  if (showForm) {
+    return (
+      <SCMovieForm
+        scMovie={localEditingMovie || undefined}
+        onSave={handleFormSubmit}
+        onCancel={handleFormCancel}
+        accessToken={accessToken}
+      />
+    )
+  }
+
   // Pagination component
   const PaginationComponent = () => {
     if (totalPages <= 1) return null
 
-    const pages = []
+    const pages: React.ReactNode[] = []
     const maxVisiblePages = 5
 
     if (totalPages <= maxVisiblePages) {
@@ -169,6 +169,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             <PaginationLink
               onClick={() => setCurrentPage(i)}
               isActive={currentPage === i}
+              size="sm"
             >
               {i}
             </PaginationLink>
@@ -182,6 +183,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
           <PaginationLink
             onClick={() => setCurrentPage(1)}
             isActive={currentPage === 1}
+            size="sm"
           >
             1
           </PaginationLink>
@@ -208,6 +210,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
               <PaginationLink
                 onClick={() => setCurrentPage(i)}
                 isActive={currentPage === i}
+                size="sm"
               >
                 {i}
               </PaginationLink>
@@ -232,6 +235,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             <PaginationLink
               onClick={() => setCurrentPage(totalPages)}
               isActive={currentPage === totalPages}
+              size="sm"
             >
               {totalPages}
             </PaginationLink>
@@ -247,6 +251,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             <PaginationPrevious
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              size="sm"
             />
           </PaginationItem>
           {pages}
@@ -254,6 +259,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             <PaginationNext
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              size="sm"
             />
           </PaginationItem>
         </PaginationContent>

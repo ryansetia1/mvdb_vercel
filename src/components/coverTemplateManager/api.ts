@@ -63,54 +63,34 @@ export const fetchDefaultTemplate = async (
     }
     
     // Fallback: Get all templates and search client-side
-    console.log('🔍 Fetching all template groups for client-side search...')
     const allGroups = await fetchTemplateGroups(accessToken)
-    console.log('📋 Total template groups found:', allGroups.length)
+    // Reduced logging to prevent console spam
+    // console.log('📋 Total template groups found:', allGroups.length)
     
     // Find default template
     let defaultTemplate = null
     
     // Priority 1: Studio template with isDefault=true
     if (options.studio) {
-      console.log('🏢 Searching for studio template:', options.studio)
       defaultTemplate = allGroups.find(group => 
         group.isDefault && 
         group.applicableStudios && 
         group.applicableStudios.some(s => s.toLowerCase() === options.studio!.toLowerCase())
       )
-      if (defaultTemplate) {
-        console.log('✅ Found studio default template:', defaultTemplate.name)
-      } else {
-        console.log('❌ No studio default template found for:', options.studio)
-      }
     }
     
     // Priority 2: Type template with isDefault=true (if no studio template found)
     if (!defaultTemplate && options.type) {
-      console.log('📝 Searching for type template:', options.type)
       defaultTemplate = allGroups.find(group => 
         group.isDefault && 
         group.applicableTypes && 
         group.applicableTypes.some(t => t.toLowerCase() === options.type!.toLowerCase())
       )
-      if (defaultTemplate) {
-        console.log('✅ Found type default template:', defaultTemplate.name)
-      } else {
-        console.log('❌ No type default template found for:', options.type)
-      }
     }
     
     if (!defaultTemplate) {
-      console.log('❌ No default template found for criteria')
       return null
     }
-    
-    console.log('📋 Returning default template:', {
-      name: defaultTemplate.name,
-      templateUrl: defaultTemplate.templateUrl,
-      galleryTemplate: defaultTemplate.galleryTemplate,
-      isDefault: defaultTemplate.isDefault
-    })
     
     return defaultTemplate
   } catch (error) {

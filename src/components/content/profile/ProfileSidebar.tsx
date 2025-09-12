@@ -8,6 +8,7 @@ import { Movie } from '../../../utils/movieApi'
 import { Photobook } from '../../../utils/photobookApi'
 import { User, Calendar, Film, Camera, Images } from 'lucide-react'
 import { TakuLinksIframe } from '../../TakuLinksIframe'
+import { copyToClipboard } from '../../../utils/clipboard'
 
 interface ProfileSidebarProps {
   profile: MasterDataItem | null
@@ -36,6 +37,13 @@ export function ProfileSidebar({
   // Determine which images to cycle through
   const imagesToCycle = profileImages.length > 0 ? profileImages : (profile?.profilePicture ? [profile.profilePicture] : [])
 
+  // Copy to clipboard handler
+  const handleCopyJapaneseName = async () => {
+    if (profile?.jpname) {
+      await copyToClipboard(profile.jpname, 'Japanese name')
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -61,7 +69,13 @@ export function ProfileSidebar({
           </div>
           <h2 className="font-bold text-lg">{name}</h2>
           {profile?.jpname && (
-            <p className="text-sm text-muted-foreground font-medium">{profile.jpname}</p>
+            <p 
+              className="text-sm text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors"
+              onClick={handleCopyJapaneseName}
+              title="Click to copy Japanese name to clipboard"
+            >
+              {profile.jpname}
+            </p>
           )}
           {age && (
             <p className="text-sm text-muted-foreground">{age} years old</p>

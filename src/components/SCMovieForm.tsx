@@ -129,6 +129,9 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
         hcStreamingLinks: (formData.hcStreamingLinks || []).filter(link => link.trim())
       }
 
+      console.log('SC Movie data to save:', cleanedData)
+      console.log('Access token:', accessToken ? 'Present' : 'Missing')
+
       let savedSCMovie: SCMovie
       if (scMovie?.id) {
         savedSCMovie = await scMovieApi.updateSCMovie(scMovie.id, cleanedData, accessToken)
