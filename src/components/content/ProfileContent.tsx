@@ -589,6 +589,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                         profile={state.profile}
                         onMovieSelect={onMovieSelect}
                         onSCMovieSelect={onSCMovieSelect}
+                        onProfileSelect={handleProfileNavigation}
                         accessToken={accessToken}
                       />
                     </div>
@@ -630,6 +631,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                         profile={state.profile}
                         onMovieSelect={onMovieSelect}
                         onSCMovieSelect={onSCMovieSelect}
+                        onProfileSelect={handleProfileNavigation}
                         accessToken={accessToken}
                         collaborationInfo={{
                           actorName: collaborationFilter.actorName,
@@ -645,6 +647,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                       profile={state.profile}
                       onMovieSelect={onMovieSelect}
                       onSCMovieSelect={onSCMovieSelect}
+                      onProfileSelect={handleProfileNavigation}
                       accessToken={accessToken}
                     />
                   )}
