@@ -29,26 +29,7 @@ export function PaginationEnhanced({
   const startItem = Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)
   const endItem = Math.min(currentPage * itemsPerPage, totalItems)
 
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field or dialog
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
-        return
-      }
-
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        onPageChange(currentPage - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        onPageChange(currentPage + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, totalPages, onPageChange])
+  // Note: Keyboard navigation is now handled by useGlobalKeyboardPagination hook in parent components
   
   const getVisiblePages = () => {
     const delta = 2

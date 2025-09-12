@@ -1,5 +1,6 @@
 import React from 'react'
 import { useState, useMemo, useEffect } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Movie } from '../../utils/movieApi'
 import { MasterDataItem, castMatchesQuery, movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { MovieCard } from '../MovieCard'
@@ -323,46 +324,18 @@ export function MoviesContent({
     }
   }, [searchQuery])
 
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle arrow keys if no input/textarea/select is focused
-      const activeElement = document.activeElement
-      const isInputFocused = activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' || 
-        activeElement.tagName === 'SELECT' ||
-        activeElement.getAttribute('contenteditable') === 'true'
-      )
-
-      if (isInputFocused) return
-
-      // Handle left/right arrow keys for pagination
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        if (currentPage > 1) {
-          updateFilters({ currentPage: currentPage - 1 })
-          // Scroll to top of the page for better UX
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        }
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        if (currentPage < totalPages) {
-          updateFilters({ currentPage: currentPage + 1 })
-          // Scroll to top of the page for better UX
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        }
-      }
-    }
-
-    // Add event listener
-    document.addEventListener('keydown', handleKeyDown)
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [currentPage, totalPages])
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => {
+      updateFilters({ currentPage: page })
+      // Scroll to top of the page for better UX
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    },
+    'movies-content',
+    true
+  )
 
   // Reset to first page when filters change
   const handleFilterChange = (filterType: string, value: string) => {

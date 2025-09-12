@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -104,30 +105,6 @@ export function FavoritesContent({
   useEffect(() => {
     setCurrentPage(1)
   }, [activeTab, searchQuery])
-
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
-        return
-      }
-
-      const currentData = getCurrentTabData()
-      const totalPages = Math.ceil(currentData.length / itemsPerPage)
-      
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        setCurrentPage(prev => prev - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        setCurrentPage(prev => prev + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, activeTab, favorites, movies, scMovies, actresses, itemsPerPage])
 
   const loadFavorites = async () => {
     try {
@@ -384,6 +361,15 @@ export function FavoritesContent({
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedData = currentTabData.slice(startIndex, endIndex)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'favorites-content',
+    true
+  )
 
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {

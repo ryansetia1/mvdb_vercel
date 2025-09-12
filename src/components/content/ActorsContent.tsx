@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { MasterDataItem, calculateAge, castMatchesQuery } from '../../utils/masterDataApi'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -63,6 +64,15 @@ export function ActorsContent({ actors, searchQuery, onProfileSelect, accessToke
   const totalPages = Math.ceil(filteredAndSortedActors.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedActors = filteredAndSortedActors.slice(startIndex, startIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'actors-content',
+    !showEditDialog // Disable when edit dialog is open
+  )
 
   // Edit functions
   const handleEditActor = (actor: MasterDataItem) => {

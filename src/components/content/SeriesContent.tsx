@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Movie } from '../../utils/movieApi'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -107,29 +108,6 @@ export function SeriesContent({ movies, searchQuery, onFilterSelect, accessToken
     )
   }, [seriesData, searchQuery])
 
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
-        return
-      }
-
-      const totalPages = Math.ceil(filteredSeries.length / itemsPerPage)
-      
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        setCurrentPage(prev => prev - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        setCurrentPage(prev => prev + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, filteredSeries.length, itemsPerPage])
-
   // Helper function to render series links
   const renderSeriesLinks = (seriesLinks: string) => {
     if (!seriesLinks.trim()) return null
@@ -170,6 +148,15 @@ export function SeriesContent({ movies, searchQuery, onFilterSelect, accessToken
   const totalPages = Math.ceil(filteredSeries.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedSeries = filteredSeries.slice(startIndex, startIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'series-content',
+    true
+  )
 
   if (filteredSeries.length === 0) {
     return (

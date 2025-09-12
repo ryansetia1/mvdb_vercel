@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useGlobalKeyboardPagination } from '../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -62,29 +63,6 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
     // Reset to first page when filtering
     setCurrentPage(1)
   }, [searchQuery, actors])
-
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field or dialog
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || showForm) {
-        return
-      }
-
-      const totalPages = Math.ceil(filteredActors.length / itemsPerPage)
-      
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        setCurrentPage(prev => prev - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        setCurrentPage(prev => prev + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, filteredActors.length, itemsPerPage, showForm])
 
   const loadActors = async () => {
     try {
@@ -235,6 +213,15 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
           const startIndex = (currentPage - 1) * itemsPerPage
           const endIndex = startIndex + itemsPerPage
           const paginatedActors = filteredActors.slice(startIndex, endIndex)
+
+          // Keyboard navigation for pagination using global hook
+          useGlobalKeyboardPagination(
+            currentPage,
+            totalPages,
+            (page: number) => setCurrentPage(page),
+            'actor-manager',
+            !showForm // Disable when form is open
+          )
           
           return (
             <div className="space-y-6">

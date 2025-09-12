@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -467,29 +468,6 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     setCurrentPage(1)
   }, [searchQuery])
 
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
-        return
-      }
-
-      const totalPages = Math.ceil(filteredGroups.length / itemsPerPage)
-      
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        setCurrentPage(prev => prev - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        setCurrentPage(prev => prev + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, filteredGroups.length, itemsPerPage])
-
   const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
     console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
     
@@ -621,6 +599,15 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const membersTotalPages = Math.ceil(sortedGroupMembers.length / itemsPerPage)
   const membersStartIndex = (currentPage - 1) * itemsPerPage
   const paginatedMembers = sortedGroupMembers.slice(membersStartIndex, membersStartIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    groupsTotalPages,
+    (page: number) => setCurrentPage(page),
+    'groups-content',
+    true
+  )
 
   if (isLoading && groups.length === 0) {
     return (

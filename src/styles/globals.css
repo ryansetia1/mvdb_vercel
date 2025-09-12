@@ -211,6 +211,7 @@ html {
   [data-radix-dialog-overlay][data-lightbox="true"] {
     background-color: transparent !important;
   }
+
 }
 
 /* Dark mode transitions */

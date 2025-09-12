@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Movie } from '../../utils/movieApi'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -74,6 +75,15 @@ export function StudiosContent({ movies, searchQuery, onFilterSelect }: StudiosC
   const totalPages = Math.ceil(filteredStudios.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedStudios = filteredStudios.slice(startIndex, startIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'studios-content',
+    true
+  )
 
   if (filteredStudios.length === 0) {
     return (
