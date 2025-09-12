@@ -303,13 +303,13 @@ export function ActressesGrid({
 
                   {/* Favorite Button */}
                   {accessToken && (
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-opacity">
                       <SimpleFavoriteButton
                         type="cast"
                         itemId={actress.name || ''}
                         size="sm"
                         variant="ghost"
-                        className="bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                        className="h-8 w-8 p-0 bg-white/90 hover:bg-white backdrop-blur-sm text-black shadow-lg"
                       />
                     </div>
                   )}

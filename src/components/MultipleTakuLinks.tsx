@@ -1,16 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import { Plus, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, Search } from 'lucide-react'
+import { CheckTakuLinksDialog } from './CheckTakuLinksDialog'
 
 interface MultipleTakuLinksProps {
   links: string[]
   onChange: (links: string[]) => void
+  jpname?: string
+  alias?: string
+  name?: string
 }
 
-export function MultipleTakuLinks({ links, onChange }: MultipleTakuLinksProps) {
+export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', name = '' }: MultipleTakuLinksProps) {
+  const [showCheckDialog, setShowCheckDialog] = useState(false)
+  const [selectedName, setSelectedName] = useState('')
+
   const handleLinkChange = (index: number, value: string) => {
     const newLinks = [...links]
     newLinks[index] = value
@@ -34,14 +41,58 @@ export function MultipleTakuLinks({ links, onChange }: MultipleTakuLinksProps) {
     }
   }
 
+  const handleAddTakuLink = (url: string) => {
+    // Check if there are any empty fields first
+    const emptyIndex = links.findIndex(link => !link.trim())
+    
+    if (emptyIndex !== -1) {
+      // Fill the first empty field
+      const newLinks = [...links]
+      newLinks[emptyIndex] = url
+      onChange(newLinks)
+    } else {
+      // Add new field if no empty fields exist
+      const newLinks = [...links, url]
+      onChange(newLinks)
+    }
+  }
+
+
+  // Listen for custom event to reopen dialog with selected name
+  useEffect(() => {
+    const handleReopenDialog = (event: CustomEvent) => {
+      const { selectedName } = event.detail
+      setSelectedName(selectedName)
+      setShowCheckDialog(true)
+    }
+
+    window.addEventListener('reopenTakuLinksDialog', handleReopenDialog as EventListener)
+    
+    return () => {
+      window.removeEventListener('reopenTakuLinksDialog', handleReopenDialog as EventListener)
+    }
+  }, [])
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label>Taku Links</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addLink}>
-          <Plus className="h-4 w-4 mr-1" />
-          Tambah Link
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowCheckDialog(true)}
+            className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+          >
+            <Search className="h-4 w-4 mr-1" />
+            Check Taku Links
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={addLink}>
+            <Plus className="h-4 w-4 mr-1" />
+            Tambah Link
+          </Button>
+        </div>
       </div>
       
       {links.length === 0 ? (
@@ -113,6 +164,20 @@ export function MultipleTakuLinks({ links, onChange }: MultipleTakuLinksProps) {
           </p>
         </div>
       </details>
+
+      {/* Check Taku Links Dialog */}
+      <CheckTakuLinksDialog
+        isOpen={showCheckDialog}
+        onClose={() => {
+          setShowCheckDialog(false)
+          setSelectedName('') // Reset selectedName when closing
+        }}
+        jpname={jpname}
+        alias={alias}
+        name={name}
+        selectedName={selectedName}
+        onAddTakuLink={handleAddTakuLink}
+      />
     </div>
   )
 }

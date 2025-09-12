@@ -1238,6 +1238,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                 <MultipleTakuLinks
                   links={formData.takulinks}
                   onChange={(links) => handleInputChange('takulinks', links)}
+                  jpname={formData.jpname}
+                  alias={formData.alias}
+                  name={formData.name}
                 />
               </div>
             )}

@@ -227,12 +227,12 @@ export function ActorsContent({ actors, searchQuery, onProfileSelect, accessToke
 
                   {/* Action Buttons */}
                   {accessToken && (
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-opacity">
                       <div className="flex gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 p-0 bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                          className="h-8 w-8 p-0 bg-white/90 hover:bg-white backdrop-blur-sm text-black shadow-lg"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleEditActor(actor)
@@ -246,7 +246,7 @@ export function ActorsContent({ actors, searchQuery, onProfileSelect, accessToke
                           itemId={actor.name || ''}
                           size="sm"
                           variant="ghost"
-                          className="bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                          className="h-8 w-8 p-0 bg-white/90 hover:bg-white backdrop-blur-sm text-black shadow-lg"
                         />
                       </div>
                     </div>
