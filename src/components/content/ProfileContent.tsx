@@ -18,7 +18,7 @@ import { movieApi } from '../../utils/movieApi'
 import { photobookApi, photobookHelpers } from '../../utils/photobookApi'
 import { ArrowLeft, Film, Camera, Users, Building, List, Edit } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ActorForm } from '../ActorForm'
 
 export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
@@ -744,6 +744,9 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
             <DialogTitle>
               Edit {type === 'actress' ? 'Actress' : 'Actor'}
             </DialogTitle>
+            <DialogDescription>
+              Ubah informasi {type === 'actress' ? 'actress' : 'actor'} {state.profile?.name || 'ini'}.
+            </DialogDescription>
           </DialogHeader>
           <ActorForm
             type={type}

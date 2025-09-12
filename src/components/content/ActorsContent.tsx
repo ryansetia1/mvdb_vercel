@@ -7,7 +7,7 @@ import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Button } from '../ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ActorForm } from '../ActorForm'
 import { User, Calendar, ImageOff, Filter, X, Edit } from 'lucide-react'
 
@@ -327,6 +327,9 @@ export function ActorsContent({ actors, searchQuery, onProfileSelect, accessToke
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Actor: {editingActor.name}</DialogTitle>
+              <DialogDescription>
+                Ubah informasi actor {editingActor.name || 'ini'}.
+              </DialogDescription>
             </DialogHeader>
             <ActorForm
               type="actor"

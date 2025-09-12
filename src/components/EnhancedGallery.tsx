@@ -5,7 +5,8 @@ import { ModernLightbox } from './ModernLightbox'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
 import { simpleFavoritesApi } from '../utils/simpleFavoritesApi'
 import { processTemplate, generateSmartGalleryUrls } from '../utils/templateUtils'
-import { ImageIcon, Eye, Grid, List, Loader2, AlertTriangle, Save } from 'lucide-react'
+import { useGalleryCache } from '../hooks/useGalleryCache'
+import { ImageIcon, Eye, Grid, List, Loader2, AlertTriangle, Save, Database, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface EnhancedGalleryProps {
@@ -59,6 +60,22 @@ export function EnhancedGallery({
   const [preloadProgress, setPreloadProgress] = useState(0)
   // State untuk track favorite status di lightbox
   const [currentImageFavorite, setCurrentImageFavorite] = useState(false)
+
+  // Gallery cache hook
+  const {
+    cachedUrls,
+    isLoading: isCacheLoading,
+    isCached,
+    cacheValid,
+    saveToCache,
+    clearCache,
+    refreshCache
+  } = useGalleryCache({
+    dmcode: dmcode || '',
+    galleryTemplate,
+    accessToken,
+    cacheExpiryHours: 24 // Cache for 24 hours
+  })
 
   const generateImageUrls = () => {
     if (!dmcode) return []
@@ -219,6 +236,30 @@ export function EnhancedGallery({
   useEffect(() => {
     if (!dmcode) return
 
+    // Check if we have cached data first
+    if (isCacheLoading) {
+      return // Wait for cache to load
+    }
+
+    if (cachedUrls && cacheValid) {
+      // Use cached data
+      console.log(`🎯 Using cached gallery for ${dmcode}: ${cachedUrls.length} images`)
+      
+      const cachedStatuses: ImageStatus[] = cachedUrls.map((url, index) => ({
+        url,
+        loaded: true,
+        failed: false,
+        isPlaceholder: false,
+        index
+      }))
+      
+      setImageStatuses(cachedStatuses)
+      setIsPreloading(false)
+      setPreloadProgress(100)
+      return
+    }
+
+    // No cache or cache invalid, load fresh data
     const urls = generateImageUrls()
     if (urls.length === 0) return
 
@@ -267,6 +308,16 @@ export function EnhancedGallery({
       console.log(`- Placeholder/404 images: ${placeholderCount}`)
       console.log(`- Failed images: ${failedCount}`)
       
+      // Save valid URLs to cache
+      const validUrls = results
+        .filter(r => r.loaded && !r.failed && !r.isPlaceholder)
+        .map(r => r.url)
+      
+      if (validUrls.length > 0) {
+        saveToCache(validUrls)
+        console.log(`💾 Saved ${validUrls.length} valid URLs to cache`)
+      }
+      
       // Log specific placeholder dimensions for debugging
       const placeholders = results.filter(r => r.isPlaceholder)
       placeholders.forEach(p => {
@@ -274,7 +325,7 @@ export function EnhancedGallery({
       })
     })
 
-  }, [dmcode, galleryTemplate, targetImageCount])
+  }, [dmcode, galleryTemplate, targetImageCount, isCacheLoading, cachedUrls, cacheValid, saveToCache])
 
   // Get only successfully loaded images that are NOT placeholders
   const validImages = imageStatuses.filter(status => 
@@ -598,6 +649,27 @@ export function EnhancedGallery({
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Cache Status and Controls */}
+          {isCached && cacheValid && (
+            <div className="flex items-center gap-1">
+              <Database className="h-4 w-4 text-green-600" />
+              <span className="text-xs text-green-600 font-medium">Cached</span>
+            </div>
+          )}
+          
+          {/* Refresh Cache Button */}
+          {isCached && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshCache}
+              className="flex items-center gap-1"
+              title="Refresh gallery cache"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          )}
+          
           {/* Save Gallery Button */}
           {showSaveOption && validImages.length > 0 && onSaveGallery && (
             <Button

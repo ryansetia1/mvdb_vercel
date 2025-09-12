@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { generateGalleryUrls } from '../utils/templateUtils'
+import { useGalleryCache } from '../hooks/useGalleryCache'
 
 interface GalleryThumbnailsProps {
   galleryTemplate: string
@@ -24,6 +25,19 @@ export function GalleryThumbnails({
   const [imageStatuses, setImageStatuses] = useState<ImageStatus[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Gallery cache hook
+  const {
+    cachedUrls,
+    isLoading: isCacheLoading,
+    isCached,
+    cacheValid,
+    saveToCache
+  } = useGalleryCache({
+    dmcode: dmcode || '',
+    galleryTemplate,
+    cacheExpiryHours: 24
+  })
+
   useEffect(() => {
     if (!galleryTemplate || !galleryTemplate.includes('#')) {
       setImageStatuses([])
@@ -31,7 +45,27 @@ export function GalleryThumbnails({
       return
     }
 
-    // Generate all possible gallery URLs
+    // Check if we have cached data first
+    if (isCacheLoading) {
+      return // Wait for cache to load
+    }
+
+    if (cachedUrls && cacheValid) {
+      // Use cached data
+      console.log(`🎯 Using cached gallery thumbnails for ${dmcode}: ${cachedUrls.length} images`)
+      
+      const cachedStatuses: ImageStatus[] = cachedUrls.map(url => ({
+        url,
+        exists: true,
+        loading: false
+      }))
+      
+      setImageStatuses(cachedStatuses)
+      setIsLoading(false)
+      return
+    }
+
+    // No cache or cache invalid, load fresh data
     const galleryUrls = generateGalleryUrls(galleryTemplate, dmcode)
     
     // Initialize status for all URLs
@@ -81,11 +115,21 @@ export function GalleryThumbnails({
         setImageStatuses([...updatedStatuses])
       }
       
+      // Save valid URLs to cache
+      const validUrls = updatedStatuses
+        .filter(status => status.exists && !status.loading)
+        .map(status => status.url)
+      
+      if (validUrls.length > 0) {
+        saveToCache(validUrls)
+        console.log(`💾 Saved ${validUrls.length} valid thumbnail URLs to cache`)
+      }
+      
       setIsLoading(false)
     }
 
     checkImagesInBatches()
-  }, [galleryTemplate, dmcode])
+  }, [galleryTemplate, dmcode, isCacheLoading, cachedUrls, cacheValid, saveToCache])
 
   const validImages = imageStatuses.filter(status => status.exists && !status.loading)
 

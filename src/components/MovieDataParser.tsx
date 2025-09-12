@@ -189,19 +189,17 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   // Auto-apply template when movie type changes and we have parsed data
   useEffect(() => {
     if (movieType && parsedData && dmcode && !templateLoading && !isApplyingTemplate) {
-      console.log('🎬 Auto-applying template on type change for type:', movieType)
-      
       // Set crop cover based on type
       setCropCover(shouldEnableAutoCrop(movieType))
       
-      // Use a small delay to prevent rapid successive calls
+      // Use a longer delay to prevent rapid successive calls and allow state to stabilize
       const timeoutId = setTimeout(() => {
         applyTemplateForType(movieType)
-      }, 100)
+      }, 500) // Increased delay to prevent rapid calls
       
       return () => clearTimeout(timeoutId)
     }
-  }, [movieType, parsedData, dmcode, templateLoading, isApplyingTemplate])
+  }, [movieType, dmcode, templateLoading, isApplyingTemplate]) // Removed parsedData from dependencies to prevent infinite loop
 
   const loadMasterData = async () => {
     try {
@@ -335,18 +333,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       matchWithDatabase(parsed, masterData).then(async (matched) => {
         setMatchedData(matched)
         
-        // Auto-apply template after parsing and matching is complete
-        if (movieType && generatedDmcode && !isApplyingTemplate) {
-          console.log('🎬 Auto-applying template after parse for type:', movieType)
-          
-          // Set crop cover based on type
-          setCropCover(shouldEnableAutoCrop(movieType))
-          
-          // Use a delay to prevent conflict with useEffect
-          setTimeout(() => {
-            applyTemplateForType(movieType)
-          }, 200)
-        }
+        // Template auto-apply is now handled by useEffect only to prevent duplicate calls
+        // No need to call applyTemplateForType here as it will be triggered by useEffect
       })
     } catch (error) {
       console.error('Error parsing data:', error)
@@ -684,11 +672,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
 
     const templateKey = `${type}-${dmcode}`
     if (lastAppliedTemplate === templateKey) {
-      console.log('⏭️ Skipping template application - already applied:', templateKey)
-      return
+      return // Skip silently to reduce console spam
     }
 
-    console.log('🎬 Applying template for type:', type)
     setIsApplyingTemplate(true)
     
     try {
@@ -700,11 +686,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       })
       
       if (result) {
-        console.log('✅ Template applied:', result)
         if (result.cover) setCover(result.cover)
         if (result.gallery) setGallery(result.gallery)
         setLastAppliedTemplate(templateKey)
       }
+    } catch (error) {
+      console.error('Template application failed:', error)
     } finally {
       setIsApplyingTemplate(false)
     }
@@ -720,11 +707,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const handleMovieTypeChange = async (newType: string) => {
     setMovieType(newType)
     
-    // Set crop cover based on type
-    setCropCover(shouldEnableAutoCrop(newType))
-    
-    // Apply template for the new type (useEffect will handle this automatically)
-    // No need to call applyTemplateForType here to prevent duplicate calls
+    // Crop cover will be set by useEffect to prevent duplicate calls
+    // No need to call setCropCover here as it will be handled by useEffect
   }
 
   const handleIgnoreItem = (typeKey: keyof MatchedData, index: number) => {
