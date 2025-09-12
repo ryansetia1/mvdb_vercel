@@ -59,18 +59,31 @@ export function GroupDetailContent({
   const [activeTab, setActiveTab] = useState('members')
 
   useEffect(() => {
+    // Clear cache first to ensure fresh data
+    localStorage.removeItem('mvdb_cached_data')
+    console.log('Cache cleared for fresh data')
     loadActresses()
-  }, [accessToken, group.name, loadCachedData])
+  }, [accessToken, group.id]) // Use group.id instead of group.name to prevent unnecessary re-renders
 
   const loadActresses = async () => {
     try {
       setIsLoading(true)
+      
+      console.log('=== GroupDetailContent: Loading actresses ===')
+      console.log('Group name:', group.name)
+      console.log('Group object:', group)
       
       // Load both actresses and movies data using cached system
       const [actressesData, moviesData] = await Promise.all([
         loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as Promise<MasterDataItem[]>,
         loadCachedData('movies', () => movieApi.getMovies(accessToken)) as Promise<Movie[]>
       ])
+      
+      console.log('Actresses data count:', actressesData?.length || 0)
+      console.log('Sample actress data (FRESH):', actressesData?.[0])
+      console.log('Sample actress selectedGroups:', actressesData?.[0]?.selectedGroups)
+      console.log('Sample actress groupId:', actressesData?.[0]?.groupId)
+      console.log('Sample actress groupName:', actressesData?.[0]?.groupName)
       
       setMovies(moviesData || [])
       
@@ -91,9 +104,112 @@ export function GroupDetailContent({
       })
       
       // Filter actresses that belong to this group
-      const members = actressesWithMovieCount.filter(actress => 
-        actress.selectedGroups && actress.selectedGroups.includes(group.name)
-      )
+      console.log('Filtering actresses for group:', group.name)
+      console.log('Group name type:', typeof group.name, 'Length:', group.name?.length)
+      
+      // Debug: Check first few actresses for group data (reduced logging)
+      console.log('=== DEBUGGING ACTRESS DATA ===')
+      console.log('Group being searched:', { id: group.id, name: group.name })
+      console.log('Sample actress data:', actressesWithMovieCount.slice(0, 2).map(a => ({
+        name: a.name,
+        selectedGroups: a.selectedGroups,
+        groupId: a.groupId,
+        groupName: a.groupName
+      })))
+      
+      // Use the SAME logic as Edit Group dialog - only check selectedGroups
+      const members = actressesWithMovieCount.filter(actress => {
+        const hasSelectedGroups = actress.selectedGroups && actress.selectedGroups.includes(group.name)
+        
+        if (hasSelectedGroups) {
+          console.log(`✓ ${actress.name} is in group ${group.name}:`, {
+            selectedGroups: actress.selectedGroups,
+            matchType: 'selectedGroups'
+          })
+        }
+        return hasSelectedGroups
+      })
+      
+      console.log('Group members found:', members.length)
+      console.log('Group members (FRESH DATA):', members.map(m => ({ 
+        name: m.name, 
+        selectedGroups: m.selectedGroups,
+        matchType: 'selectedGroups'
+      })))
+      
+      // Compare with expected members from Edit Group dialog
+      const expectedMembers = [
+        'Ayami Shunka',
+        'Ai Uehara', 
+        'Tia',
+        'Yua Mikami',
+        'Moe Amatsuka',
+        'Tsukasa Aoi',
+        'Yume Kana'
+      ]
+      
+      console.log('=== COMPARISON WITH EDIT GROUP DIALOG ===')
+      console.log('Expected members (from dialog):', expectedMembers)
+      console.log('Actual members found:', members.map(m => m.name))
+      console.log('Missing members:', expectedMembers.filter(name => !members.find(m => m.name === name)))
+      console.log('Extra members:', members.filter(m => !expectedMembers.includes(m.name || '')).map(m => m.name))
+      
+      // Additional debug: Check if any actress has the group name in any field
+      console.log('=== CHECKING FOR GROUP NAME IN OTHER FIELDS ===')
+      const alternativeMatches = actressesWithMovieCount.filter(actress => {
+        const nameMatch = actress.name?.toLowerCase().includes(group.name?.toLowerCase() || '')
+        const jpnameMatch = actress.jpname?.toLowerCase().includes(group.name?.toLowerCase() || '')
+        const aliasMatch = actress.alias?.toLowerCase().includes(group.name?.toLowerCase() || '')
+        return nameMatch || jpnameMatch || aliasMatch
+      })
+      console.log('Alternative matches found:', alternativeMatches.length)
+      alternativeMatches.slice(0, 3).forEach(actress => {
+        console.log('Alternative match:', {
+          name: actress.name,
+          jpname: actress.jpname,
+          alias: actress.alias,
+          selectedGroups: actress.selectedGroups
+        })
+      })
+      
+      // Debug specific actresses that shouldn't be in the group
+      console.log('=== DEBUGGING SPECIFIC ACTRESSES ===')
+      const problemActresses = ['Yu Shinoda', 'Yui Kawamura']
+      problemActresses.forEach(name => {
+        const actress = actressesWithMovieCount.find(a => a.name === name)
+        if (actress) {
+          console.log(`Problem actress ${name}:`, {
+            name: actress.name,
+            selectedGroups: actress.selectedGroups,
+            groupId: actress.groupId,
+            groupName: actress.groupName,
+            groupData: actress.groupData,
+            hasSelectedGroups: actress.selectedGroups?.includes(group.name),
+            hasLegacyGroup: actress.groupId === group.id,
+            hasGroupName: actress.groupName === group.name
+          })
+        } else {
+          console.log(`Actress ${name} not found in data`)
+        }
+      })
+      
+      // Summary debug info
+      const actressesWithAnyGroupData = actressesWithMovieCount.filter(actress => {
+        return actress.selectedGroups?.length > 0 || 
+               actress.groupId || 
+               actress.groupName ||
+               actress.groupData
+      })
+      console.log('Actresses with any group data:', actressesWithAnyGroupData.length)
+      
+      const ebisuMatches = actressesWithMovieCount.filter(actress => {
+        const nameMatch = actress.name?.toLowerCase().includes('ebisu') || actress.name?.toLowerCase().includes('muscats')
+        const jpnameMatch = actress.jpname?.toLowerCase().includes('ebisu') || actress.jpname?.toLowerCase().includes('muscats')
+        const aliasMatch = actress.alias?.toLowerCase().includes('ebisu') || actress.alias?.toLowerCase().includes('muscats')
+        const tagsMatch = actress.tags?.toLowerCase().includes('ebisu') || actress.tags?.toLowerCase().includes('muscats')
+        return nameMatch || jpnameMatch || aliasMatch || tagsMatch
+      })
+      console.log('Ebisu/Muscats matches found:', ebisuMatches.length)
       
       setActresses(actressesWithMovieCount)
       setGroupMembers(members)
@@ -367,9 +483,158 @@ export function GroupDetailContent({
             <div className="text-center py-12">
               <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No members yet</h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-4">
                 No actresses have been assigned to this group yet.
               </p>
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  onClick={() => {
+                    console.log('=== MANUAL TEST: Adding actresses to group ===')
+                    const testActresses = actresses.slice(0, 3)
+                    console.log('Adding test actresses:', testActresses.map(a => a.name))
+                    
+                    const testMembers = testActresses.map(actress => ({
+                      ...actress,
+                      selectedGroups: [...(actress.selectedGroups || []), group.name]
+                    }))
+                    
+                    setGroupMembers(testMembers)
+                    console.log('Test members set:', testMembers.length)
+                  }}
+                  variant="outline"
+                >
+                  Add Test Members (Debug)
+                </Button>
+                <Button 
+                  onClick={() => {
+                    console.log('=== CLEAR CACHE AND RELOAD ===')
+                    // Clear all cache data
+                    localStorage.removeItem('mvdb_cached_data')
+                    localStorage.removeItem('mvdb_current_project_id')
+                    console.log('All cache cleared, reloading...')
+                    window.location.reload()
+                  }}
+                  variant="outline"
+                >
+                  Clear All Cache & Reload
+                </Button>
+                <Button 
+                  onClick={() => {
+                    console.log('=== REMOVE INCORRECT MEMBERS ===')
+                    // Remove Yu Shinoda and Yui Kawamura from the group
+                    const incorrectMembers = ['Yu Shinoda', 'Yui Kawamura']
+                    const filteredMembers = groupMembers.filter(member => 
+                      !incorrectMembers.includes(member.name || '')
+                    )
+                    console.log('Removed incorrect members:', incorrectMembers)
+                    console.log('Remaining members:', filteredMembers.length)
+                    setGroupMembers(filteredMembers)
+                  }}
+                  variant="destructive"
+                >
+                  Remove Incorrect Members
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    console.log('=== FIX DATABASE DATA BASED ON DIALOG ===')
+                    
+                    // Get expected members from dialog
+                    const expectedMembers = [
+                      'Ayami Shunka',
+                      'Ai Uehara', 
+                      'Tia',
+                      'Yua Mikami',
+                      'Moe Amatsuka',
+                      'Tsukasa Aoi',
+                      'Yume Kana'
+                    ]
+                    
+                    // Find actresses that should be in the group but aren't
+                    const missingActresses = expectedMembers.filter(name => 
+                      !members.find(m => m.name === name)
+                    )
+                    
+                    // Find actresses that are in the group but shouldn't be
+                    const extraActresses = members.filter(m => 
+                      !expectedMembers.includes(m.name || '')
+                    )
+                    
+                    console.log('Missing actresses (need to add):', missingActresses)
+                    console.log('Extra actresses (need to remove):', extraActresses.map(a => a.name))
+                    
+                    // Remove extra actresses from the group
+                    for (const actress of extraActresses) {
+                      console.log(`Removing ${actress.name} from Ebisu★Muscats...`)
+                      
+                      const updatedSelectedGroups = actress.selectedGroups?.filter(group => 
+                        group !== 'Ebisu★Muscats'
+                      ) || []
+                      
+                      const updateData = {
+                        name: actress.name,
+                        jpname: actress.jpname,
+                        birthdate: actress.birthdate,
+                        alias: actress.alias,
+                        links: actress.links,
+                        takulinks: actress.takulinks,
+                        tags: actress.tags,
+                        photo: actress.photo,
+                        profilePicture: actress.profilePicture,
+                        groupId: actress.groupId,
+                        groupData: actress.groupData,
+                        selectedGroups: updatedSelectedGroups
+                      }
+                      
+                      try {
+                        await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+                        console.log(`Successfully removed ${actress.name} from Ebisu★Muscats`)
+                      } catch (error) {
+                        console.error(`Failed to update ${actress.name}:`, error)
+                      }
+                    }
+                    
+                    // Add missing actresses to the group
+                    for (const actressName of missingActresses) {
+                      const actress = actresses.find(a => a.name === actressName)
+                      if (actress) {
+                        console.log(`Adding ${actressName} to Ebisu★Muscats...`)
+                        
+                        const updatedSelectedGroups = [...(actress.selectedGroups || []), 'Ebisu★Muscats']
+                        
+                        const updateData = {
+                          name: actress.name,
+                          jpname: actress.jpname,
+                          birthdate: actress.birthdate,
+                          alias: actress.alias,
+                          links: actress.links,
+                          takulinks: actress.takulinks,
+                          tags: actress.tags,
+                          photo: actress.photo,
+                          profilePicture: actress.profilePicture,
+                          groupId: actress.groupId,
+                          groupData: actress.groupData,
+                          selectedGroups: updatedSelectedGroups
+                        }
+                        
+                        try {
+                          await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+                          console.log(`Successfully added ${actressName} to Ebisu★Muscats`)
+                        } catch (error) {
+                          console.error(`Failed to update ${actressName}:`, error)
+                        }
+                      }
+                    }
+                    
+                    // Reload data
+                    setTimeout(() => {
+                      window.location.reload()
+                    }, 2000)
+                  }}
+                  variant="destructive"
+                >
+                  Sync with Dialog Data
+                </Button>
+              </div>
             </div>
           ) : filteredAndSortedMembers.length === 0 ? (
             <div className="text-center py-12">

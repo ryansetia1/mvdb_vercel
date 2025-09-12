@@ -1,18 +1,23 @@
 /**
- * Setup Supabase Secrets untuk API Key
+ * Setup Supabase Secrets untuk API Key dengan dynamic project support
  * Fungsi untuk menambahkan API key ke Supabase secrets
  */
 
 import { getApiKeyFromSupabaseSecrets } from './supabaseSecretsApi'
+import { getProjectConfig } from './projectConfigManager'
 
-const SUPABASE_FUNCTION_URL = (import.meta as any).env?.VITE_SUPABASE_FUNCTION_URL || 'https://duafhkktqobwwwwtygwn.supabase.co/functions/v1/make-server-e0516fcf'
+const getSupabaseFunctionUrl = () => {
+  const config = getProjectConfig()
+  return config.functionUrl
+}
 
 /**
  * Set API key in Supabase secrets
  */
 export async function setApiKeyInSupabaseSecrets(accessToken: string, keyName: string, keyValue: string): Promise<boolean> {
   try {
-    const response = await fetch(`${SUPABASE_FUNCTION_URL}/kv-store/set`, {
+    const functionUrl = getSupabaseFunctionUrl()
+    const response = await fetch(`${functionUrl}/kv-store/set`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

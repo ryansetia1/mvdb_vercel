@@ -16,13 +16,110 @@ interface CacheState {
   actresses: CachedData<MasterDataItem>
 }
 
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes - extended untuk mengurangi API calls
 const STORAGE_KEY = 'mvdb_cached_data'
 
-// Helper functions for localStorage
+// Helper function to detect project change
+function getCurrentProjectId(): string {
+  // Try to get from environment variable first
+  const envProjectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID
+  if (envProjectId) return envProjectId
+  
+  // Fallback to hardcoded project ID
+  return "duafhkktqobwwwwtygwn"
+}
+
+// Helper function to check if project has changed
+function hasProjectChanged(): boolean {
+  const currentProjectId = getCurrentProjectId()
+  const storedProjectId = localStorage.getItem('mvdb_current_project_id')
+  
+  if (!storedProjectId) {
+    localStorage.setItem('mvdb_current_project_id', currentProjectId)
+    return false
+  }
+  
+  if (storedProjectId !== currentProjectId) {
+    console.log(`Project changed from ${storedProjectId} to ${currentProjectId}`)
+    localStorage.setItem('mvdb_current_project_id', currentProjectId)
+    return true
+  }
+  
+  return false
+}
+
+// Helper functions for localStorage with compression
 function saveToLocalStorage(cache: CacheState): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache))
+    // Compress data by removing unnecessary fields to reduce size
+    const compressedCache = {
+      movies: {
+        ...cache.movies,
+        data: cache.movies.data.map(movie => ({
+          id: movie.id,
+          title: movie.title,
+          dmcode: movie.dmcode,
+          coverUrl: movie.coverUrl,
+          releaseDate: movie.releaseDate,
+          type: movie.type,
+          studio: movie.studio,
+          series: movie.series,
+          actress: movie.actress,
+          actors: movie.actors,
+          director: movie.director,
+          tags: movie.tags,
+          duration: movie.duration
+          // Remove large fields like gallery, links, etc. to save space
+        }))
+      },
+      photobooks: {
+        ...cache.photobooks,
+        data: cache.photobooks.data.map(photobook => ({
+          id: photobook.id,
+          title: photobook.title,
+          actress: photobook.actress,
+          coverUrl: photobook.coverUrl,
+          releaseDate: photobook.releaseDate
+          // Remove gallery data to save space
+        }))
+      },
+      actors: {
+        ...cache.actors,
+        data: cache.actors.data.map(actor => ({
+          id: actor.id,
+          name: actor.name,
+          jpname: actor.jpname,
+          profilePicture: actor.profilePicture,
+          birthdate: actor.birthdate,
+          type: actor.type,
+          selectedGroups: actor.selectedGroups // Keep selectedGroups for group functionality
+          // Remove large fields like photos, etc. but keep selectedGroups
+        }))
+      },
+      actresses: {
+        ...cache.actresses,
+        data: cache.actresses.data.map(actress => ({
+          id: actress.id,
+          name: actress.name,
+          jpname: actress.jpname,
+          profilePicture: actress.profilePicture,
+          birthdate: actress.birthdate,
+          type: actress.type,
+          selectedGroups: actress.selectedGroups, // Keep selectedGroups for group functionality
+          groupId: actress.groupId, // Keep legacy groupId
+          groupName: actress.groupName, // Keep groupName
+          groupData: actress.groupData // Keep groupData for group-specific info
+          // Remove large fields like photos, etc. but keep all group-related fields
+        }))
+      }
+    }
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(compressedCache))
+    console.log('Cache saved to localStorage (FRESH DATA)')
+    console.log('Actresses count saved:', compressedCache.actresses.data?.length || 0)
+    console.log('Sample actress selectedGroups saved:', compressedCache.actresses.data?.[0]?.selectedGroups)
+    console.log('Sample actress groupId saved:', compressedCache.actresses.data?.[0]?.groupId)
+    console.log('Sample actress groupName saved:', compressedCache.actresses.data?.[0]?.groupName)
   } catch (error) {
     console.warn('Failed to save cache to localStorage:', error)
   }
@@ -30,11 +127,21 @@ function saveToLocalStorage(cache: CacheState): void {
 
 function loadFromLocalStorage(): CacheState | null {
   try {
+    // Check if project has changed - if so, clear cache
+    if (hasProjectChanged()) {
+      console.log('Project changed detected, clearing cache')
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
       // Validate the structure
       if (parsed.movies && parsed.photobooks && parsed.actors && parsed.actresses) {
+        console.log('Cache loaded from localStorage')
+        console.log('Actresses count:', parsed.actresses.data?.length || 0)
+        console.log('Sample actress selectedGroups:', parsed.actresses.data?.[0]?.selectedGroups)
         return parsed
       }
     }
