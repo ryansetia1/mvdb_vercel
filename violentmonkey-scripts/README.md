@@ -1,123 +1,111 @@
-# Violentmonkey Scripts untuk MVDB
+# ViolentMonkey Scripts untuk MVDB
 
-## 📁 File Script yang Tersedia
+Koleksi script ViolentMonkey untuk meningkatkan workflow dengan MVDB dan JavDB.
 
-### 🔧 **Script Utama:**
+## Scripts yang Tersedia
 
-**`javdb-gender-fix-v2.user.js`** - MVDB Data Extractor untuk JavDB
-   - ✅ Deteksi gender yang akurat (♀ untuk aktris, ♂ untuk aktor)
-   - ✅ Format kompatibel dengan MVDB Parser
-   - ✅ Visual feedback tanpa alert yang mengganggu
-   - ✅ Tombol berubah menjadi "✅ Copied!" saat berhasil
-   - ✅ Desain tombol yang menarik dengan gradient dan efek hover
+### 1. JavDB Gender Fix V2 (`javdb-gender-fix-v2.user.js`)
+Script untuk mengekstrak data film dari halaman detail JavDB dengan deteksi gender aktor yang benar.
 
-## 🚀 Cara Instalasi
+**Fitur:**
+- Ekstrak data lengkap film (judul, kode, tanggal rilis, durasi, sutradara, studio, series, aktor, tags)
+- Deteksi gender aktor dengan simbol ♀/♂ yang benar
+- Format output kompatibel dengan parser MVDB
+- Copy otomatis ke clipboard
 
-### **Step 1: Install Violentmonkey**
-1. **Chrome**: [Violentmonkey Extension](https://chrome.google.com/webstore/detail/violentmonkey/jinjaccalgkegednnccohejagnlnfdag)
-2. **Firefox**: [Violentmonkey Add-on](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/)
-3. **Edge**: [Violentmonkey Extension](https://microsoftedge.microsoft.com/addons/detail/violentmonkey/eeagobfjdenkkddmbclomhiblgggliao)
+**Cara Penggunaan:**
+1. Install script di ViolentMonkey
+2. Buka halaman detail film di JavDB (format: `https://javdb.com/v/[kode]`)
+3. Klik tombol "🔧 MVDB COPIER" yang muncul di pojok kanan atas
+4. Data akan otomatis ter-copy ke clipboard
 
-### **Step 2: Install Script**
+### 2. JavDB Movie Code Auto Search (`javdb-movie-code-search.user.js`) - v1.7
+Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB.
 
-#### **MVDB Data Extractor untuk JavDB**
-1. Buka Violentmonkey Dashboard
-2. Klik "Create a new script"
-3. Copy seluruh isi file `javdb-gender-fix-v2.user.js`
-4. Paste ke editor Violentmonkey
-5. Save script (Ctrl+S)
+**Fitur:**
+- Deteksi otomatis movie code format `xxxxx-1234` dari clipboard
+- Tombol search muncul hanya ketika movie code terdeteksi
+- Search otomatis dengan paste dan klik search
+- Bekerja di homepage atau halaman manapun selama search bar terlihat
+- Monitoring clipboard real-time dengan fallback paste event
+- Error handling yang robust untuk berbagai skenario
+- Kompatibilitas dengan mobile navigation JavDB
+- Selector yang dioptimalkan berdasarkan struktur HTML JavDB yang sebenarnya
+- **Sistem dual button**: Tombol search di halaman umum, tombol copy di halaman detail movie
+- **Auto-detection**: Otomatis ganti tombol berdasarkan jenis halaman
+- **Ekstraksi data lengkap**: Copy data movie lengkap untuk MVDB parser
+- **Smart positioning**: Tombol copy di posisi yang berbeda untuk menghindari overlap
+- **Real-time update**: Tombol search selalu menggunakan movie code terbaru dari clipboard
+- **Dual button di detail**: Di halaman detail movie, kedua tombol (copy + search) bisa muncul bersamaan
+- **Simplified logic**: Logika tombol yang lebih sederhana dan konsisten
+- **Better state management**: State management yang lebih robust untuk clipboard content
+- **Robust search execution**: Search bar update yang lebih reliable dengan verification dan retry
+- **Keyboard simulation**: Fallback mechanism menggunakan keyboard simulation
 
-### **Step 3: Aktifkan Script**
-1. Pastikan script aktif di Violentmonkey Dashboard
-2. Script akan otomatis aktif di halaman javdb.com
+**Cara Penggunaan:**
 
-## 🎯 Cara Penggunaan
+**Untuk Search:**
+1. Copy movie code dari MVDB app (format: `xxxxx-1234`)
+2. Buka JavDB.com (homepage atau halaman manapun)
+3. Tombol "🔍 Search [movie-code]" akan muncul otomatis di pojok kanan atas
+4. Klik tombol untuk melakukan search otomatis
 
-### **Workflow Lengkap:**
+**Untuk Copy Data Movie:**
+1. Masuk ke halaman detail movie di JavDB (format: `https://javdb.com/v/[kode]`)
+2. Tombol "📋 MVDB COPIER" akan muncul otomatis di pojok kanan atas
+3. Klik tombol untuk copy data movie lengkap ke clipboard
+4. Paste data ke MVDB app untuk import
 
-1. **Buka halaman film di javdb.com**
-   ```
-   https://javdb.com/v/[ID]
-   ```
+**Format Movie Code yang Didukung:**
+- `SSIS-001`
+- `MIDE-1234`
+- `ABP-123`
+- `PPPD-999`
+- Dan format lainnya dengan pola: `[2-6 huruf]-[3-4 angka]`
 
-2. **Klik tombol "🎬 Copy to MVDB"**
-   - Tombol akan muncul di pojok kanan atas dengan desain gradient yang menarik
-   - Tombol akan berubah menjadi "✅ Copied!" saat berhasil
-   - Data akan tersalin ke clipboard
+## Instalasi
 
-3. **Buka aplikasi MVDB**
-   - Pergi ke Admin Panel > Parser
+1. Install ViolentMonkey extension di browser
+2. Download script yang diinginkan
+3. Buka ViolentMonkey dashboard
+4. Klik "Create a new script"
+5. Copy-paste konten script
+6. Save script
+7. Script akan otomatis aktif di domain yang sesuai
 
-4. **Klik tombol "📋 Paste from Clipboard"** (fitur in-app)
-   - Tombol akan muncul di bawah textarea
-   - Data akan otomatis ter-paste ke textarea
-   - Tombol akan berubah menjadi "✅ Pasted!" saat berhasil
+## Troubleshooting
 
-5. **Klik "Parse Data"**
-   - Data akan berhasil diparse tanpa error
+### Script tidak muncul
+- Pastikan ViolentMonkey extension aktif
+- Refresh halaman JavDB
+- Check console browser untuk error messages
 
-## ✅ Fitur yang Tersedia
+### Movie code tidak terdeteksi
+- Pastikan format movie code sesuai: `xxxxx-1234`
+- Pastikan movie code sudah ter-copy ke clipboard
+- Coba copy ulang movie code dari MVDB
+- Jika clipboard monitoring tidak bekerja, coba paste movie code langsung di halaman JavDB
 
-### **MVDB Data Extractor untuk JavDB:**
-- ✅ Deteksi gender yang akurat (♀ untuk aktris, ♂ untuk aktor)
-- ✅ Format kompatibel dengan MVDB Parser
-- ✅ Visual feedback tanpa alert yang mengganggu
-- ✅ Copy otomatis ke clipboard
-- ✅ Debug info di console
-- ✅ Desain tombol yang menarik dengan gradient biru-ungu
-- ✅ Efek hover yang smooth dengan transform dan shadow
-- ✅ Typography modern dengan font system dan letter-spacing
+### Search tidak berfungsi
+- Pastikan berada di halaman JavDB yang memiliki search bar
+- Refresh halaman dan coba lagi
+- Check apakah search bar terlihat di halaman
+- Script akan mencoba berbagai cara untuk melakukan search (click button, submit form)
 
-## 📊 Contoh Output
+### Error "NotAllowedError" atau "Document is not focused"
+- Error ini sudah diperbaiki di v1.1
+- Script akan otomatis skip clipboard check jika document tidak dalam focus
+- Gunakan paste event sebagai alternatif monitoring
 
-### **Data yang Diekstrak:**
-```
-STARS-080 尻フェチspecial！！バック膣奥激ピストンからのアナル丸見せまくりで何度もイッちゃうってばぁあ！ 小倉由菜
-Released Date: 2019-07-11
-Duration: 138 minute(s)
-Director: うさぴょん。
-Maker: SOD Create
-Actor(s): 小倉由菜♀ 玉木玲♂ マッスル澤野♂ 黒田悠斗♂ 吉村卓♂
-Tags: Solowork, Butt, Cosplayers, Beautiful Girl Movie, Amateur, Uncensored Leak
-```
+## Catatan Teknis
 
-### **Hasil di Parser:**
-- **Code:** STARS-080
-- **Title:** 尻フェチspecial！！バック膣奥激ピストンからのアナル丸見せまくりで何度もイッちゃうってばぁあ！ 小倉由菜
-- **Actresses:** 小倉由菜
-- **Actors:** 玉木玲, マッスル澤野, 黒田悠斗, 吉村卓
+- Script menggunakan `GM_getClipboard` dan `GM_setClipboard` untuk akses clipboard
+- Monitoring clipboard dilakukan setiap 1000ms untuk performa optimal (diperbaiki di v1.1)
+- Script otomatis berhenti monitoring ketika tab tidak aktif
+- Kompatibel dengan ViolentMonkey dan browser modern
+- Fallback paste event listener untuk kompatibilitas yang lebih baik
+- Multiple event triggers untuk memastikan search berfungsi di berbagai skenario
 
-## 🐛 Troubleshooting
+## Support
 
-### **Script tidak muncul:**
-1. Pastikan Violentmonkey aktif
-2. Pastikan script enabled
-3. Refresh halaman
-4. Cek console browser untuk error
-
-### **Gender detection salah:**
-1. Pastikan menggunakan `javdb-gender-fix-v2.user.js`
-2. Cek console untuk debug info
-3. Pastikan halaman javdb.com sudah selesai dimuat
-
-### **Paste button tidak muncul di MVDB:**
-1. Pastikan berada di halaman MVDB Parser
-2. Pastikan textarea sudah muncul
-3. Refresh halaman dan coba lagi
-4. Fitur paste sekarang sudah built-in di aplikasi MVDB
-
-## 📝 Catatan Penting
-
-- Script ini dioptimalkan untuk Violentmonkey
-- Tidak ada alert yang mengganggu user flow
-- Visual feedback melalui perubahan tombol
-- Debug info tersedia di console browser
-- Kompatibel dengan semua browser yang mendukung Violentmonkey
-
-## 🆘 Support
-
-Jika mengalami masalah:
-1. Cek console browser (F12) untuk error
-2. Pastikan Violentmonkey terinstall dengan benar
-3. Test dengan halaman yang berbeda
-4. Report dengan screenshot error jika perlu
+Jika mengalami masalah atau membutuhkan fitur tambahan, silakan buat issue di repository atau hubungi tim development.
