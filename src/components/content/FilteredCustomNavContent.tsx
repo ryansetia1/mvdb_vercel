@@ -445,14 +445,14 @@ export function FilteredCustomNavContent({
 
         {/* Tombol Randomize di pojok kanan */}
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleRandomize}>
-            Randomize
-          </Button>
           {isRandomized && (
             <Button variant="outline" size="sm" onClick={handleResetRandom}>
               Reset
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleRandomize}>
+            Randomize
+          </Button>
         </div>
 
         {hasActiveFilters && (

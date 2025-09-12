@@ -52,6 +52,57 @@ export interface MatchedData {
 }
 
 /**
+ * Detect if a Japanese name is likely female based on common patterns
+ */
+function detectJapaneseFemaleName(name: string): boolean {
+  // Common female name endings in Japanese
+  const femaleEndings = [
+    '子', '美', '香', '花', '菜', '奈', '愛', '恵', '絵', '里', '理', '由', '優', '友', '希', '衣', '江', '枝', '恵', '絵', '緒', '音', '楓', '風', '凜', '凛', '瑠', 'るみ', 'くるみ', 'りん', 'りほ', 'みく', 'あい', 'ゆき', 'さくら', 'もも', 'ももやま', 'ふじもり'
+  ]
+  
+  // Common male name endings
+  const maleEndings = [
+    '郎', '太', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '男', '夫', '雄', '勇', '健', '強', '正', '誠', '直', '治', '司', '志', '史', '士', '人', '内村', 'いせどん', 'うちむら'
+  ]
+  
+  // Check for female endings
+  const hasFemaleEnding = femaleEndings.some(ending => name.includes(ending))
+  
+  // Check for male endings
+  const hasMaleEnding = maleEndings.some(ending => name.includes(ending))
+  
+  // If it has male ending, it's likely male
+  if (hasMaleEnding) {
+    return false
+  }
+  
+  // If it has female ending, it's likely female
+  if (hasFemaleEnding) {
+    return true
+  }
+  
+  // Additional patterns for female names
+  const femalePatterns = [
+    /[あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん]{2,4}$/, // Hiragana endings
+    /[ア-ン]{2,4}$/, // Katakana endings
+  ]
+  
+  const hasFemalePattern = femalePatterns.some(pattern => pattern.test(name))
+  
+  // If no clear indicators, default to female for Japanese names (most adult film actresses are female)
+  // But exclude obvious male indicators
+  const maleIndicators = ['男', '夫', '雄', '郎', '太', '一郎', '二郎', '三郎']
+  const hasMaleIndicator = maleIndicators.some(indicator => name.includes(indicator))
+  
+  if (hasMaleIndicator) {
+    return false
+  }
+  
+  // Default to female for ambiguous cases (most performers in adult films are female)
+  return true
+}
+
+/**
  * Parse pasted movie data from various formats
  */
 export function parseMovieData(rawData: string): ParsedMovieData | null {
@@ -179,21 +230,12 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
           actors.push(actor.replace(/♂/g, '').trim())
         } else {
           // No gender symbol, need to determine if it's actress or actor
-          // Check if it's in the title (likely actress) but be more careful
-          if (parsed.titleJp && parsed.titleJp.includes(actor)) {
-            // Additional check: if the actor name is very long or contains common title words,
-            // it's likely part of the title, not an actress name
-            const commonTitleWords = ['合コン', 'SEX', '中出し', '美少女', 'おじいちゃん', '老人', 'ギャル', 'ブル尻', '美乳', '中○し']
-            const isCommonTitleWord = commonTitleWords.some(word => actor.includes(word))
-            
-            if (actor.length <= 10 && !isCommonTitleWord && !/[◆●★☆！？。、]/.test(actor)) {
-              actresses.push(actor)
-            } else {
-              // Likely part of title, treat as actor
-              actors.push(actor)
-            }
+          // Use improved gender detection logic
+          const isLikelyFemale = detectJapaneseFemaleName(actor)
+          
+          if (isLikelyFemale) {
+            actresses.push(actor)
           } else {
-            // Default to actor if not in title
             actors.push(actor)
           }
         }

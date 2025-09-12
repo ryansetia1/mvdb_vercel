@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JavDB Movie Code Auto Search
 // @namespace    http://violentmonkey.com/
-// @version      1.7
+// @version      1.8
 // @description  Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB
 // @author       MVDB Team
 // @match        https://javdb.com/*
@@ -59,6 +59,12 @@ PERBAIKAN V1.7:
 - Added keyboard simulation sebagai fallback
 - Improved performAutoSearch dengan better logging
 - Increased delay untuk memastikan value ter-set dengan benar
+
+PERBAIKAN V1.8:
+- Fixed actor extraction untuk menyertakan simbol gender (♀ dan ♂)
+- Added multiple methods untuk mengekstrak simbol gender dari berbagai struktur HTML
+- Improved actor parsing untuk mendukung multiple female actresses dengan benar
+- Enhanced logging untuk debugging actor extraction
 */
 
 (function() {
@@ -150,8 +156,58 @@ PERBAIKAN V1.7:
                             data.tags = Array.from(tagLinks).map(a => a.textContent.trim());
                             break;
                         case 'Actor(s):':
+                            // Extract actors with gender symbols using multiple methods
                             const actorLinks = value.querySelectorAll('a');
-                            data.actors = Array.from(actorLinks).map(a => a.textContent.trim());
+                            console.log('JavDB Movie Code Search: Extracting actors, found', actorLinks.length, 'actor links');
+                            
+                            data.actors = Array.from(actorLinks).map((a, index) => {
+                                // Get the text content of the link
+                                let actorName = a.textContent.trim();
+                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Original name: "${actorName}"`);
+                                
+                                // Method 1: Check next sibling text node for gender symbol
+                                const nextSibling = a.nextSibling;
+                                if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+                                    const textAfter = nextSibling.textContent.trim();
+                                    console.log(`JavDB Movie Code Search: Actor ${index + 1} - Text after link: "${textAfter}"`);
+                                    if (textAfter.includes('♀') || textAfter.includes('♂')) {
+                                        const genderMatch = textAfter.match(/[♀♂]/);
+                                        if (genderMatch) {
+                                            actorName += genderMatch[0];
+                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 1: "${actorName}"`);
+                                        }
+                                    }
+                                }
+                                
+                                // Method 2: Check parent element's text content for gender symbol after the link
+                                if (!actorName.includes('♀') && !actorName.includes('♂')) {
+                                    const parentText = a.parentElement.textContent;
+                                    const linkIndex = parentText.indexOf(actorName);
+                                    if (linkIndex !== -1) {
+                                        const textAfterLink = parentText.substring(linkIndex + actorName.length).trim();
+                                        console.log(`JavDB Movie Code Search: Actor ${index + 1} - Parent text after link: "${textAfterLink}"`);
+                                        const genderMatch = textAfterLink.match(/^[♀♂]/);
+                                        if (genderMatch) {
+                                            actorName += genderMatch[0];
+                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 2: "${actorName}"`);
+                                        }
+                                    }
+                                }
+                                
+                                // Method 3: Check if gender symbol is already in the link text
+                                if (!actorName.includes('♀') && !actorName.includes('♂')) {
+                                    // Look for gender symbol anywhere in the link's text content
+                                    const genderInLink = actorName.match(/[♀♂]/);
+                                    if (genderInLink) {
+                                        console.log(`JavDB Movie Code Search: Actor ${index + 1} - Gender symbol already in link: "${actorName}"`);
+                                    }
+                                }
+                                
+                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Final result: "${actorName}"`);
+                                return actorName;
+                            });
+                            
+                            console.log('JavDB Movie Code Search: Final actors array:', data.actors);
                             break;
                     }
                 }
