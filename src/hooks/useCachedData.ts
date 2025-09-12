@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Movie } from '../utils/movieApi'
 import { Photobook } from '../utils/photobookApi'
 import { MasterDataItem } from '../utils/masterDataApi'
@@ -17,13 +17,72 @@ interface CacheState {
 }
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const STORAGE_KEY = 'mvdb_cached_data'
+
+// Helper functions for localStorage
+function saveToLocalStorage(cache: CacheState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache))
+  } catch (error) {
+    console.warn('Failed to save cache to localStorage:', error)
+  }
+}
+
+function loadFromLocalStorage(): CacheState | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      // Validate the structure
+      if (parsed.movies && parsed.photobooks && parsed.actors && parsed.actresses) {
+        return parsed
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load cache from localStorage:', error)
+  }
+  return null
+}
 
 export function useCachedData() {
-  const [cache, setCache] = useState<CacheState>({
-    movies: { data: [], timestamp: 0, loading: false },
-    photobooks: { data: [], timestamp: 0, loading: false },
-    actors: { data: [], timestamp: 0, loading: false },
-    actresses: { data: [], timestamp: 0, loading: false }
+  const [cache, setCache] = useState<CacheState>(() => {
+    // Initialize with localStorage data if available
+    const storedCache = loadFromLocalStorage()
+    if (storedCache) {
+      // Check if data is still fresh
+      const now = Date.now()
+      const freshCache: CacheState = {
+        movies: {
+          ...storedCache.movies,
+          loading: false,
+          data: (now - storedCache.movies.timestamp) < CACHE_DURATION ? storedCache.movies.data : []
+        },
+        photobooks: {
+          ...storedCache.photobooks,
+          loading: false,
+          data: (now - storedCache.photobooks.timestamp) < CACHE_DURATION ? storedCache.photobooks.data : []
+        },
+        actors: {
+          ...storedCache.actors,
+          loading: false,
+          data: (now - storedCache.actors.timestamp) < CACHE_DURATION ? storedCache.actors.data : []
+        },
+        actresses: {
+          ...storedCache.actresses,
+          loading: false,
+          data: (now - storedCache.actresses.timestamp) < CACHE_DURATION ? storedCache.actresses.data : []
+        }
+      }
+      return freshCache
+    }
+    
+    // Default empty cache
+    return {
+      movies: { data: [], timestamp: 0, loading: false },
+      photobooks: { data: [], timestamp: 0, loading: false },
+      actors: { data: [], timestamp: 0, loading: false },
+      actresses: { data: [], timestamp: 0, loading: false }
+    }
   })
 
   const loadingPromises = useRef<{ [key: string]: Promise<any> }>({})
@@ -34,14 +93,19 @@ export function useCachedData() {
   }, [cache])
 
   const setData = useCallback(<T>(type: keyof CacheState, data: T[]) => {
-    setCache(prev => ({
-      ...prev,
-      [type]: {
-        data,
-        timestamp: Date.now(),
-        loading: false
+    setCache(prev => {
+      const newCache = {
+        ...prev,
+        [type]: {
+          data,
+          timestamp: Date.now(),
+          loading: false
+        }
       }
-    }))
+      // Save to localStorage whenever data is updated
+      saveToLocalStorage(newCache)
+      return newCache
+    })
   }, [])
 
   const setLoading = useCallback((type: keyof CacheState, loading: boolean) => {
@@ -94,19 +158,30 @@ export function useCachedData() {
 
   const invalidateCache = useCallback((type?: keyof CacheState) => {
     if (type) {
-      setCache(prev => ({
-        ...prev,
-        [type]: { data: [], timestamp: 0, loading: false }
-      }))
+      setCache(prev => {
+        const newCache = {
+          ...prev,
+          [type]: { data: [], timestamp: 0, loading: false }
+        }
+        saveToLocalStorage(newCache)
+        return newCache
+      })
     } else {
-      setCache({
+      const emptyCache = {
         movies: { data: [], timestamp: 0, loading: false },
         photobooks: { data: [], timestamp: 0, loading: false },
         actors: { data: [], timestamp: 0, loading: false },
         actresses: { data: [], timestamp: 0, loading: false }
-      })
+      }
+      setCache(emptyCache)
+      saveToLocalStorage(emptyCache)
     }
   }, [])
+
+  // Add effect to save cache to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(cache)
+  }, [cache])
 
   return {
     cache,

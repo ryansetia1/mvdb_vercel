@@ -6,6 +6,7 @@ import { GalleryWithSave } from '../GalleryWithSave'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { MasterDataItem, masterDataApi } from '../../utils/masterDataApi'
+import { useCachedData } from '../../hooks/useCachedData'
 import { Play, ChevronDown, ChevronRight, ExternalLink, Maximize, Tag, Building, LinkIcon, Edit2 } from 'lucide-react'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { Button } from '../ui/button'
@@ -52,6 +53,7 @@ export function MovieDetailContent({
   onBack,
   onMovieUpdated
 }: MovieDetailContentProps) {
+  const { loadData: loadCachedData } = useCachedData()
   const [showFullCover, setShowFullCover] = useState(false)
   const [castData, setCastData] = useState<{ [name: string]: MasterDataItem }>({})
   const [isLoadingCast, setIsLoadingCast] = useState(true)
@@ -170,8 +172,8 @@ export function MovieDetailContent({
       try {
         setIsLoadingCast(true)
         const [actresses, actors, directors] = await Promise.all([
-          masterDataApi.getByType('actress', accessToken),
-          masterDataApi.getByType('actor', accessToken),
+          loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as Promise<MasterDataItem[]>,
+          loadCachedData('actors', () => masterDataApi.getByType('actor', accessToken)) as Promise<MasterDataItem[]>,
           masterDataApi.getByType('director', accessToken)
         ])
 
@@ -238,7 +240,7 @@ export function MovieDetailContent({
     }
 
     loadCastData()
-  }, [movie.actress, movie.actors, movie.director, accessToken])
+  }, [movie.actress, movie.actors, movie.director, accessToken, loadCachedData])
 
 
 

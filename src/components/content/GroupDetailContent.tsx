@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
+import { useCachedData } from '../../hooks/useCachedData'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
 import { toast } from 'sonner@2.0.3'
@@ -45,6 +46,7 @@ export function GroupDetailContent({
   onBack, 
   onProfileSelect 
 }: GroupDetailContentProps) {
+  const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [groupMembers, setGroupMembers] = useState<MasterDataItem[]>([])
   const [movies, setMovies] = useState<Movie[]>([])
@@ -58,16 +60,16 @@ export function GroupDetailContent({
 
   useEffect(() => {
     loadActresses()
-  }, [accessToken, group.name])
+  }, [accessToken, group.name, loadCachedData])
 
   const loadActresses = async () => {
     try {
       setIsLoading(true)
       
-      // Load both actresses and movies data
+      // Load both actresses and movies data using cached system
       const [actressesData, moviesData] = await Promise.all([
-        masterDataApi.getByType('actress', accessToken),
-        movieApi.getMovies(accessToken)
+        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as Promise<MasterDataItem[]>,
+        loadCachedData('movies', () => movieApi.getMovies(accessToken)) as Promise<Movie[]>
       ])
       
       setMovies(moviesData || [])

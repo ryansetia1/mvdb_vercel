@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ClickableProfileAvatar } from './ClickableProfileAvatar'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
+import { useCachedData } from '../hooks/useCachedData'
 
 interface MultipleClickableAvatarsProps {
   names: string // comma-separated actress names
@@ -21,6 +22,7 @@ export function MultipleClickableAvatars({
   maxDisplay,
   className = ''
 }: MultipleClickableAvatarsProps) {
+  const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -36,8 +38,8 @@ export function MultipleClickableAvatars({
         setIsLoading(true)
         const actressNames = names.split(',').map(name => name.trim()).filter(Boolean)
         
-        // Load all actresses from the API with retry logic
-        const allActresses = await masterDataApi.getByType('actress', accessToken)
+        // Load all actresses using cached data
+        const allActresses = await loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as MasterDataItem[]
         
         // Find the matching actresses
         const matchedActresses = actressNames.map(name => {
@@ -69,7 +71,7 @@ export function MultipleClickableAvatars({
     }
 
     loadActresses()
-  }, [names, accessToken])
+  }, [names, accessToken, loadCachedData])
 
   if (isLoading) {
     return (

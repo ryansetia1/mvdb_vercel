@@ -6,6 +6,7 @@ import { Movie, movieApi } from '../utils/movieApi'
 import { SCMovie, scMovieApi } from '../utils/scMovieApi'
 import { Photobook, photobookApi } from '../utils/photobookApi'
 import { MasterDataItem, masterDataApi, calculateAge } from '../utils/masterDataApi'
+import { useCachedData } from '../hooks/useCachedData'
 import { 
   Search, 
   Film, 
@@ -159,11 +160,14 @@ const getCategoryIconFromType = (type: string) => {
 }
 
 export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
-  // Core data states
-  const [movies, setMovies] = useState<Movie[]>([])
-  const [photobooks, setPhotobooks] = useState<Photobook[]>([])
-  const [actors, setActors] = useState<MasterDataItem[]>([])
-  const [actresses, setActresses] = useState<MasterDataItem[]>([])
+  // Use cached data hook for persistent storage
+  const { cache, loadData: loadCachedData, invalidateCache } = useCachedData()
+  
+  // Core data states - now using cached data
+  const [movies, setMovies] = useState<Movie[]>(cache.movies.data)
+  const [photobooks, setPhotobooks] = useState<Photobook[]>(cache.photobooks.data)
+  const [actors, setActors] = useState<MasterDataItem[]>(cache.actors.data)
+  const [actresses, setActresses] = useState<MasterDataItem[]>(cache.actresses.data)
   const [directors, setDirectors] = useState<MasterDataItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   
@@ -243,15 +247,17 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     tags: []
   })
 
-  // Reload function for external calls
+  // Reload function for external calls with cache invalidation
   const reloadData = async () => {
+    invalidateCache() // Clear all cache
     await loadData()
   }
 
-  // Separate reload for photobooks
+  // Separate reload for photobooks using cache invalidation
   const reloadPhotobooks = async () => {
     try {
-      const photobooksData = await photobookApi.getPhotobooks(accessToken)
+      invalidateCache('photobooks')
+      const photobooksData = await loadCachedData('photobooks', () => photobookApi.getPhotobooks(accessToken), true) as Photobook[]
       setPhotobooks(photobooksData || [])
     } catch (error) {
       // Failed to reload photobooks - handled silently
@@ -268,67 +274,66 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
   }
 
-  // Load initial data
+  // Load initial data using cached system
   const loadData = async () => {
     try {
       setIsLoading(true)
       
-      // Load movies and photobooks
-      const [moviesData, photobooksData] = await Promise.all([
-        movieApi.getMovies(accessToken),
-        photobookApi.getPhotobooks(accessToken).catch(() => [])
-      ])
-      
+      // Load movies using cached system
+      const moviesData = await loadCachedData('movies', () => movieApi.getMovies(accessToken)) as Movie[]
       setMovies(moviesData || [])
+      
+      // Load photobooks using cached system
+      const photobooksData = await loadCachedData('photobooks', () => photobookApi.getPhotobooks(accessToken).catch(() => [])) as Photobook[]
       setPhotobooks(photobooksData || [])
         
-        // Load master data
-        try {
-          const [actorsData, actressesData, directorsData] = await Promise.all([
-            masterDataApi.getByType('actor', accessToken).catch(() => []),
-            masterDataApi.getByType('actress', accessToken).catch(() => []),
-            masterDataApi.getByType('director', accessToken).catch(() => [])
-          ])
-          
-          // Add calculated age and movie counts
-          const addMovieStats = (people: MasterDataItem[], type: 'actor' | 'actress' | 'director') => {
-            return people.map(person => {
-              const fieldToCheck = type === 'director' ? 'director' : type === 'actor' ? 'actors' : 'actress'
-              const personMovies = moviesData.filter(movie => {
-                const field = movie[fieldToCheck as keyof Movie]
-                if (typeof field === 'string') {
-                  return field.toLowerCase().includes(person.name?.toLowerCase() || '')
-                }
-                return false
-              })
-
-              return {
-                ...person,
-                age: person.birthdate ? calculateAge(person.birthdate) : undefined,
-                photoUrl: person.profilePicture || (person.photo && person.photo[0]),
-                movieCount: personMovies.length,
+      // Load master data using cached system
+      try {
+        const [actorsData, actressesData, directorsData] = await Promise.all([
+          loadCachedData('actors', () => masterDataApi.getByType('actor', accessToken).catch(() => [])) as MasterDataItem[],
+          loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken).catch(() => [])) as MasterDataItem[],
+          masterDataApi.getByType('director', accessToken).catch(() => [])
+        ])
+        
+        // Add calculated age and movie counts
+        const addMovieStats = (people: MasterDataItem[], type: 'actor' | 'actress' | 'director') => {
+          return people.map(person => {
+            const fieldToCheck = type === 'director' ? 'director' : type === 'actor' ? 'actors' : 'actress'
+            const personMovies = moviesData.filter((movie: Movie) => {
+              const field = movie[fieldToCheck as keyof Movie]
+              if (typeof field === 'string') {
+                return field.toLowerCase().includes(person.name?.toLowerCase() || '')
               }
+              return false
             })
-          }
 
-          const actorsWithStats = addMovieStats(actorsData, 'actor')
-          const actressesWithStats = addMovieStats(actressesData, 'actress')
-          const directorsWithStats = addMovieStats(directorsData, 'director')
-          
-          setActors(actorsWithStats)
-          setActresses(actressesWithStats)
-          setDirectors(directorsWithStats)
+            return {
+              ...person,
+              age: person.birthdate ? calculateAge(person.birthdate) : undefined,
+              photoUrl: person.profilePicture || (person.photo && person.photo[0]),
+              movieCount: personMovies.length,
+            }
+          })
+        }
+
+        const actorsWithStats = addMovieStats(actorsData, 'actor')
+        const actressesWithStats = addMovieStats(actressesData, 'actress')
+        const directorsWithStats = addMovieStats(directorsData, 'director')
+        
+        setActors(actorsWithStats)
+        setActresses(actressesWithStats)
+        setDirectors(directorsWithStats)
           
           // Extract unique filter values
-          const uniqueActors = [...new Set(actorsData.map(a => a.name).filter(Boolean))]
-          const uniqueActresses = [...new Set(actressesData.map(a => a.name).filter(Boolean))]
-          const uniqueDirectors = [...new Set(directorsData.map(d => d.name).filter(Boolean))]
-          const uniqueSeries = [...new Set(moviesData.map(m => m.series).filter(Boolean))]
-          const uniqueStudios = [...new Set(moviesData.map(m => m.studio).filter(Boolean))]
-          const uniqueTypes = [...new Set(moviesData.map(m => m.type).filter(Boolean))]
+          const uniqueActors = [...new Set(actorsData.map(a => a.name).filter(Boolean))] as string[]
+          const uniqueActresses = [...new Set(actressesData.map(a => a.name).filter(Boolean))] as string[]
+          const uniqueDirectors = [...new Set(directorsData.map(d => d.name).filter(Boolean))] as string[]
+          const uniqueSeries = [...new Set(moviesData.map((m: Movie) => m.series).filter(Boolean))] as string[]
+          const uniqueStudios = [...new Set(moviesData.map((m: Movie) => m.studio).filter(Boolean))] as string[]
+          const uniqueTypes = [...new Set(moviesData.map((m: Movie) => m.type).filter(Boolean))] as string[]
           
           // Extract and flatten tags
-          const allTags = moviesData.flatMap(m => 
+          const allTags = moviesData.flatMap((m: Movie) => 
             m.tags ? m.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
           )
           const uniqueTags = [...new Set(allTags)]
@@ -353,6 +358,14 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
         setIsLoading(false)
       }
     }
+
+  // Sync state with cache when cache changes
+  useEffect(() => {
+    setMovies(cache.movies.data)
+    setPhotobooks(cache.photobooks.data)
+    setActors(cache.actors.data)
+    setActresses(cache.actresses.data)
+  }, [cache])
 
   useEffect(() => {
     loadData()
