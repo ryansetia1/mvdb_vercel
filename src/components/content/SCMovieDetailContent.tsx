@@ -16,6 +16,7 @@ import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { CroppedImage } from '../CroppedImage'
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
 import { Movie, movieApi } from '../../utils/movieApi'
+import { processCoverUrl } from './movieDetail/MovieDetailHelpers'
 
 interface SCMovieDetailContentProps {
   scMovie: SCMovie
@@ -100,6 +101,11 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
       )
       
       if (hcMovie) {
+        console.log('HC Movie found:', hcMovie)
+        console.log('HC Movie cover URL:', hcMovie.cover)
+        console.log('HC Movie dmcode:', hcMovie.dmcode)
+        const processedUrl = processCoverUrl(hcMovie)
+        console.log('Processed cover URL:', processedUrl)
         setHcMovieData(hcMovie)
       }
     } catch (error) {
@@ -202,14 +208,25 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
           <Card>
             <CardContent className="p-0">
               <div className="aspect-[7/10] relative overflow-hidden rounded-lg">
-                {isHoverHCBadge && hcMovieData && (hcMovieData.croppedCover || hcMovieData.cover) ? (
-                  <CroppedImage
-                    src={hcMovieData.croppedCover || hcMovieData.cover}
-                    alt={hcMovieData.title}
-                    className="w-full h-full transition-all duration-300"
-                    cropToRight={true}
-                    fixedSize={false}
-                  />
+                {isHoverHCBadge && hcMovieData ? (
+                  (() => {
+                    const processedCoverUrl = processCoverUrl(hcMovieData)
+                    return processedCoverUrl ? (
+                      <CroppedImage
+                        src={processedCoverUrl}
+                        alt={hcMovieData.titleEn || hcMovieData.titleJp || 'HC Movie cover'}
+                        className="w-full h-full transition-all duration-300"
+                        cropToRight={true}
+                        fixedSize={false}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                        <div className="text-center p-2">
+                          <div className="text-xs">No HC Cover Available</div>
+                        </div>
+                      </div>
+                    )
+                  })()
                 ) : (
                   <ImageWithFallback
                     src={currentSCMovie.cover}

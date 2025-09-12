@@ -112,10 +112,25 @@ export async function mergeMovieData(
     if (request.selectedFields.includes('actress') && request.parsedData.actresses && request.parsedData.actresses.length > 0) {
       // Merge actresses - only add new ones, don't duplicate
       const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
-      const newActresses = request.parsedData.actresses.filter(a => a && a.trim())
+      
+      // Filter out ignored actresses and use matched data when available
+      const filteredActresses = request.parsedData.actresses.map((name, index) => {
+        // Check if this actress is ignored
+        if (request.ignoredItems?.includes(`actresses-${index}`)) {
+          return null // Mark as ignored
+        }
+        
+        // Use matched data if available, otherwise use original name
+        const matchedItem = request.matchedData?.actresses?.[index]
+        if (matchedItem?.matched) {
+          // Use the matched name from database (prefer English name, fallback to Japanese)
+          return matchedItem.matched.name || matchedItem.matched.jpname || name
+        }
+        return name
+      }).filter(name => name !== null && name.trim()) // Remove ignored items and empty strings
       
       // Only add actresses that don't already exist
-      const uniqueNewActresses = newActresses.filter(actress => 
+      const uniqueNewActresses = filteredActresses.filter(actress => 
         !existingActresses.some(existing => 
           existing.toLowerCase() === actress.toLowerCase() ||
           existing.includes(actress) ||
@@ -131,10 +146,25 @@ export async function mergeMovieData(
     if (request.selectedFields.includes('actors') && request.parsedData.actors && request.parsedData.actors.length > 0) {
       // Merge actors - only add new ones, don't duplicate
       const existingActors = existingMovie.actors ? existingMovie.actors.split(',').map(a => a.trim()).filter(a => a) : []
-      const newActors = request.parsedData.actors.filter(a => a && a.trim())
+      
+      // Filter out ignored actors and use matched data when available
+      const filteredActors = request.parsedData.actors.map((name, index) => {
+        // Check if this actor is ignored
+        if (request.ignoredItems?.includes(`actors-${index}`)) {
+          return null // Mark as ignored
+        }
+        
+        // Use matched data if available, otherwise use original name
+        const matchedItem = request.matchedData?.actors?.[index]
+        if (matchedItem?.matched) {
+          // Use the matched name from database (prefer English name, fallback to Japanese)
+          return matchedItem.matched.name || matchedItem.matched.jpname || name
+        }
+        return name
+      }).filter(name => name !== null && name.trim()) // Remove ignored items and empty strings
       
       // Only add actors that don't already exist
-      const uniqueNewActors = newActors.filter(actor => 
+      const uniqueNewActors = filteredActors.filter(actor => 
         !existingActors.some(existing => 
           existing.toLowerCase() === actor.toLowerCase() ||
           existing.includes(actor) ||

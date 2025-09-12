@@ -6,7 +6,7 @@ import { Input } from '../ui/input'
 import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
-import { Search, X } from 'lucide-react'
+import { Search, X, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
 import { movieCodeMatchesQuery } from '../../utils/masterDataApi'
@@ -16,9 +16,10 @@ interface SoftContentProps {
   searchQuery: string
   accessToken: string
   onSCMovieSelect?: (scMovie: SCMovie) => void
+  onAddSCMovie?: () => void
 }
 
-export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftContentProps) {
+export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSCMovie }: SoftContentProps) {
   const [scMovies, setScMovies] = useState<SCMovie[]>([])
   const [filteredMovies, setFilteredMovies] = useState<SCMovie[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -118,7 +119,9 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
   const loadSCMovies = async () => {
     try {
       setIsLoading(true)
+      console.log('Loading SC movies with accessToken:', accessToken ? 'Present' : 'Missing')
       const data = await scMovieApi.getSCMovies(accessToken)
+      console.log('Loaded SC movies:', data)
       setScMovies(data)
     } catch (error) {
       console.error('Failed to load SC movies:', error)
@@ -202,6 +205,12 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
           <div className="text-sm text-muted-foreground">
             <span>{scMovies.length} SC movie{scMovies.length !== 1 ? 's' : ''} total</span>
           </div>
+          {onAddSCMovie && (
+            <Button onClick={onAddSCMovie} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Tambah SC Movie
+            </Button>
+          )}
         </div>
       )}
 

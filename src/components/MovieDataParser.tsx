@@ -413,8 +413,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           
           // Get matched actress names (prefer English name, fallback to Japanese)
           const matchedActressNames = matchedData.actresses
-            .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
-            .map(item => item.matched!.name || item.matched!.jpname || item.name)
+            .map((item, index) => ({ item, index }))
+            .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
+            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actresses that don't already exist
@@ -436,8 +437,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           
           // Get matched actor names (prefer English name, fallback to Japanese)
           const matchedActorNames = matchedData.actors
-            .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
-            .map(item => item.matched!.name || item.matched!.jpname || item.name)
+            .map((item, index) => ({ item, index }))
+            .filter(({ item, index }) => item.matched && !ignoredItems.has(`actors-${index}`))
+            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actors that don't already exist
@@ -1155,8 +1157,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     <span className="text-gray-600 dark:text-gray-400">Actresses:</span>
                     <div className="mt-1 space-y-1">
                       {matchedData.actresses
-                        .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
-                        .map((item, index) => {
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
+                        .map(({ item, index }) => {
                           const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActresses = mergeMode.existingMovie.actress ? mergeMode.existingMovie.actress.split(',').map(a => a.trim()) : []
                           const isNew = !existingActresses.some(existing => 
@@ -1184,8 +1187,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     <span className="text-gray-600 dark:text-gray-400">Actors:</span>
                     <div className="mt-1 space-y-1">
                       {matchedData.actors
-                        .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
-                        .map((item, index) => {
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item, index }) => item.matched && !ignoredItems.has(`actors-${index}`))
+                        .map(({ item, index }) => {
                           const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActors = mergeMode.existingMovie.actors ? mergeMode.existingMovie.actors.split(',').map(a => a.trim()) : []
                           const isNew = !existingActors.some(existing => 
