@@ -23,12 +23,13 @@ interface DashboardProps {
   onSwitchToFrontend?: () => void
   editingMovie?: any
   editingSCMovie?: any
-  editingProfile?: { type: 'actor' | 'actress', name: string } | null
+  editingProfile?: { type: 'actor' | 'actress' | 'director', name: string } | null
   onClearEditingMovie?: () => void
   onClearEditingSCMovie?: () => void
   onClearEditingProfile?: () => void
   onDataChanged?: () => void
   parseMovie?: any
+  onMovieSelect?: (movie: Movie) => void
 }
 
 export function Dashboard({ 
@@ -43,7 +44,8 @@ export function Dashboard({
   onClearEditingSCMovie,
   onClearEditingProfile,
   onDataChanged,
-  parseMovie: externalParseMovie
+  parseMovie: externalParseMovie,
+  onMovieSelect
 }: DashboardProps) {
   const [activeTab, setActiveTab] = useState(
     externalParseMovie ? 'parser' : 
@@ -59,13 +61,53 @@ export function Dashboard({
   // Handle movie save from parser
   const handleParserSave = async (movie: Movie) => {
     try {
-      console.log('Saving movie from parser:', movie)
-      const savedMovie = await movieApi.createMovie(movie, accessToken)
-      console.log('Movie saved successfully:', savedMovie)
-      toast.success('Movie berhasil disimpan!')
+      console.log('=== DASHBOARD HANDLE PARSER SAVE ===')
+      console.log('Movie from parser:', movie)
+      console.log('Access token available:', !!accessToken)
+      console.log('onMovieSelect available:', !!onMovieSelect)
       
-      if (onDataChanged) {
-        onDataChanged()
+      // Check if movie has ID (means it's from merge mode, already saved)
+      if (movie.id) {
+        console.log('Movie has ID, this is from merge mode - no need to save again')
+        
+        if (onDataChanged) {
+          console.log('Calling onDataChanged')
+          onDataChanged()
+        }
+        
+        // Navigate to movie detail page
+        if (onMovieSelect && movie) {
+          console.log('Calling onMovieSelect with merged movie:', movie)
+          onMovieSelect(movie)
+          console.log('onMovieSelect called successfully')
+        } else {
+          console.log('onMovieSelect not available or movie is null')
+          console.log('onMovieSelect:', onMovieSelect)
+          console.log('movie:', movie)
+        }
+      } else {
+        console.log('Movie has no ID, this is new movie - saving to database')
+        
+        const savedMovie = await movieApi.createMovie(movie, accessToken)
+        console.log('Movie saved successfully:', savedMovie)
+        
+        toast.success('Movie berhasil disimpan!')
+        
+        if (onDataChanged) {
+          console.log('Calling onDataChanged')
+          onDataChanged()
+        }
+        
+        // Navigate to movie detail page after successful save
+        if (onMovieSelect && savedMovie) {
+          console.log('Calling onMovieSelect with saved movie:', savedMovie)
+          onMovieSelect(savedMovie)
+          console.log('onMovieSelect called successfully')
+        } else {
+          console.log('onMovieSelect not available or savedMovie is null')
+          console.log('onMovieSelect:', onMovieSelect)
+          console.log('savedMovie:', savedMovie)
+        }
       }
     } catch (error: any) {
       console.error('Error saving movie from parser:', error)

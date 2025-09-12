@@ -8,6 +8,7 @@ import { MultipleMatchSelector } from './MultipleMatchSelector'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
+import { toast } from 'sonner'
 
 interface MovieDataParserProps {
   accessToken: string
@@ -447,6 +448,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         )
 
         if (response.success) {
+          console.log('=== MERGE MODE SUCCESS ===')
+          console.log('Merge response:', response)
+          console.log('Merged movie:', response.movie)
+          
           // Reset form and close merge mode
           setRawData('')
           setParsedData(null)
@@ -463,7 +468,13 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           setMergeMode(null)
           
           // Show success message
-          alert(`Data berhasil dilengkapi! ${response.message}`)
+          toast.success(`Data berhasil dilengkapi! ${response.message}`)
+          
+          // Navigate to movie detail page after successful merge
+          if (response.movie && onSave) {
+            console.log('Calling onSave with merged movie for navigation')
+            onSave(response.movie)
+          }
         } else {
           throw new Error('Failed to merge data')
         }
@@ -475,6 +486,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       }
     } else {
       // Normal save flow
+      console.log('=== NORMAL SAVE FLOW ===')
+      console.log('Parsed data:', parsedData)
+      console.log('Matched data:', matchedData)
+      console.log('Ignored items:', ignoredItems)
+      
       const updatedParsedData = {
         ...parsedData,
         dmcode: dmcode,
@@ -487,7 +503,31 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       movie.cover = cover
       movie.gallery = gallery
       movie.cropCover = cropCover
+      
+      console.log('Final movie data:', movie)
+      console.log('Calling onSave with movie:', movie)
+      
+      // Call onSave to save the movie
       onSave(movie)
+      
+      console.log('onSave called successfully')
+      
+      // Reset form after successful save
+      setRawData('')
+      setParsedData(null)
+      setMatchedData(null)
+      setError('')
+      setIgnoredItems(new Set())
+      setDmcode('')
+      setTitleEn('')
+      setMovieType('')
+      setCover('')
+      setGallery('')
+      setCropCover(false)
+      setAppliedTemplate(null)
+      setMergeMode(null)
+      
+      console.log('Form reset completed')
     }
   }
 

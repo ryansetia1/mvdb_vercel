@@ -566,6 +566,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   // Content navigation handlers
   const handleMovieSelect = (movie: Movie | string) => {
+    console.log('=== UNIFIED APP HANDLE MOVIE SELECT ===')
+    console.log('Movie received:', movie)
+    console.log('Current contentState:', contentState)
+    
     // Handle collaboration filtering
     if (typeof movie === 'string' && movie.startsWith('collaboration:')) {
       const collaborationData = movie.substring('collaboration:'.length)
@@ -603,14 +607,21 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
     // Handle regular movie selection
     if (typeof movie === 'object') {
+      console.log('Handling regular movie selection')
+      console.log('Movie object:', movie)
+      
       // Save current state to history before navigating to movie detail
       setNavigationHistory(prev => [...prev, contentState])
       
-      setContentState({
-        mode: 'movieDetail',
+      const newContentState = {
+        mode: 'movieDetail' as const,
         title: movie.titleEn || movie.titleJp || 'Movie Details',
         data: movie
-      })
+      }
+      
+      console.log('Setting new contentState:', newContentState)
+      setContentState(newContentState)
+      console.log('ContentState updated successfully')
     }
   }
 
@@ -1216,7 +1227,37 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {contentState.mode === 'admin' ? (
+        {/* Handle movie detail navigation from admin mode */}
+        {contentState.mode === 'movieDetail' && contentState.data && (
+          <MovieDetailContent
+            movie={contentState.data}
+            accessToken={accessToken}
+            onMovieSelect={handleMovieSelect}
+            onProfileSelect={handleProfileSelect}
+            onFilterSelect={handleFilterSelect}
+            onEditMovie={handleEditMovie}
+            onParseMovie={handleParseMovie}
+            showEditButton={true}
+            onBack={() => {
+              // Return to admin mode when going back from movie detail
+              setContentState({ mode: 'admin', title: 'Admin Panel' })
+              setActiveNavItem('admin')
+            }}
+            onMovieUpdated={(updatedMovie) => {
+              // Update the movie in the movies list
+              setMovies(prev => prev.map(m => m.id === updatedMovie.id ? updatedMovie : m))
+              // Update the current content state to reflect changes
+              setContentState(prev => ({
+                ...prev,
+                data: updatedMovie,
+                title: updatedMovie.titleEn || updatedMovie.titleJp || 'Movie Details'
+              }))
+            }}
+          />
+        )}
+
+        {/* Admin Dashboard */}
+        {contentState.mode === 'admin' && (
           <Dashboard 
             accessToken={accessToken}
             user={user}
@@ -1237,11 +1278,15 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               setShowParseMovie(null)
             }}
             onDataChanged={reloadData}
+            onMovieSelect={handleMovieSelect}
           />
-        ) : (
+        )}
+
+        {/* Other content modes */}
+        {contentState.mode !== 'admin' && contentState.mode !== 'movieDetail' && (
           <div className="space-y-6">
             {/* Content Header - Hidden for detail views and profile (profile has its own header) */}
-            {contentState.mode !== 'movieDetail' && contentState.mode !== 'scMovieDetail' && contentState.mode !== 'photobookDetail' && contentState.mode !== 'groupDetail' && contentState.mode !== 'profile' && (
+            {contentState.mode !== 'scMovieDetail' && contentState.mode !== 'photobookDetail' && contentState.mode !== 'groupDetail' && contentState.mode !== 'profile' && (
               <div className="flex items-center justify-between">
                 {/* Show back button with title for filtered views, just title for main views */}
                 {(contentState.mode === 'filteredMovies' || contentState.mode === 'customNavFiltered') ? (
@@ -1383,29 +1428,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               />
             )}
 
-            {contentState.mode === 'movieDetail' && contentState.data && (
-              <MovieDetailContent
-                movie={contentState.data}
-                accessToken={accessToken}
-                onMovieSelect={handleMovieSelect}
-                onProfileSelect={handleProfileSelect}
-                onFilterSelect={handleFilterSelect}
-                onEditMovie={handleEditMovie}
-                onParseMovie={handleParseMovie}
-                showEditButton={true}
-                onBack={handleBack}
-                onMovieUpdated={(updatedMovie) => {
-                  // Update the movie in the movies list
-                  setMovies(prev => prev.map(m => m.id === updatedMovie.id ? updatedMovie : m))
-                  // Update the current content state to reflect changes
-                  setContentState(prev => ({
-                    ...prev,
-                    data: updatedMovie,
-                    title: updatedMovie.titleEn || updatedMovie.titleJp || 'Movie Details'
-                  }))
-                }}
-              />
-            )}
 
             {contentState.mode === 'photobookDetail' && contentState.data && (
               <PhotobookDetailContent

@@ -239,6 +239,7 @@
         onClearEditingMovie={() => setShowEditMovie(null)}
         onClearEditingSCMovie={() => setShowEditSCMovie(null)}
         onClearEditingProfile={() => setShowEditProfile(null)}
+        onMovieSelect={handleMovieSelect}
       />
     )}
 
