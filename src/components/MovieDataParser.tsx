@@ -625,7 +625,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         dmcode: dmcode || ''
       }
       
-      const translatedText = await translateMovieTitleWithContext(parsedData.titleJp, movieData)
+      const translatedText = await translateMovieTitleWithContext(parsedData.titleJp, movieData, accessToken)
       
       if (translatedText && translatedText !== parsedData.titleJp) {
         setTitleEn(translatedText)

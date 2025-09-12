@@ -1,7 +1,10 @@
 /**
  * DeepSeek R1 Translation API Integration
  * Menggunakan OpenRouter untuk mengakses model DeepSeek R1 free
+ * Support untuk environment variables dan Supabase secrets
  */
+
+import { getApiKeyFromSupabaseSecrets } from './supabaseSecretsApi'
 
 // OpenRouter API Configuration
 const OPENROUTER_API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY
@@ -10,6 +13,40 @@ const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 // Check if API key is valid
 const isApiKeyValid = (key: string): boolean => {
   return Boolean(key && key.length > 20)
+}
+
+// Get API key with fallback to Supabase secrets
+const getApiKeyWithFallback = async (accessToken?: string): Promise<string | null> => {
+  console.log('Getting API key with fallback...')
+  
+  // First try environment variable
+  console.log('Environment variable OPENROUTER_API_KEY:', OPENROUTER_API_KEY ? 'exists' : 'not found')
+  if (isApiKeyValid(OPENROUTER_API_KEY)) {
+    console.log('Using environment variable API key')
+    return OPENROUTER_API_KEY
+  }
+  
+  // Fallback to Supabase secrets if accessToken is provided
+  if (accessToken) {
+    console.log('Trying Supabase secrets with accessToken:', accessToken ? 'present' : 'missing')
+    try {
+      const secretApiKey = await getApiKeyFromSupabaseSecrets(accessToken, 'mvdb3')
+      console.log('Supabase secrets response:', secretApiKey ? 'found' : 'not found')
+      if (secretApiKey && isApiKeyValid(secretApiKey)) {
+        console.log('Using Supabase secrets API key')
+        return secretApiKey
+      } else {
+        console.log('Supabase secrets API key invalid or empty')
+      }
+    } catch (error) {
+      console.warn('Failed to get API key from Supabase secrets:', error)
+    }
+  } else {
+    console.log('No accessToken provided for Supabase secrets')
+  }
+  
+  console.log('No valid API key found')
+  return null
 }
 
 
@@ -80,6 +117,7 @@ export interface TranslationRequest {
     series?: string
     dmcode?: string
   }
+  accessToken?: string
 }
 
 export interface TranslationResponse {
@@ -94,7 +132,7 @@ export interface TranslationResponse {
  * @returns Promise<TranslationResponse>
  */
 export async function translateWithDeepSeek(request: TranslationRequest): Promise<TranslationResponse> {
-  const { text, sourceLanguage = 'japanese', targetLanguage = 'english', context = 'general', movieContext } = request
+  const { text, sourceLanguage = 'japanese', targetLanguage = 'english', context = 'general', movieContext, accessToken } = request
 
   if (!text || text.trim().length === 0) {
     return {
@@ -104,8 +142,10 @@ export async function translateWithDeepSeek(request: TranslationRequest): Promis
     }
   }
 
-  // Check if API key is valid
-  if (!isApiKeyValid(OPENROUTER_API_KEY)) {
+  // Get API key with fallback to Supabase secrets
+  const apiKey = await getApiKeyWithFallback(accessToken)
+  
+  if (!apiKey) {
     return {
       translatedText: '',
       success: false,
@@ -134,7 +174,7 @@ Translate this Japanese text to English:`
     const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': window.location.origin,
         'X-Title': 'MVDB Translation Service'
@@ -206,7 +246,8 @@ Translate this Japanese text to English:`
 export async function translateJapaneseToEnglishWithContext(
   japaneseText: string, 
   context: 'movie_title' | 'actor_name' | 'actress_name' | 'studio_name' | 'series_name' | 'general' = 'general',
-  movieContext?: TranslationRequest['movieContext']
+  movieContext?: TranslationRequest['movieContext'],
+  accessToken?: string
 ): Promise<string> {
   if (!japaneseText || japaneseText.trim().length === 0) {
     return ''
@@ -218,7 +259,8 @@ export async function translateJapaneseToEnglishWithContext(
     sourceLanguage: 'japanese',
     targetLanguage: 'english',
     context: context,
-    movieContext: movieContext
+    movieContext: movieContext,
+    accessToken: accessToken
   })
 
   if (deepseekResult.success && deepseekResult.translatedText) {
@@ -260,7 +302,8 @@ export async function translateMovieTitleWithContext(
     studio?: string
     series?: string
     dmcode?: string
-  }
+  },
+  accessToken?: string
 ): Promise<string> {
   if (!movieTitle || movieTitle.trim().length === 0) {
     return ''
@@ -280,17 +323,18 @@ export async function translateMovieTitleWithContext(
     dmcode: movieData.dmcode
   }
 
-  return translateJapaneseToEnglishWithContext(movieTitle, 'movie_title', movieContext)
+  return translateJapaneseToEnglishWithContext(movieTitle, 'movie_title', movieContext, accessToken)
 }
 
 /**
  * Translate Japanese text to English dengan fallback ke MyMemory API
  * @param japaneseText - Text dalam bahasa Jepang
+ * @param accessToken - Supabase access token untuk mengakses secrets
  * @returns Promise<string> - Translated text dalam bahasa Inggris
  */
-export async function translateJapaneseToEnglish(japaneseText: string): Promise<string> {
+export async function translateJapaneseToEnglish(japaneseText: string, accessToken?: string): Promise<string> {
   // Use the context-aware function with general context
-  return translateJapaneseToEnglishWithContext(japaneseText, 'general')
+  return translateJapaneseToEnglishWithContext(japaneseText, 'general', undefined, accessToken)
 }
 
 /**
@@ -318,14 +362,16 @@ export async function batchTranslateJapaneseToEnglish(texts: string[]): Promise<
  * @param japaneseText - Text dalam bahasa Jepang
  * @returns Promise<string> - Romaji text
  */
-export async function convertJapaneseToRomaji(japaneseText: string): Promise<string> {
+export async function convertJapaneseToRomaji(japaneseText: string, accessToken?: string): Promise<string> {
   if (!japaneseText || japaneseText.trim().length === 0) {
     return ''
   }
 
-  // Check if API key is valid
-  if (!isApiKeyValid(OPENROUTER_API_KEY)) {
-    console.warn('OpenRouter API key tidak valid, menggunakan fallback Romaji conversion')
+  // Get API key with fallback to Supabase secrets
+  const apiKey = await getApiKeyWithFallback(accessToken)
+  
+  if (!apiKey) {
+    console.warn('API key tidak dikonfigurasi, menggunakan fallback Romaji conversion')
     return basicJapaneseToRomaji(japaneseText)
   }
 
@@ -347,7 +393,7 @@ Convert this Japanese text to Romaji:`
     const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': window.location.origin,
         'X-Title': 'MVDB Romaji Conversion Service'
@@ -440,14 +486,16 @@ function basicJapaneseToRomaji(japaneseText: string): string {
 
 /**
  * Test connection to OpenRouter API
+ * @param accessToken - Supabase access token for secrets
  * @returns Promise<boolean> - True if connection successful
  */
-export async function testOpenRouterConnection(): Promise<boolean> {
+export async function testOpenRouterConnection(accessToken?: string): Promise<boolean> {
   try {
     const testResult = await translateWithDeepSeek({
       text: 'テスト',
       sourceLanguage: 'japanese',
-      targetLanguage: 'english'
+      targetLanguage: 'english',
+      accessToken: accessToken
     })
     
     return testResult.success

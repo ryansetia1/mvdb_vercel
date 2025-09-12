@@ -125,7 +125,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     try {
       // Menggunakan DeepSeek R1 untuk translate dengan konteks yang sesuai
       const context = type === 'actress' ? 'actress_name' : type === 'actor' ? 'actor_name' : 'general'
-      const translatedText = await translateJapaneseToEnglishWithContext(formData.jpname, context)
+      const translatedText = await translateJapaneseToEnglishWithContext(formData.jpname, context, undefined, accessToken)
       
       if (translatedText && translatedText !== formData.jpname) {
         setFormData({ ...formData, name: translatedText })
@@ -151,7 +151,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     setConvertingRomaji(true)
     try {
       // Menggunakan DeepSeek R1 untuk konversi romaji dengan fallback
-      const romajiText = await convertJapaneseToRomaji(formData.jpname)
+      const romajiText = await convertJapaneseToRomaji(formData.jpname, accessToken)
       
       if (romajiText && romajiText !== formData.jpname) {
         setFormData({ ...formData, name: romajiText })

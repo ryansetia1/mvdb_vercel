@@ -57,7 +57,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
     setIsTranslating(true)
     try {
       // Menggunakan DeepSeek R1 untuk translate dengan konteks series
-      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name')
+      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
       
       if (translatedText && translatedText !== formData.titleJp) {
         setFormData(prev => ({ ...prev, titleEn: translatedText }))

@@ -3819,6 +3819,7 @@ app.get('/make-server-e0516fcf/kv-store/get/:key', async (c) => {
     console.log(`Server: Retrieved value for key ${key}:`, value ? 'exists' : 'null')
     
     return c.json({ 
+      success: true,
       key,
       value,
       exists: !!value

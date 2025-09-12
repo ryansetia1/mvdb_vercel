@@ -11,7 +11,11 @@ import { ShimmerInput, ShimmerTextarea } from './ShimmerInput'
 import { Brain, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
-export function DeepSeekTranslationTest() {
+interface DeepSeekTranslationTestProps {
+  accessToken?: string
+}
+
+export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTestProps) {
   const [testText, setTestText] = useState('こんにちは')
   const [translatedText, setTranslatedText] = useState('')
   const [romajiText, setRomajiText] = useState('')
@@ -24,7 +28,7 @@ export function DeepSeekTranslationTest() {
 
     setLoading(true)
     try {
-      const result = await translateJapaneseToEnglish(testText)
+      const result = await translateJapaneseToEnglish(testText, accessToken)
       setTranslatedText(result)
       toast.success('Terjemahan berhasil!')
     } catch (error) {
@@ -40,7 +44,7 @@ export function DeepSeekTranslationTest() {
 
     setLoading(true)
     try {
-      const result = await convertJapaneseToRomaji(testText)
+      const result = await convertJapaneseToRomaji(testText, accessToken)
       setRomajiText(result)
       toast.success('Konversi Romaji berhasil!')
     } catch (error) {
@@ -54,7 +58,7 @@ export function DeepSeekTranslationTest() {
   const handleTestConnection = async () => {
     setTestingConnection(true)
     try {
-      const isConnected = await testOpenRouterConnection()
+      const isConnected = await testOpenRouterConnection(accessToken)
       setConnectionStatus(isConnected)
       if (isConnected) {
         toast.success('Koneksi ke OpenRouter berhasil!')

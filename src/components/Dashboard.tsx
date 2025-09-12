@@ -12,8 +12,9 @@ import { MovieDataParser } from './MovieDataParser'
 import { StatsContent } from './content/StatsContent'
 import { BackupRestoreContent } from './content/BackupRestoreContent'
 import { DeepSeekTranslationTest } from './DeepSeekTranslationTest'
+import { SetupApiKey } from './SetupApiKey'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link, FileText, BarChart3, Shield } from 'lucide-react'
+import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link, FileText, BarChart3, Shield, Key } from 'lucide-react'
 import { movieApi, Movie } from '../utils/movieApi'
 import { toast } from 'sonner'
 
@@ -261,6 +262,13 @@ export function Dashboard({
               <Settings className="h-4 w-4" />
               <span>DeepSeek Test</span>
             </TabsTrigger>
+            <TabsTrigger 
+              value="setup-api-key" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Key className="h-4 w-4" />
+              <span>Setup API Key</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -367,7 +375,11 @@ export function Dashboard({
         </TabsContent>
 
         <TabsContent value="deepseek-test" className="mt-6">
-          <DeepSeekTranslationTest />
+          <DeepSeekTranslationTest accessToken={accessToken} />
+        </TabsContent>
+
+        <TabsContent value="setup-api-key" className="mt-6">
+          <SetupApiKey accessToken={accessToken} />
         </TabsContent>
       </Tabs>
     </div>
