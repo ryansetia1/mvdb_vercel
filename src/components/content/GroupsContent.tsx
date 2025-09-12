@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -598,6 +599,15 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const membersTotalPages = Math.ceil(sortedGroupMembers.length / itemsPerPage)
   const membersStartIndex = (currentPage - 1) * itemsPerPage
   const paginatedMembers = sortedGroupMembers.slice(membersStartIndex, membersStartIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    groupsTotalPages,
+    (page: number) => setCurrentPage(page),
+    'groups-content',
+    true
+  )
 
   if (isLoading && groups.length === 0) {
     return (

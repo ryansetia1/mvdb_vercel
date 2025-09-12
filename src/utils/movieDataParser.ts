@@ -142,7 +142,22 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
             break
           case 'Actor(s)':
             // Split by spaces and filter out empty strings, then process each name
-            parsed.actors = cleanValue.split(/\s+/).map(actor => actor.trim()).filter(actor => actor.length > 0)
+            const actorNames = cleanValue.split(/\s+/).map(actor => actor.trim()).filter(actor => actor.length > 0)
+            
+            // Check if the entire Actor(s) field is actually a title (common in javdb when no actors)
+            // If it's very long or contains common title words, treat it as title, not actors
+            const commonTitleWords = ['合コン', 'SEX', '中出し', '美少女', 'おじいちゃん', '老人', 'ギャル', 'ブル尻', '美乳', '中○し']
+            const isLikelyTitle = actorNames.some(name => 
+              name.length > 15 || 
+              commonTitleWords.some(word => name.includes(word))
+            )
+            
+            if (isLikelyTitle && actorNames.length === 1) {
+              // This is likely a title, not actors - skip it
+              console.log('Detected title in Actor(s) field, skipping:', cleanValue)
+            } else {
+              parsed.actors = actorNames
+            }
             break
         }
       }
@@ -163,9 +178,20 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
           // This is an actor (has male symbol)
           actors.push(actor.replace(/♂/g, '').trim())
         } else {
-          // No gender symbol, check if it's in the title (likely actress)
+          // No gender symbol, need to determine if it's actress or actor
+          // Check if it's in the title (likely actress) but be more careful
           if (parsed.titleJp && parsed.titleJp.includes(actor)) {
-            actresses.push(actor)
+            // Additional check: if the actor name is very long or contains common title words,
+            // it's likely part of the title, not an actress name
+            const commonTitleWords = ['合コン', 'SEX', '中出し', '美少女', 'おじいちゃん', '老人', 'ギャル', 'ブル尻', '美乳', '中○し']
+            const isCommonTitleWord = commonTitleWords.some(word => actor.includes(word))
+            
+            if (actor.length <= 10 && !isCommonTitleWord && !/[◆●★☆！？。、]/.test(actor)) {
+              actresses.push(actor)
+            } else {
+              // Likely part of title, treat as actor
+              actors.push(actor)
+            }
           } else {
             // Default to actor if not in title
             actors.push(actor)
@@ -178,13 +204,25 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
     }
     
     // If no actresses found yet, try to extract from title
-    if (parsed.actresses.length === 0 && parsed.titleJp) {
+    // Only extract if we have actors data but no actresses (indicating mixed gender field)
+    if (parsed.actresses.length === 0 && parsed.titleJp && parsed.actors.length > 0) {
       // Look for actress names in the title (usually at the end)
       const titleParts = parsed.titleJp.split(/\s+/)
       const lastPart = titleParts[titleParts.length - 1]
       
-      // If the last part looks like a name (contains Japanese characters and no special symbols)
-      if (lastPart && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(lastPart) && !/[◆●★☆]/.test(lastPart)) {
+      // More strict criteria for actress extraction:
+      // 1. Must contain Japanese characters
+      // 2. Must not contain special symbols or punctuation
+      // 3. Must not be too long (likely not a name if > 10 characters)
+      // 4. Must not contain common title words
+      const commonTitleWords = ['合コン', 'SEX', '中出し', '美少女', 'おじいちゃん', '老人', 'ギャル', 'ブル尻', '美乳']
+      const isCommonTitleWord = commonTitleWords.some(word => lastPart.includes(word))
+      
+      if (lastPart && 
+          /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(lastPart) && 
+          !/[◆●★☆！？。、]/.test(lastPart) &&
+          lastPart.length <= 10 &&
+          !isCommonTitleWord) {
         parsed.actresses = [lastPart]
       }
     }

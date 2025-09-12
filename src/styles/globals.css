@@ -211,6 +211,7 @@ html {
   [data-radix-dialog-overlay][data-lightbox="true"] {
     background-color: transparent !important;
   }
+
 }
 
 /* Dark mode transitions */
@@ -387,4 +388,18 @@ html {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Safari and Chrome */
+}
+
+/* Shimmer animation for AI translation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
 }

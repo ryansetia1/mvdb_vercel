@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Movie } from '../../utils/movieApi'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -45,6 +46,7 @@ export function SeriesContent({ movies, searchQuery, onFilterSelect, accessToken
 
     fetchSeriesData()
   }, [accessToken])
+
 
   const seriesData = useMemo(() => {
     // Group movies by series
@@ -146,6 +148,15 @@ export function SeriesContent({ movies, searchQuery, onFilterSelect, accessToken
   const totalPages = Math.ceil(filteredSeries.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedSeries = filteredSeries.slice(startIndex, startIndex + itemsPerPage)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'series-content',
+    true
+  )
 
   if (filteredSeries.length === 0) {
     return (

@@ -1,5 +1,6 @@
 import React from 'react'
 import { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent } from '../ui/card'
 import { Input } from '../ui/input'
 import { Badge } from '../ui/badge'
@@ -141,6 +142,15 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect }: SoftC
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedMovies = filteredMovies.slice(startIndex, endIndex)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'soft-content',
+    true
+  )
 
   if (isLoading) {
     return (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useGlobalKeyboardPagination } from '../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -32,32 +33,21 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
 
+  // Calculate total pages for keyboard navigation
+  const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
+  
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'movie-list',
+    !showForm // Disable when form is open
+  )
+
   useEffect(() => {
     loadMovies()
   }, [])
-
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle keyboard navigation if not in a form field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
-
-      const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
-      
-      if (e.key === 'ArrowLeft' && currentPage > 1) {
-        e.preventDefault()
-        setCurrentPage(prev => prev - 1)
-      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-        e.preventDefault()
-        setCurrentPage(prev => prev + 1)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [currentPage, filteredMovies.length, itemsPerPage])
 
   // Handle external editing movie
   useEffect(() => {
@@ -369,8 +359,6 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
             
             {/* Pagination */}
             {(() => {
-              const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
-              
               if (totalPages <= 1) return null
               
               return (

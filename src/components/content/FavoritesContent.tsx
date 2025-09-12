@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -360,6 +361,15 @@ export function FavoritesContent({
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedData = currentTabData.slice(startIndex, endIndex)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'favorites-content',
+    true
+  )
 
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {

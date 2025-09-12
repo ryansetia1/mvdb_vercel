@@ -1,5 +1,6 @@
 import React from 'react'
 import { useState, useEffect, useMemo } from 'react'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -75,6 +76,15 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
   useEffect(() => {
     loadPhotobooks()
   }, [])
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'photobooks-content',
+    true
+  )
 
   const loadPhotobooks = async () => {
     try {

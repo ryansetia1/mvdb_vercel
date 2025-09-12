@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Search, Copy, ExternalLink, Image as ImageIcon, Loader2, Clipboard } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface ImageSearchIframeProps {
   onImageSelect?: (imageUrl: string) => void
+  onAddPhotoField?: () => void
   searchQuery?: string
   className?: string
   name?: string
@@ -18,6 +19,7 @@ interface ImageSearchIframeProps {
 
 export function ImageSearchIframe({ 
   onImageSelect, 
+  onAddPhotoField,
   searchQuery = '', 
   className = '',
   name = '',
@@ -88,6 +90,24 @@ export function ImageSearchIframe({
       toast.error('Gagal menyalin URL')
     }
   }
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+        setSelectedImageUrl(text)
+        if (onImageSelect) {
+          onImageSelect(text)
+          toast.success('URL gambar berhasil dipaste dari clipboard')
+        }
+      } else {
+        toast.error('Clipboard tidak berisi URL gambar yang valid')
+      }
+    } catch (err) {
+      toast.error('Gagal membaca dari clipboard')
+    }
+  }
+
 
 
   // Generate search URL dynamically based on current search term
@@ -265,6 +285,7 @@ export function ImageSearchIframe({
             )}
           </div>
         )}
+
       </CardContent>
     </Card>
   )

@@ -8,6 +8,11 @@ import { MultipleMatchSelector } from './MultipleMatchSelector'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
+import { translateJapaneseToEnglishWithContext, translateMovieTitleWithContext } from '../utils/deepseekTranslationApi'
+import { AITranslationLoading, AITranslationSpinner } from './AITranslationLoading'
+import { ShimmerInput } from './ShimmerInput'
+import { Brain } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface MovieDataParserProps {
   accessToken: string
@@ -117,7 +122,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       
       // Pre-fill raw data with movie information for parsing
       // Only include fields that are relevant and have meaningful data
-      const relevantFields = []
+      const relevantFields: string[] = []
       
       if (existingMovie.titleEn || existingMovie.titleJp) {
         relevantFields.push(`Title: ${existingMovie.titleEn || existingMovie.titleJp}`)
@@ -350,7 +355,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.directors && matchedData.directors.length > 0) {
           const matchedDirector = matchedData.directors[0]
           if (matchedDirector.matched && !ignoredItems.has('directors-0')) {
-            const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
+            const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
             if (directorName && directorName.trim()) {
               mergedMovie.director = directorName
             }
@@ -361,7 +366,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.studios && matchedData.studios.length > 0) {
           const matchedStudio = matchedData.studios[0]
           if (matchedStudio.matched && !ignoredItems.has('studios-0')) {
-            const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
+            const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
             if (studioName && studioName.trim()) {
               mergedMovie.studio = studioName
             }
@@ -372,7 +377,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.series && matchedData.series.length > 0) {
           const matchedSeries = matchedData.series[0]
           if (matchedSeries.matched && !ignoredItems.has('series-0')) {
-            const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
+            const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
             if (seriesName && seriesName.trim()) {
               mergedMovie.series = seriesName
             }
@@ -386,7 +391,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           // Get matched actress names (prefer English name, fallback to Japanese)
           const matchedActressNames = matchedData.actresses
             .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
-            .map(item => item.matched.name || item.matched.jpname || item.original)
+            .map(item => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actresses that don't already exist
@@ -409,7 +414,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           // Get matched actor names (prefer English name, fallback to Japanese)
           const matchedActorNames = matchedData.actors
             .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
-            .map(item => item.matched.name || item.matched.jpname || item.original)
+            .map(item => item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actors that don't already exist
@@ -447,6 +452,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         )
 
         if (response.success) {
+          console.log('=== MERGE MODE SUCCESS ===')
+          console.log('Merge response:', response)
+          console.log('Merged movie:', response.movie)
+          
           // Reset form and close merge mode
           setRawData('')
           setParsedData(null)
@@ -463,7 +472,13 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           setMergeMode(null)
           
           // Show success message
-          alert(`Data berhasil dilengkapi! ${response.message}`)
+          toast.success(`Data berhasil dilengkapi! ${response.message}`)
+          
+          // Navigate to movie detail page after successful merge
+          if (response.movie && onSave) {
+            console.log('Calling onSave with merged movie for navigation')
+            onSave(response.movie)
+          }
         } else {
           throw new Error('Failed to merge data')
         }
@@ -475,6 +490,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       }
     } else {
       // Normal save flow
+      console.log('=== NORMAL SAVE FLOW ===')
+      console.log('Parsed data:', parsedData)
+      console.log('Matched data:', matchedData)
+      console.log('Ignored items:', ignoredItems)
+      
       const updatedParsedData = {
         ...parsedData,
         dmcode: dmcode,
@@ -487,7 +507,31 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       movie.cover = cover
       movie.gallery = gallery
       movie.cropCover = cropCover
+      
+      console.log('Final movie data:', movie)
+      console.log('Calling onSave with movie:', movie)
+      
+      // Call onSave to save the movie
       onSave(movie)
+      
+      console.log('onSave called successfully')
+      
+      // Reset form after successful save
+      setRawData('')
+      setParsedData(null)
+      setMatchedData(null)
+      setError('')
+      setIgnoredItems(new Set())
+      setDmcode('')
+      setTitleEn('')
+      setMovieType('')
+      setCover('')
+      setGallery('')
+      setCropCover(false)
+      setAppliedTemplate(null)
+      setMergeMode(null)
+      
+      console.log('Form reset completed')
     }
   }
 
@@ -571,17 +615,29 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     
     setTranslatingTitle(true)
     try {
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(parsedData.titleJp)}&langpair=ja|en`)
-      const data = await response.json()
+      // Menggunakan DeepSeek R1 untuk translate dengan konteks movie title dan data movie
+      const movieData = {
+        actors: parsedData.actors?.join(', ') || '',
+        actress: parsedData.actresses?.join(', ') || '',
+        director: parsedData.director || '',
+        studio: parsedData.studio || '',
+        series: parsedData.series || '',
+        dmcode: dmcode || ''
+      }
       
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        setTitleEn(data.responseData.translatedText)
+      const translatedText = await translateMovieTitleWithContext(parsedData.titleJp, movieData)
+      
+      if (translatedText && translatedText !== parsedData.titleJp) {
+        setTitleEn(translatedText)
+        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1 dengan konteks movie data')
       } else {
         setError('Failed to translate title')
+        toast.error('Gagal menerjemahkan title')
       }
     } catch (error) {
       console.error('Translation error:', error)
       setError('Failed to translate title')
+      toast.error('Terjadi error saat menerjemahkan title')
     } finally {
       setTranslatingTitle(false)
     }
@@ -807,8 +863,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     </div>
                   ) : item.matched ? (
                     <div className="text-sm text-green-600">
-                      ✓ Matched: {item.matched.name}
-                      {item.matched.jpname && ` (${item.matched.jpname})`}
+                      ✓ Matched: {item.matched!.name}
+                      {item.matched!.jpname && ` (${item.matched!.jpname})`}
                       {item.multipleMatches.length > 1 && (
                         <div className="text-xs text-blue-600 mt-1">
                           +{item.multipleMatches.length - 1} other matches found
@@ -1059,7 +1115,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                       {matchedData.actresses
                         .filter(item => item.matched && !ignoredItems.has(`actresses-${matchedData.actresses.indexOf(item)}`))
                         .map((item, index) => {
-                          const matchedName = item.matched.name || item.matched.jpname || item.original
+                          const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActresses = mergeMode.existingMovie.actress ? mergeMode.existingMovie.actress.split(',').map(a => a.trim()) : []
                           const isNew = !existingActresses.some(existing => 
                             existing.toLowerCase() === matchedName.toLowerCase() ||
@@ -1088,7 +1144,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                       {matchedData.actors
                         .filter(item => item.matched && !ignoredItems.has(`actors-${matchedData.actors.indexOf(item)}`))
                         .map((item, index) => {
-                          const matchedName = item.matched.name || item.matched.jpname || item.original
+                          const matchedName = item.matched!.name || item.matched!.jpname || item.name
                           const existingActors = mergeMode.existingMovie.actors ? mergeMode.existingMovie.actors.split(',').map(a => a.trim()) : []
                           const isNew = !existingActors.some(existing => 
                             existing.toLowerCase() === matchedName.toLowerCase() ||
@@ -1139,12 +1195,13 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
               <div className="flex items-center gap-2 mb-2">
                 <strong>Title (EN):</strong>
                 <div className="flex-1 relative">
-                  <input
+                  <ShimmerInput
                     type="text"
                     value={titleEn}
                     onChange={(e) => setTitleEn(e.target.value)}
                     placeholder="English title (auto-translated or manual)"
-                    className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isShimmering={translatingTitle}
+                    className={`text-sm ${
                       mergeMode?.isActive && mergeMode.existingMovie.titleEn && titleEn === mergeMode.existingMovie.titleEn
                         ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
                         : 'border-gray-300'
@@ -1159,10 +1216,20 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                 <button
                   onClick={translateTitle}
                   disabled={translatingTitle || !parsedData.titleJp}
-                  className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Translate from Japanese"
+                  className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  title="Translate from Japanese using DeepSeek R1"
                 >
-                  {translatingTitle ? 'Translating...' : 'Translate'}
+                  {translatingTitle ? (
+                    <>
+                      <AITranslationSpinner size="sm" />
+                      <span>AI Translating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-3 w-3" />
+                      <span>Translate</span>
+                    </>
+                  )}
                 </button>
               </div>
               <div className="flex items-center gap-2">

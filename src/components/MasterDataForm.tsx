@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { masterDataApi } from '../utils/masterDataApi'
-import { Languages, Type, Search } from 'lucide-react'
+import { translateJapaneseToEnglishWithContext, convertJapaneseToRomaji } from '../utils/deepseekTranslationApi'
+import { AITranslationSpinner } from './AITranslationLoading'
+import { ShimmerInput } from './ShimmerInput'
+import { Languages, Type, Search, Brain, Sparkles } from 'lucide-react'
 import { ImageSearchIframe } from './ImageSearchIframe'
+import { toast } from 'sonner'
 
 interface MasterDataFormProps {
   type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
@@ -89,24 +93,26 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
   })
 
   const translateToEnglish = async () => {
-    if (!formData.titleJp) return
+    if (type !== 'series' || !('titleJp' in formData) || !formData.titleJp) return
 
     setTranslating(true)
     try {
-      // Simple translation using a free API (you can replace with your preferred translation service)
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(formData.titleJp)}&langpair=ja|en`)
-      const data = await response.json()
+      // Menggunakan DeepSeek R1 untuk translate dengan konteks series name
+      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name')
       
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        setFormData({ ...formData, titleEn: data.responseData.translatedText })
+      if (translatedText && translatedText !== formData.titleJp) {
+        setFormData({ ...formData, titleEn: translatedText })
+        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
       } else {
         // Fallback: just copy the Japanese text
         setFormData({ ...formData, titleEn: formData.titleJp })
+        toast.warning('Terjemahan tidak tersedia, menggunakan text asli')
       }
     } catch (error) {
       console.error('Translation error:', error)
       // Fallback: just copy the Japanese text
       setFormData({ ...formData, titleEn: formData.titleJp })
+      toast.error('Terjadi error saat menerjemahkan, menggunakan text asli')
     } finally {
       setTranslating(false)
     }
@@ -117,20 +123,23 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
     setTranslating(true)
     try {
-      // Simple translation using a free API
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(formData.jpname)}&langpair=ja|en`)
-      const data = await response.json()
+      // Menggunakan DeepSeek R1 untuk translate dengan konteks yang sesuai
+      const context = type === 'actress' ? 'actress_name' : type === 'actor' ? 'actor_name' : 'general'
+      const translatedText = await translateJapaneseToEnglishWithContext(formData.jpname, context)
       
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        setFormData({ ...formData, name: data.responseData.translatedText })
+      if (translatedText && translatedText !== formData.jpname) {
+        setFormData({ ...formData, name: translatedText })
+        toast.success('Nama berhasil diterjemahkan menggunakan DeepSeek R1')
       } else {
         // Fallback: just copy the Japanese text
         setFormData({ ...formData, name: formData.jpname })
+        toast.warning('Terjemahan tidak tersedia, menggunakan nama asli')
       }
     } catch (error) {
       console.error('Translation error:', error)
       // Fallback: just copy the Japanese text
       setFormData({ ...formData, name: formData.jpname })
+      toast.error('Terjadi error saat menerjemahkan, menggunakan nama asli')
     } finally {
       setTranslating(false)
     }
@@ -141,23 +150,18 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
     setConvertingRomaji(true)
     try {
-      // Simple romaji conversion using a free API
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(formData.jpname)}&langpair=ja|en`)
-      const data = await response.json()
+      // Menggunakan DeepSeek R1 untuk konversi romaji dengan fallback
+      const romajiText = await convertJapaneseToRomaji(formData.jpname)
       
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        // Use the translated text as romaji (this is a simple approach)
-        setFormData({ ...formData, name: data.responseData.translatedText })
+      if (romajiText && romajiText !== formData.jpname) {
+        setFormData({ ...formData, name: romajiText })
+        toast.success('Nama berhasil dikonversi ke Romaji menggunakan DeepSeek R1')
       } else {
-        // Fallback: basic romaji conversion using a simple mapping
-        const romaji = convertJapaneseToRomaji(formData.jpname)
-        setFormData({ ...formData, name: romaji })
+        toast.warning('Konversi Romaji tidak tersedia, menggunakan nama asli')
       }
     } catch (error) {
       console.error('Romaji conversion error:', error)
-      // Fallback: basic romaji conversion
-      const romaji = convertJapaneseToRomaji(formData.jpname)
-      setFormData({ ...formData, name: romaji })
+      toast.error('Terjadi error saat konversi Romaji')
     } finally {
       setConvertingRomaji(false)
     }
@@ -167,51 +171,6 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     setFormData({ ...formData, profilePicture: imageUrl })
   }
 
-  // Simple Japanese to Romaji conversion function
-  const convertJapaneseToRomaji = (japanese: string): string => {
-    // Basic mapping for common Japanese characters to romaji
-    const romajiMap: { [key: string]: string } = {
-      'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
-      'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
-      'さ': 'sa', 'し': 'shi', 'す': 'su', 'せ': 'se', 'そ': 'so',
-      'た': 'ta', 'ち': 'chi', 'つ': 'tsu', 'て': 'te', 'と': 'to',
-      'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
-      'は': 'ha', 'ひ': 'hi', 'ふ': 'fu', 'へ': 'he', 'ほ': 'ho',
-      'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
-      'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
-      'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
-      'わ': 'wa', 'を': 'wo', 'ん': 'n',
-      'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
-      'ざ': 'za', 'じ': 'ji', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
-      'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
-      'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
-      'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
-      'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
-      'しゃ': 'sha', 'しゅ': 'shu', 'しょ': 'sho',
-      'ちゃ': 'cha', 'ちゅ': 'chu', 'ちょ': 'cho',
-      'にゃ': 'nya', 'にゅ': 'nyu', 'にょ': 'nyo',
-      'ひゃ': 'hya', 'ひゅ': 'hyu', 'ひょ': 'hyo',
-      'みゃ': 'mya', 'みゅ': 'myu', 'みょ': 'myo',
-      'りゃ': 'rya', 'りゅ': 'ryu', 'りょ': 'ryo',
-      'ぎゃ': 'gya', 'ぎゅ': 'gyu', 'ぎょ': 'gyo',
-      'じゃ': 'ja', 'じゅ': 'ju', 'じょ': 'jo',
-      'びゃ': 'bya', 'びゅ': 'byu', 'びょ': 'byo',
-      'ぴゃ': 'pya', 'ぴゅ': 'pyu', 'ぴょ': 'pyo'
-    }
-
-    let result = japanese
-    // Replace katakana with hiragana first
-    result = result.replace(/[\u30A1-\u30F6]/g, (match) => 
-      String.fromCharCode(match.charCodeAt(0) - 0x60)
-    )
-    
-    // Convert hiragana to romaji
-    for (const [hiragana, romaji] of Object.entries(romajiMap)) {
-      result = result.replace(new RegExp(hiragana, 'g'), romaji)
-    }
-    
-    return result
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -442,22 +401,32 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   Title English
                 </label>
                 <div className="flex gap-2">
-                  <input
+                  <ShimmerInput
                     type="text"
                     value={formData.titleEn}
                     onChange={(e) => setFormData({ ...formData, titleEn: e.target.value })}
                     placeholder="Masukkan title bahasa Inggris"
-                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    isShimmering={translating}
+                    className="flex-1"
                   />
                   <button
                     type="button"
                     onClick={translateToEnglish}
                     disabled={translating || !formData.titleJp}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English"
+                    title="Translate to English using DeepSeek R1"
                   >
-                    <Languages className="h-4 w-4" />
-                    {translating ? '...' : 'Translate'}
+                    {translating ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span>Translate</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -495,11 +464,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   Nama Studio (English) *
                 </label>
                 <div className="flex gap-2">
-                  <input
+                  <ShimmerInput
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    isShimmering={translating}
+                    className="flex-1"
                     required
                   />
                   <button
@@ -507,20 +477,38 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateNameToEnglish}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English"
+                    title="Translate to English using DeepSeek R1"
                   >
-                    <Languages className="h-4 w-4" />
-                    {translating ? '...' : 'Translate'}
+                    {translating ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span>Translate</span>
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
                     onClick={convertToRomaji}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Convert to Romaji"
+                    title="Convert to Romaji using DeepSeek R1"
                   >
-                    <Type className="h-4 w-4" />
-                    {convertingRomaji ? '...' : 'Romaji'}
+                    {convertingRomaji ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Converting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Romaji</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -570,11 +558,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   Nama
                 </label>
                 <div className="flex gap-2">
-                  <input
+                  <ShimmerInput
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    isShimmering={translating}
+                    className="flex-1"
                     required
                   />
                   <button
@@ -582,20 +571,38 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateNameToEnglish}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English"
+                    title="Translate to English using DeepSeek R1"
                   >
-                    <Languages className="h-4 w-4" />
-                    {translating ? '...' : 'Translate'}
+                    {translating ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span>Translate</span>
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
                     onClick={convertToRomaji}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Convert to Romaji"
+                    title="Convert to Romaji using DeepSeek R1"
                   >
-                    <Type className="h-4 w-4" />
-                    {convertingRomaji ? '...' : 'Romaji'}
+                    {convertingRomaji ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Converting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Romaji</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -684,6 +691,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     <div className="mb-4">
                       <ImageSearchIframe
                         onImageSelect={handleImageSelect}
+                        onAddPhotoField={undefined}
                         searchQuery={formData.name}
                         name={formData.name}
                         jpname={formData.jpname}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -12,6 +12,8 @@ import { CroppedImage } from './CroppedImage'
 import { ModernLightbox } from './ModernLightbox'
 import { processTemplate } from '../utils/templateUtils'
 import { ActorForm } from './ActorForm'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { TakuLinksIframe } from './TakuLinksIframe'
 
 interface ProfilePageProps {
   type: 'actor' | 'actress' | 'director'
@@ -121,30 +123,6 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
     setImageViewerOpen(true)
   }
 
-  // Show edit form if editing
-  if (showEditForm && (type === 'actor' || type === 'actress')) {
-    return (
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Back Button */}
-        <Button
-          onClick={() => setShowEditForm(false)}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Profile
-        </Button>
-
-        <ActorForm
-          type={type}
-          accessToken={accessToken}
-          initialData={profileData || undefined}
-          onSaved={handleDataChange}
-          onClose={() => setShowEditForm(false)}
-        />
-      </div>
-    )
-  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -301,20 +279,10 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
                   {type === 'actress' && profileData.takulinks && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground mb-1">Taku Links</h4>
-                      <div className="text-sm space-y-1">
-                        {profileData.takulinks.split('\n').map((link, index) => (
-                          <div key={index}>
-                            <a 
-                              href={link.trim()} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline break-all"
-                            >
-                              {link.trim()}
-                            </a>
-                          </div>
-                        ))}
-                      </div>
+                      <TakuLinksIframe 
+                        takulinks={profileData.takulinks} 
+                        variant="default"
+                      />
                     </div>
                   )}
                 </>
@@ -416,6 +384,24 @@ export function ProfilePage({ type, name, accessToken, onBack, onMovieSelect }: 
           onClose={() => setImageViewerOpen(false)}
         />
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Edit {type === 'actress' ? 'Actress' : 'Actor'}
+            </DialogTitle>
+          </DialogHeader>
+          <ActorForm
+            type={type === 'director' ? 'actor' : type}
+            accessToken={accessToken}
+            initialData={profileData || undefined}
+            onSaved={handleDataChange}
+            onClose={() => setShowEditForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

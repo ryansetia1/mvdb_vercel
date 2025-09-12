@@ -7,7 +7,7 @@ import { MasterDataItem, calculateAge } from '../../../utils/masterDataApi'
 import { Movie } from '../../../utils/movieApi'
 import { Photobook } from '../../../utils/photobookApi'
 import { User, Calendar, Film, Camera, Images } from 'lucide-react'
-import { MultipleTakuLinksEnhanced } from '../../MultipleTakuLinksEnhanced'
+import { TakuLinksIframe } from '../../TakuLinksIframe'
 
 interface ProfileSidebarProps {
   profile: MasterDataItem | null
@@ -68,7 +68,7 @@ export function ProfileSidebar({
           )}
           {/* Taku Links */}
           {profile?.takulinks && profile.takulinks.trim() && (
-            <MultipleTakuLinksEnhanced 
+            <TakuLinksIframe 
               takulinks={profile.takulinks} 
               className="mt-2"
               variant="default"
@@ -77,10 +77,10 @@ export function ProfileSidebar({
         </div>
 
         {/* Basic Info */}
-        {profile?.birthDate && (
+        {profile?.birthdate && (
           <div className="flex items-center gap-2 text-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span>Born: {new Date(profile.birthDate).toLocaleDateString()}</span>
+            <span>Born: {new Date(profile.birthdate).toLocaleDateString()}</span>
           </div>
         )}
         

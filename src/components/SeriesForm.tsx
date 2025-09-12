@@ -5,8 +5,12 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Label } from './ui/label'
 import { Badge } from './ui/badge'
-import { Plus, Trash2, Edit, Save, X, Globe } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, Globe, Brain } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
+import { translateJapaneseToEnglishWithContext } from '../utils/deepseekTranslationApi'
+import { AITranslationSpinner } from './AITranslationLoading'
+import { ShimmerInput } from './ShimmerInput'
+import { toast } from 'sonner'
 
 interface SeriesFormProps {
   accessToken: string
@@ -32,6 +36,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isTranslating, setIsTranslating] = useState(false)
 
   const resetForm = () => {
     setFormData(initialFormData)
@@ -41,6 +46,31 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const translateTitle = async () => {
+    if (!formData.titleJp.trim()) {
+      toast.error('Title Japanese harus diisi terlebih dahulu')
+      return
+    }
+    
+    setIsTranslating(true)
+    try {
+      // Menggunakan DeepSeek R1 untuk translate dengan konteks series
+      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name')
+      
+      if (translatedText && translatedText !== formData.titleJp) {
+        setFormData(prev => ({ ...prev, titleEn: translatedText }))
+        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+      } else {
+        toast.error('Gagal menerjemahkan title')
+      }
+    } catch (error) {
+      console.error('Translation error:', error)
+      toast.error('Terjadi error saat menerjemahkan title')
+    } finally {
+      setIsTranslating(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,22 +153,47 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="titleEn">Title English</Label>
-                <Input
+                <ShimmerInput
                   id="titleEn"
                   value={formData.titleEn}
                   onChange={(e) => handleInputChange('titleEn', e.target.value)}
                   placeholder="Masukkan title bahasa Inggris"
+                  isShimmering={isTranslating}
                 />
               </div>
 
               <div>
                 <Label htmlFor="titleJp">Title Japanese</Label>
-                <Input
-                  id="titleJp"
-                  value={formData.titleJp}
-                  onChange={(e) => handleInputChange('titleJp', e.target.value)}
-                  placeholder="Masukkan title bahasa Jepang"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="titleJp"
+                    value={formData.titleJp}
+                    onChange={(e) => handleInputChange('titleJp', e.target.value)}
+                    placeholder="Masukkan title bahasa Jepang"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={translateTitle}
+                    disabled={isTranslating || !formData.titleJp.trim()}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                    title="Translate Japanese title to English using DeepSeek R1"
+                  >
+                    {isTranslating ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span className="hidden sm:inline">AI Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span className="hidden sm:inline">Translate</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 

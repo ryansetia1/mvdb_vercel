@@ -1,6 +1,7 @@
 import { Button } from './button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { useEffect } from 'react'
 
 interface PaginationEnhancedProps {
   currentPage: number
@@ -27,6 +28,8 @@ export function PaginationEnhanced({
 }: PaginationEnhancedProps) {
   const startItem = Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)
   const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+
+  // Note: Keyboard navigation is now handled by useGlobalKeyboardPagination hook in parent components
   
   const getVisiblePages = () => {
     const delta = 2
