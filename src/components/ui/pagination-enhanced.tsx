@@ -1,6 +1,7 @@
 import { Button } from './button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { useEffect } from 'react'
 
 interface PaginationEnhancedProps {
   currentPage: number
@@ -27,6 +28,27 @@ export function PaginationEnhanced({
 }: PaginationEnhancedProps) {
   const startItem = Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)
   const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle keyboard navigation if not in a form field or dialog
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+        return
+      }
+
+      if (e.key === 'ArrowLeft' && currentPage > 1) {
+        e.preventDefault()
+        onPageChange(currentPage - 1)
+      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+        e.preventDefault()
+        onPageChange(currentPage + 1)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [currentPage, totalPages, onPageChange])
   
   const getVisiblePages = () => {
     const delta = 2

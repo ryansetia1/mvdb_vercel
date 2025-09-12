@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -8,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, ChevronUp, ChevronDown } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
 import { ClickableAvatar } from './ClickableAvatar'
 import { ImageSearchIframe } from './ImageSearchIframe'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface ActorFormProps {
   type: 'actor' | 'actress'
@@ -330,6 +331,99 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
   const addProfilePictureField = () => {
     handleInputChange('profilePictures', [...formData.profilePictures, ''])
+  }
+
+  const handleAddPhotoWithPaste = async () => {
+    // 1. Tambah field foto baru
+    addProfilePictureField()
+    
+    // 2. Paste URL dari clipboard
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+        // Set the new field (last one) with the pasted URL
+        const newProfilePictures = [...formData.profilePictures, text]
+        handleInputChange('profilePictures', newProfilePictures)
+        toast.success('Field foto baru ditambahkan dan URL gambar berhasil dipaste dari clipboard')
+      } else {
+        toast.error('Clipboard tidak berisi URL gambar yang valid')
+      }
+    } catch (err) {
+      toast.error('Gagal membaca dari clipboard')
+    }
+  }
+
+  const moveProfilePicture = (index: number, direction: 'up' | 'down') => {
+    const newPictures = [...formData.profilePictures]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    
+    // Check bounds
+    if (targetIndex < 0 || targetIndex >= newPictures.length) {
+      return
+    }
+    
+    // Swap positions
+    [newPictures[index], newPictures[targetIndex]] = [newPictures[targetIndex], newPictures[index]]
+    
+    handleInputChange('profilePictures', newPictures)
+    toast.success(`Foto ${index + 1} dipindahkan ke posisi ${targetIndex + 1}`)
+  }
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) {
+      return
+    }
+
+    const sourceIndex = result.source.index
+    const destinationIndex = result.destination.index
+
+    if (sourceIndex === destinationIndex) {
+      return
+    }
+
+    // Get only non-empty photos for reordering
+    const nonEmptyPhotos = formData.profilePictures.filter(p => p.trim())
+    const newNonEmptyPhotos = Array.from(nonEmptyPhotos)
+    const [reorderedItem] = newNonEmptyPhotos.splice(sourceIndex, 1)
+    newNonEmptyPhotos.splice(destinationIndex, 0, reorderedItem)
+
+    // Reconstruct the full array with empty fields in their original positions
+    const newPictures = [...formData.profilePictures]
+    let nonEmptyIndex = 0
+    
+    for (let i = 0; i < newPictures.length; i++) {
+      if (newPictures[i].trim()) {
+        newPictures[i] = newNonEmptyPhotos[nonEmptyIndex]
+        nonEmptyIndex++
+      }
+    }
+
+    handleInputChange('profilePictures', newPictures)
+    toast.success(`Foto dipindahkan dari posisi ${sourceIndex + 1} ke posisi ${destinationIndex + 1}`)
+  }
+
+  const handleRemovePhotoFromPreview = (previewIndex: number) => {
+    // Get the actual index in the full array
+    const nonEmptyPhotos = formData.profilePictures.filter(p => p.trim())
+    const photoToRemove = nonEmptyPhotos[previewIndex]
+    
+    // Find the actual index in the full array
+    const actualIndex = formData.profilePictures.findIndex(pic => pic === photoToRemove)
+    
+    if (actualIndex !== -1) {
+      const newPictures = [...formData.profilePictures]
+      
+      // Remove the field entirely instead of just clearing it
+      newPictures.splice(actualIndex, 1)
+      
+      // Ensure we always have at least one empty field
+      if (newPictures.length === 0) {
+        newPictures.push('')
+      }
+      
+      handleInputChange('profilePictures', newPictures)
+      toast.success(`Foto ${previewIndex + 1} berhasil dihapus`)
+    }
   }
 
   const handleImageSelect = (imageUrl: string) => {
@@ -916,6 +1010,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               {showImageSearch && (
                 <ImageSearchIframe
                   onImageSelect={handleImageSelect}
+                  onAddPhotoField={addProfilePictureField}
                   searchQuery={formData.name}
                   name={formData.name}
                   jpname={formData.jpname}
@@ -925,8 +1020,8 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                 />
               )}
 
-              {/* Add Photo Button */}
-              <div className="flex justify-end">
+              {/* Add Photo Buttons */}
+              <div className="flex justify-end gap-2">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -936,20 +1031,72 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                   <Plus className="h-4 w-4 mr-1" />
                   Tambah Foto
                 </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddPhotoWithPaste}
+                >
+                  <Clipboard className="h-4 w-4 mr-1" />
+                  Tambah Foto
+                </Button>
               </div>
 
-              {/* Preview existing photos */}
+              {/* Preview existing photos with drag and drop */}
               {formData.profilePictures.some(p => p.trim()) && (
-                <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
-                  {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
-                    <ClickableAvatar
-                      key={index}
-                      src={pic}
-                      alt={`${formData.name} foto ${index + 1}`}
-                      fallback={(formData.name || 'A').charAt(0)}
-                      size="xl"
-                    />
-                  ))}
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    💡 Drag & drop foto untuk mengubah urutan (field pertama = avatar utama)
+                  </p>
+                  <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="photo-preview" direction="horizontal">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex flex-wrap gap-2 p-2 rounded-lg transition-colors ${
+                            snapshot.isDraggingOver ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
+                            <Draggable key={`${pic}-${index}`} draggableId={`photo-${index}`} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`relative transition-transform ${
+                                    snapshot.isDragging ? 'scale-105 shadow-lg' : ''
+                                  }`}
+                                >
+                                  <ClickableAvatar
+                                    src={pic}
+                                    alt={`${formData.name} foto ${index + 1}`}
+                                    fallback={(formData.name || 'A').charAt(0)}
+                                    size="xl"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 shadow-md hover:shadow-lg z-10"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRemovePhotoFromPreview(index)
+                                    }}
+                                    title={`Hapus foto ${index + 1}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 </div>
               )}
               
@@ -968,6 +1115,26 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       )}
                     </div>
                     <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveProfilePicture(index, 'up')}
+                        disabled={index === 0}
+                        title="Pindahkan ke atas"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveProfilePicture(index, 'down')}
+                        disabled={index === formData.profilePictures.length - 1}
+                        title="Pindahkan ke bawah"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"

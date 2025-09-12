@@ -684,6 +684,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     <div className="mb-4">
                       <ImageSearchIframe
                         onImageSelect={handleImageSelect}
+                        onAddPhotoField={undefined}
                         searchQuery={formData.name}
                         name={formData.name}
                         jpname={formData.jpname}

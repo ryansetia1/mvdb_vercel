@@ -467,6 +467,29 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     setCurrentPage(1)
   }, [searchQuery])
 
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle keyboard navigation if not in a form field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+        return
+      }
+
+      const totalPages = Math.ceil(filteredGroups.length / itemsPerPage)
+      
+      if (e.key === 'ArrowLeft' && currentPage > 1) {
+        e.preventDefault()
+        setCurrentPage(prev => prev - 1)
+      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+        e.preventDefault()
+        setCurrentPage(prev => prev + 1)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [currentPage, filteredGroups.length, itemsPerPage])
+
   const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
     console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
     

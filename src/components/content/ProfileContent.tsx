@@ -18,6 +18,8 @@ import { movieApi } from '../../utils/movieApi'
 import { photobookApi, photobookHelpers } from '../../utils/photobookApi'
 import { ArrowLeft, Film, Camera, Users, Building, List, Edit } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { ActorForm } from '../ActorForm'
 
 export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
   const [state, setState] = useState<ProfileState>({
@@ -36,6 +38,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
     activeTab: 'movies',
     galleryTab: 'nn'
   })
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   // State for collaboration filtering
   const [collaborationFilter, setCollaborationFilter] = useState<{
@@ -320,14 +323,14 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
           </Button>
           
           {/* Edit button for profile pages only (not shown when viewing photobook gallery) */}
-          {!state.selectedPhotobook && onEditProfile && (
+          {!state.selectedPhotobook && (type === 'actor' || type === 'actress') && (
             <Button
               variant="outline"
-              onClick={() => onEditProfile(type, name)}
+              onClick={() => setShowEditDialog(true)}
               className="flex items-center gap-2"
             >
               <Edit className="h-4 w-4" />
-              Edit {type === 'actress' ? 'Actress' : type === 'actor' ? 'Actor' : 'Director'}
+              Edit {type === 'actress' ? 'Actress' : 'Actor'}
             </Button>
           )}
         </div>
@@ -733,6 +736,28 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
           }
         }}
       />
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Edit {type === 'actress' ? 'Actress' : 'Actor'}
+            </DialogTitle>
+          </DialogHeader>
+          <ActorForm
+            type={type}
+            accessToken={accessToken}
+            initialData={state.profile || undefined}
+            onSaved={(updatedProfile) => {
+              setState(prev => ({ ...prev, profile: updatedProfile }))
+              setShowEditDialog(false)
+              toast.success(`${type === 'actress' ? 'Actress' : 'Actor'} berhasil diperbarui`)
+            }}
+            onClose={() => setShowEditDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
