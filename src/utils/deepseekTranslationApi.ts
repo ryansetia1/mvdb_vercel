@@ -4,12 +4,12 @@
  */
 
 // OpenRouter API Configuration
-const OPENROUTER_API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY || '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'
+const OPENROUTER_API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 
 // Check if API key is valid
 const isApiKeyValid = (key: string): boolean => {
-  return Boolean(key && key.startsWith('sk-or-v1-') && key.length > 50)
+  return Boolean(key && key.length > 20)
 }
 
 
@@ -109,7 +109,7 @@ export async function translateWithDeepSeek(request: TranslationRequest): Promis
     return {
       translatedText: '',
       success: false,
-      error: 'OpenRouter API key tidak valid'
+      error: 'API key tidak dikonfigurasi'
     }
   }
 
