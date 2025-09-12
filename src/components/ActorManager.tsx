@@ -15,7 +15,7 @@ interface ActorManagerProps {
   type: 'actor' | 'actress'
   accessToken: string
   onDataChanged?: () => void
-  editingProfile?: { type: 'actor' | 'actress', name: string } | null
+  editingProfile?: { type: 'actor' | 'actress' | 'director', name: string } | null
   onClearEditingProfile?: () => void
 }
 
@@ -28,6 +28,18 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
   const [editingActor, setEditingActor] = useState<MasterDataItem | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
+
+  // Calculate total pages for keyboard navigation
+  const totalPages = Math.ceil(filteredActors.length / itemsPerPage)
+  
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'actor-manager',
+    !showForm // Disable when form is open
+  )
 
   const typeLabel = type === 'actress' ? 'Aktris' : 'Aktor'
 
@@ -209,19 +221,9 @@ export function ActorManager({ type, accessToken, onDataChanged, editingProfile,
       ) : (
         (() => {
           // Calculate pagination
-          const totalPages = Math.ceil(filteredActors.length / itemsPerPage)
           const startIndex = (currentPage - 1) * itemsPerPage
           const endIndex = startIndex + itemsPerPage
           const paginatedActors = filteredActors.slice(startIndex, endIndex)
-
-          // Keyboard navigation for pagination using global hook
-          useGlobalKeyboardPagination(
-            currentPage,
-            totalPages,
-            (page: number) => setCurrentPage(page),
-            'actor-manager',
-            !showForm // Disable when form is open
-          )
           
           return (
             <div className="space-y-6">

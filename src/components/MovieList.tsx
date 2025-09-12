@@ -33,6 +33,18 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
 
+  // Calculate total pages for keyboard navigation
+  const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
+  
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'movie-list',
+    !showForm // Disable when form is open
+  )
+
   useEffect(() => {
     loadMovies()
   }, [])
@@ -347,17 +359,6 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
             
             {/* Pagination */}
             {(() => {
-              const totalPages = Math.ceil(filteredMovies.length / itemsPerPage)
-              
-              // Keyboard navigation for pagination using global hook
-              useGlobalKeyboardPagination(
-                currentPage,
-                totalPages,
-                (page: number) => setCurrentPage(page),
-                'movie-list',
-                !showForm // Disable when form is open
-              )
-              
               if (totalPages <= 1) return null
               
               return (
