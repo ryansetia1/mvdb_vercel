@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { ExternalLink, X, Plus, Search, Loader2 } from 'lucide-react'
@@ -167,15 +168,19 @@ export function CheckTakuLinksDialog({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  return createPortal(
+    <div 
+      className="fixed inset-0 flex items-center justify-center bg-black/50"
+      style={{ zIndex: 999999 }}
+    >
       <div 
         className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border w-[98vw] h-[98vh] flex flex-col"
         style={{
           maxWidth: '98vw',
           maxHeight: '98vh',
           width: '98vw',
-          height: '98vh'
+          height: '98vh',
+          zIndex: 999999
         }}
       >
         {/* Header */}
@@ -331,6 +336,7 @@ export function CheckTakuLinksDialog({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
