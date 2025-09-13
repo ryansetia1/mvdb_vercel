@@ -10,7 +10,7 @@ import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
@@ -376,21 +376,6 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }
 
-  const moveProfilePicture = (index: number, direction: 'up' | 'down') => {
-    const newPictures = [...formData.profilePictures]
-    const targetIndex = direction === 'up' ? index - 1 : index + 1
-    
-    // Check bounds
-    if (targetIndex < 0 || targetIndex >= newPictures.length) {
-      return
-    }
-    
-    // Swap positions
-    [newPictures[index], newPictures[targetIndex]] = [newPictures[targetIndex], newPictures[index]]
-    
-    handleInputChange('profilePictures', newPictures)
-    toast.success(`Foto ${index + 1} dipindahkan ke posisi ${targetIndex + 1}`)
-  }
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) {
@@ -1164,26 +1149,6 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveProfilePicture(index, 'up')}
-                        disabled={index === 0}
-                        title="Pindahkan ke atas"
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveProfilePicture(index, 'down')}
-                        disabled={index === formData.profilePictures.length - 1}
-                        title="Pindahkan ke bawah"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
                       <Button
                         type="button"
                         variant="outline"
