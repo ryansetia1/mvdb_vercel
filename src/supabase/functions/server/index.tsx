@@ -230,7 +230,8 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     if (selectedFields.includes('director') && matchedData?.directors && matchedData.directors.length > 0) {
       const matchedDirector = matchedData.directors[0]
       if (matchedDirector.matched && !ignoredItems?.includes('directors-0')) {
-        const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
         if (directorName && directorName.trim()) {
           updatedMovie.director = directorName
         }
@@ -240,7 +241,8 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     if (selectedFields.includes('studio') && matchedData?.studios && matchedData.studios.length > 0) {
       const matchedStudio = matchedData.studios[0]
       if (matchedStudio.matched && !ignoredItems?.includes('studios-0')) {
-        const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
         if (studioName && studioName.trim()) {
           updatedMovie.studio = studioName
         }
@@ -250,7 +252,8 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     if (selectedFields.includes('series') && matchedData?.series && matchedData.series.length > 0) {
       const matchedSeries = matchedData.series[0]
       if (matchedSeries.matched && !ignoredItems?.includes('series-0')) {
-        const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
         if (seriesName && seriesName.trim()) {
           updatedMovie.series = seriesName
         }
@@ -260,7 +263,8 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     if (selectedFields.includes('label') && matchedData?.labels && matchedData.labels.length > 0) {
       const matchedLabel = matchedData.labels[0]
       if (matchedLabel.matched && !ignoredItems?.includes('labels-0')) {
-        const labelName = matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const labelName = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.original
         if (labelName && labelName.trim()) {
           updatedMovie.label = labelName
         }
@@ -271,10 +275,10 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       // Merge actresses using matched data - only add new ones, don't duplicate
       const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
       
-      // Get matched actress names (prefer English name, fallback to Japanese)
+      // Get matched actress names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActressNames = matchedData.actresses
         .filter(item => item.matched && !ignoredItems?.includes(`actresses-${matchedData.actresses.indexOf(item)}`))
-        .map(item => item.matched.name || item.matched.jpname || item.original)
+        .map(item => item.customEnglishName || item.matched.name || item.matched.jpname || item.original)
         .filter(name => name && name.trim())
       
       // Only add actresses that don't already exist
@@ -295,10 +299,10 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       // Merge actors using matched data - only add new ones, don't duplicate
       const existingActors = existingMovie.actors ? existingMovie.actors.split(',').map(a => a.trim()).filter(a => a) : []
       
-      // Get matched actor names (prefer English name, fallback to Japanese)
+      // Get matched actor names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActorNames = matchedData.actors
         .filter(item => item.matched && !ignoredItems?.includes(`actors-${matchedData.actors.indexOf(item)}`))
-        .map(item => item.matched.name || item.matched.jpname || item.original)
+        .map(item => item.customEnglishName || item.matched.name || item.matched.jpname || item.original)
         .filter(name => name && name.trim())
       
       // Only add actors that don't already exist

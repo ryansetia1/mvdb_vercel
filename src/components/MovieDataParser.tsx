@@ -524,7 +524,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.directors && matchedData.directors.length > 0) {
           const matchedDirector = matchedData.directors[0]
           if (matchedDirector.matched && !ignoredItems.has('directors-0')) {
-            const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
+            // Use customEnglishName if user selected one, otherwise use matched name from database
+            const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
             if (directorName && directorName.trim()) {
               mergedMovie.director = directorName
             }
@@ -535,7 +536,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.studios && matchedData.studios.length > 0) {
           const matchedStudio = matchedData.studios[0]
           if (matchedStudio.matched && !ignoredItems.has('studios-0')) {
-            const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
+            // Use customEnglishName if user selected one, otherwise use matched name from database
+            const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
             if (studioName && studioName.trim()) {
               mergedMovie.studio = studioName
             }
@@ -546,7 +548,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.series && matchedData.series.length > 0) {
           const matchedSeries = matchedData.series[0]
           if (matchedSeries.matched && !ignoredItems.has('series-0')) {
-            const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
+            // Use customEnglishName if user selected one, otherwise use matched name from database
+            const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
             if (seriesName && seriesName.trim()) {
               mergedMovie.series = seriesName
             }
@@ -557,7 +560,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.labels && matchedData.labels.length > 0) {
           const matchedLabel = matchedData.labels[0]
           if (matchedLabel.matched && !ignoredItems.has('labels-0')) {
-            const labelName = matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.name
+            // Use customEnglishName if user selected one, otherwise use matched name from database
+            const labelName = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.name
             if (labelName && labelName.trim()) {
               mergedMovie.label = labelName
             }
@@ -568,11 +572,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.actresses && matchedData.actresses.length > 0) {
           const existingActresses = mergedMovie.actress ? mergedMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
           
-          // Get matched actress names (prefer English name, fallback to Japanese)
+          // Get matched actress names (prefer customEnglishName, then English name, fallback to Japanese)
           const matchedActressNames = matchedData.actresses
             .map((item, index) => ({ item, index }))
             .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
-            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
+            .map(({ item }) => item.customEnglishName || item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actresses that don't already exist
@@ -592,11 +596,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         if (matchedData.actors && matchedData.actors.length > 0) {
           const existingActors = mergedMovie.actors ? mergedMovie.actors.split(',').map(a => a.trim()).filter(a => a) : []
           
-          // Get matched actor names (prefer English name, fallback to Japanese)
+          // Get matched actor names (prefer customEnglishName, then English name, fallback to Japanese)
           const matchedActorNames = matchedData.actors
             .map((item, index) => ({ item, index }))
             .filter(({ item, index }) => item.matched && !ignoredItems.has(`actors-${index}`))
-            .map(({ item }) => item.matched!.name || item.matched!.jpname || item.name)
+            .map(({ item }) => item.customEnglishName || item.matched!.name || item.matched!.jpname || item.name)
             .filter(name => name && name.trim())
           
           // Only add actors that don't already exist
