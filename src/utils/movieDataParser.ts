@@ -372,6 +372,7 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
       label: data.label_name_en || data.label_name_ja || '',
       actresses: data.actresses.map(actress => actress.name_romaji || actress.name_kanji || actress.name_kana),
       actors: data.actors.map(actor => actor.name_romaji || actor.name_kanji || actor.name_kana),
+      dmcode: data.content_id || '', // Use content_id as DM code for R18 data
       rawData,
       // Additional R18.dev data
       galleryImages: data.gallery.map(img => img.image_full),
@@ -870,6 +871,18 @@ export async function matchWithDatabase(
       console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
     }
     
+    // Debug logging for actress matching
+    if (type === 'actress') {
+      console.log('=== FIND MATCHES FOR ACTRESS ===')
+      console.log('Searching for:', name)
+      console.log('Candidates found:', candidates.length)
+      console.log('Candidate names:', candidates.map(c => c.name).filter(Boolean))
+      console.log('Candidate jpnames:', candidates.map(c => c.jpname).filter(Boolean))
+      console.log('Candidate kanjiNames:', candidates.map(c => c.kanjiName).filter(Boolean))
+      console.log('Candidate kanaNames:', candidates.map(c => c.kanaName).filter(Boolean))
+      console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
+    }
+    
     for (const candidate of candidates) {
       const score = calculateMatchScore(candidate, name)
       
@@ -892,6 +905,11 @@ export async function matchWithDatabase(
         console.log('  - Names are same:', candidate.jpname === candidate.name)
       }
       
+      // Debug logging for actress - show all scores
+      if (type === 'actress') {
+        console.log('Actress candidate:', candidate.name, '|', candidate.jpname, '|', candidate.kanjiName, '|', candidate.kanaName, '|', candidate.alias, 'Score:', score)
+      }
+      
       // Only include matches with meaningful scores (avoid very weak matches)
       // For labels, use lower threshold if Japanese name equals English name
       const minScore = type === 'label' && candidate.jpname === candidate.name ? 20 : 30
@@ -909,6 +927,9 @@ export async function matchWithDatabase(
         }
         if (type === 'label') {
           console.log('Label match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias, 'Score:', score)
+        }
+        if (type === 'actress') {
+          console.log('Actress match found:', candidate.name, '|', candidate.jpname, '|', candidate.kanjiName, '|', candidate.kanaName, '|', candidate.alias, 'Score:', score)
         }
       }
     }
@@ -931,6 +952,10 @@ export async function matchWithDatabase(
     if (type === 'label') {
       console.log('Total label matches found:', matches.length)
       console.log('Sorted label matches:', matches.map(m => ({ name: m.candidate.name, jpname: m.candidate.jpname, score: m.score })))
+    }
+    if (type === 'actress') {
+      console.log('Total actress matches found:', matches.length)
+      console.log('Sorted actress matches:', matches.map(m => ({ name: m.candidate.name, jpname: m.candidate.jpname, kanjiName: m.candidate.kanjiName, kanaName: m.candidate.kanaName, alias: m.candidate.alias, score: m.score })))
     }
     
     const sortedCandidates = matches.map(m => m.candidate)
@@ -964,12 +989,40 @@ export async function matchWithDatabase(
   for (let i = 0; i < parsedData.actresses.length; i++) {
     const actressName = parsedData.actresses[i]
     const parsedEnglishName = parsedEnglishNames?.actresses?.[i]
+    const r18ActressData = parsedData.actressInfo?.[i]
     
     console.log('=== MATCHING ACTRESS ===')
     console.log('Searching for actress:', actressName)
     console.log('Parsed English name:', parsedEnglishName)
+    console.log('R18 actress data:', r18ActressData)
     
-    const matchResult = findMatches(actressName, 'actress')
+    // Try matching with all available name variations from R18 data
+    let matchResult = findMatches(actressName, 'actress')
+    
+    // If no match found and we have R18 data, try other name variations
+    if (!matchResult.matched && r18ActressData) {
+      const nameVariations = [
+        r18ActressData.name_kanji,
+        r18ActressData.name_kana,
+        r18ActressData.name_romaji,
+        r18ActressData.name_en
+      ].filter(Boolean) // Remove null/undefined values
+      
+      console.log('Trying name variations:', nameVariations)
+      
+      for (const variation of nameVariations) {
+        if (variation && variation !== actressName) {
+          console.log('Trying variation:', variation)
+          const variationResult = findMatches(variation, 'actress')
+          if (variationResult.matched) {
+            console.log('Found match with variation:', variation)
+            matchResult = variationResult
+            break
+          }
+        }
+      }
+    }
+    
     console.log('Actress match result:', matchResult)
     
     // Check if there are truly different English names in multiple matches (Stage 1)
@@ -997,7 +1050,6 @@ export async function matchWithDatabase(
     }
     
     // Check R18.dev data for additional English names
-    const r18ActressData = parsedData.actressInfo?.[i]
     if (matchResult.matched && r18ActressData) {
       // Only use name_en for English name comparison, not name_romaji
       const r18EnglishName = r18ActressData.name_en

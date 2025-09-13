@@ -102,6 +102,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   } | null>(null)
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set())
   const [dmcode, setDmcode] = useState('')
+  const [dmcodeFromR18, setDmcodeFromR18] = useState(false)
   const [dmcodePatterns, setDmcodePatterns] = useState<Map<string, string>>(new Map())
   const [titleEn, setTitleEn] = useState('')
   const [movieType, setMovieType] = useState<string>('')
@@ -175,7 +176,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       console.log('Movie director:', existingMovie.director)
       
       // Pre-fill basic fields
-      if (existingMovie.dmcode) {
+      // Note: Only set DM code from existing movie if it's not from R18
+      if (existingMovie.dmcode && !dmcodeFromR18) {
         setDmcode(existingMovie.dmcode)
       }
       if (existingMovie.titleEn) {
@@ -382,10 +384,19 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       // Set titleEn from parsed data initially
       setTitleEn(parsed.titleEn || '')
       
-      // Generate dmcode automatically
-      const generatedDmcode = generateDmcode(parsed.code, parsed.studio)
-      setDmcode(generatedDmcode)
-      console.log('Generated dmcode:', generatedDmcode, 'for code:', parsed.code, 'studio:', parsed.studio)
+      // Set dmcode from parsed data (R18 uses content_id, others use generated)
+      if (parsed.dmcode) {
+        // Use DM code from R18 data (content_id)
+        setDmcode(parsed.dmcode)
+        setDmcodeFromR18(true)
+        console.log('Using R18 dmcode:', parsed.dmcode, 'from content_id')
+      } else {
+        // Generate dmcode automatically for non-R18 data
+        const generatedDmcode = generateDmcode(parsed.code, parsed.studio)
+        setDmcode(generatedDmcode)
+        setDmcodeFromR18(false)
+        console.log('Generated dmcode:', generatedDmcode, 'for code:', parsed.code, 'studio:', parsed.studio)
+      }
       
       // Check for duplicate movie code
       console.log('=== CHECKING DUPLICATE ON PARSE ===')
@@ -656,6 +667,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           setError('')
           setIgnoredItems(new Set())
           setDmcode('')
+          setDmcodeFromR18(false)
           setTitleEn('')
           setMovieType('')
           setCover('')
@@ -722,6 +734,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         setError('')
         setIgnoredItems(new Set())
         setDmcode('')
+        setDmcodeFromR18(false)
         setTitleEn('')
         setMovieType('')
         setCover('')
@@ -770,6 +783,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setIgnoredItems(new Set())
     setTitleEn('')
     setDmcode('')
+    setDmcodeFromR18(false)
     setCover('')
     setGallery('')
     setCropCover(false)
@@ -787,7 +801,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     }
     
     // Pre-fill other fields that might be useful
-    if (existingMovie.dmcode) {
+    // Note: DM code should use the one from R18 data if available, not from database
+    if (!dmcodeFromR18 && existingMovie.dmcode) {
       setDmcode(existingMovie.dmcode)
     }
     
@@ -2149,12 +2164,19 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     onChange={(e) => setDmcode(e.target.value)}
                     placeholder="Auto-generated dmcode"
                     className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode
+                      dmcodeFromR18
+                        ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20'
+                        : mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode
                         ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
                         : 'border-gray-300'
                     }`}
                   />
-                  {mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode && (
+                  {dmcodeFromR18 && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      From R18
+                    </div>
+                  )}
+                  {!dmcodeFromR18 && mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode && (
                     <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-green-600 dark:text-green-400 font-medium">
                       From DB
                     </div>
@@ -2162,11 +2184,22 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                 </div>
                 <button
                   onClick={() => {
+                    if (dmcodeFromR18) {
+                      // Don't regenerate if DM code is from R18
+                      toast.info('DM code dari R18 tidak bisa di-regenerate')
+                      return
+                    }
                     const regenerated = generateDmcode(parsedData.code, parsedData.studio)
                     setDmcode(regenerated)
+                    setDmcodeFromR18(false)
                   }}
-                  className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-                  title="Regenerate dmcode"
+                  className={`px-2 py-1 text-white text-xs rounded ${
+                    dmcodeFromR18 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
+                  title={dmcodeFromR18 ? "DM code dari R18 tidak bisa di-regenerate" : "Regenerate dmcode"}
+                  disabled={dmcodeFromR18}
                 >
                   Regenerate
                 </button>
