@@ -20,34 +20,54 @@ export interface ParsedMovieData {
 
 export interface MatchedData {
   actresses: {
-    name: string
+    name: string // Parsed name from source
+    parsedEnglishName?: string // English name from parsed data (if available)
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string // User-selected English name
+    hasDifferentEnglishNames?: boolean // Flag to indicate different English names between parsed and database
+    needsEnglishNameSelection?: boolean // Flag to indicate English name selection needed
   }[]
   actors: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
   }[]
   directors: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
   }[]
   studios: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
   }[]
   series: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
   }[]
 }
 
@@ -286,7 +306,14 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
  */
 export async function matchWithDatabase(
   parsedData: ParsedMovieData,
-  masterData: MasterDataItem[]
+  masterData: MasterDataItem[],
+  parsedEnglishNames?: {
+    actresses?: string[]
+    actors?: string[]
+    directors?: string[]
+    studios?: string[]
+    series?: string[]
+  }
 ): Promise<MatchedData> {
   const matched: MatchedData = {
     actresses: [],
@@ -296,10 +323,97 @@ export async function matchWithDatabase(
     series: []
   }
 
-  // Helper function to find matches
+  // Helper function to calculate match score (higher = better match)
+  const calculateMatchScore = (candidate: MasterDataItem, query: string): number => {
+    const searchQuery = query.toLowerCase().trim()
+    let score = 0
+    
+    // Exact matches get highest scores
+    if (candidate.jpname?.toLowerCase() === searchQuery) score += 100
+    if (candidate.kanjiName?.toLowerCase() === searchQuery) score += 100
+    if (candidate.kanaName?.toLowerCase() === searchQuery) score += 100
+    if (candidate.alias?.toLowerCase() === searchQuery) score += 80
+    if (candidate.name?.toLowerCase() === searchQuery) score += 60
+    
+    // Contains matches get lower scores
+    if (candidate.jpname?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.kanjiName?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.kanaName?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.alias?.toLowerCase().includes(searchQuery)) score += 40
+    if (candidate.name?.toLowerCase().includes(searchQuery)) score += 30
+    
+    // Group-specific aliases
+    if (candidate.groupData) {
+      for (const groupName in candidate.groupData) {
+        const groupInfo = candidate.groupData[groupName]
+        if (groupInfo.alias?.toLowerCase() === searchQuery) score += 70
+        if (groupInfo.alias?.toLowerCase().includes(searchQuery)) score += 35
+      }
+    }
+    
+    // Series-specific matching
+    if (candidate.type === 'series') {
+      if (candidate.titleEn?.toLowerCase() === searchQuery) score += 60
+      if (candidate.titleJp?.toLowerCase() === searchQuery) score += 100
+      if (candidate.titleEn?.toLowerCase().includes(searchQuery)) score += 30
+      if (candidate.titleJp?.toLowerCase().includes(searchQuery)) score += 50
+    }
+    
+    return score
+  }
+  
+  // Helper function to check if matches are truly different (not just variations of same person)
+  const areMatchesTrulyDifferent = (matches: MasterDataItem[]): boolean => {
+    if (matches.length <= 1) return false
+    
+    // Check if all matches have the same Japanese name (jpname, kanjiName, kanaName)
+    const japaneseNames = new Set()
+    const englishNames = new Set()
+    
+    matches.forEach(match => {
+      // Collect Japanese names
+      if (match.jpname) japaneseNames.add(match.jpname.toLowerCase())
+      if (match.kanjiName) japaneseNames.add(match.kanjiName.toLowerCase())
+      if (match.kanaName) japaneseNames.add(match.kanaName.toLowerCase())
+      
+      // For series, also check titleJp
+      if (match.titleJp) japaneseNames.add(match.titleJp.toLowerCase())
+      
+      // Collect English names
+      const englishName = match.name || match.titleEn
+      if (englishName) englishNames.add(englishName.toLowerCase())
+    })
+    
+    // If all matches share the same Japanese name, they're likely the same person/series
+    if (japaneseNames.size === 1) {
+      console.log('All matches share same Japanese name, likely same person/series')
+      return false
+    }
+    
+    // If all matches share the same English name, no need to choose
+    if (englishNames.size === 1) {
+      console.log('All matches share same English name, no need to choose')
+      return false
+    }
+    
+    // Additional check: if the difference is only in minor variations (like spacing, punctuation)
+    const normalizedEnglishNames = Array.from(englishNames).map(name => 
+      name.replace(/[\s\-_.,]/g, '').toLowerCase()
+    )
+    const uniqueNormalizedNames = new Set(normalizedEnglishNames)
+    
+    if (uniqueNormalizedNames.size === 1) {
+      console.log('English names are just minor variations, no need to choose')
+      return false
+    }
+    
+    return true
+  }
+  
+  // Helper function to find matches with scoring
   const findMatches = (name: string, type: MasterDataItem['type']): { matched: MasterDataItem | null, multipleMatches: MasterDataItem[] } => {
     const candidates = masterData.filter(item => item.type === type)
-    const matches: MasterDataItem[] = []
+    const matches: { candidate: MasterDataItem, score: number }[] = []
     
     // Debug logging for studio matching
     if (type === 'studio') {
@@ -312,28 +426,41 @@ export async function matchWithDatabase(
     }
     
     for (const candidate of candidates) {
-      const matchesQuery = castMatchesQuery(candidate, name)
-      if (matchesQuery) {
-        matches.push(candidate)
+      const score = calculateMatchScore(candidate, name)
+      // Only include matches with meaningful scores (avoid very weak matches)
+      if (score >= 30) {
+        matches.push({ candidate, score })
         if (type === 'studio') {
-          console.log('Studio match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias)
+          console.log('Studio match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias, 'Score:', score)
         }
       }
     }
     
+    // Sort by score (highest first)
+    matches.sort((a, b) => b.score - a.score)
+    
     if (type === 'studio') {
       console.log('Total matches found:', matches.length)
+      console.log('Sorted matches:', matches.map(m => ({ name: m.candidate.name, score: m.score })))
     }
     
-    // If multiple matches found, return the first one as matched and all as multipleMatches
-    if (matches.length > 1) {
+    const sortedCandidates = matches.map(m => m.candidate)
+    
+    // Only consider it as multiple matches if the top matches have similar high scores
+    // This prevents weak matches from being considered as alternatives
+    const topScore = matches[0]?.score || 0
+    const highScoreMatches = matches.filter(m => m.score >= topScore * 0.8) // Within 80% of top score
+    const highScoreCandidates = highScoreMatches.map(m => m.candidate)
+    
+    // If multiple high-score matches found, return them as multipleMatches
+    if (highScoreCandidates.length > 1) {
       return {
-        matched: matches[0], // First match as default
-        multipleMatches: matches
+        matched: highScoreCandidates[0], // Highest scored match as default
+        multipleMatches: highScoreCandidates
       }
-    } else if (matches.length === 1) {
+    } else if (sortedCandidates.length >= 1) {
       return {
-        matched: matches[0],
+        matched: sortedCandidates[0],
         multipleMatches: []
       }
     }
@@ -345,82 +472,210 @@ export async function matchWithDatabase(
   }
 
   // Match actresses
-  for (const actressName of parsedData.actresses) {
+  for (let i = 0; i < parsedData.actresses.length; i++) {
+    const actressName = parsedData.actresses[i]
+    const parsedEnglishName = parsedEnglishNames?.actresses?.[i]
+    
     console.log('=== MATCHING ACTRESS ===')
     console.log('Searching for actress:', actressName)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(actressName, 'actress')
     console.log('Actress match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      // Check if names are different (not just minor variations)
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
     matched.actresses.push({
       name: actressName,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
     })
   }
 
   // Match actors
-  for (const actorName of parsedData.actors) {
+  for (let i = 0; i < parsedData.actors.length; i++) {
+    const actorName = parsedData.actors[i]
+    const parsedEnglishName = parsedEnglishNames?.actors?.[i]
+    
     console.log('=== MATCHING ACTOR ===')
     console.log('Searching for actor:', actorName)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(actorName, 'actor')
     console.log('Actor match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
     matched.actors.push({
       name: actorName,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
     })
   }
 
   // Match directors
   if (parsedData.director) {
+    const parsedEnglishName = parsedEnglishNames?.directors?.[0]
+    
     console.log('=== MATCHING DIRECTOR ===')
     console.log('Searching for director:', parsedData.director)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(parsedData.director, 'director')
     console.log('Director match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
     matched.directors.push({
       name: parsedData.director,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
     })
   }
 
   // Match studios
   if (parsedData.studio) {
+    const parsedEnglishName = parsedEnglishNames?.studios?.[0]
+    
     console.log('=== MATCHING STUDIO ===')
     console.log('Searching for studio:', parsedData.studio)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(parsedData.studio, 'studio')
     console.log('Studio match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
     matched.studios.push({
       name: parsedData.studio,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
     })
   }
 
   // Match series
   if (parsedData.series) {
+    const parsedEnglishName = parsedEnglishNames?.series?.[0]
+    
     console.log('=== MATCHING SERIES ===')
     console.log('Searching for series:', parsedData.series)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(parsedData.series, 'series')
     console.log('Series match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && (matchResult.matched.name || matchResult.matched.titleEn)) {
+      const dbEnglishName = (matchResult.matched.name || matchResult.matched.titleEn || '').toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
     matched.series.push({
       name: parsedData.series,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
     })
   }
 
@@ -542,8 +797,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actresses[index]
     if (matchedItem?.matched) {
-      // Use the matched name from database (prefer English name, fallback to Japanese)
-      const matchedName = matchedItem.matched.name || matchedItem.matched.jpname || name
+      // Use custom English name if user selected one, otherwise use matched name from database
+      const matchedName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
       console.log(`Actress ${name} matched to: ${matchedName}`)
       return matchedName
     }
@@ -563,8 +818,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actors[index]
     if (matchedItem?.matched) {
-      // Use the matched name from database (prefer English name, fallback to Japanese)
-      const matchedName = matchedItem.matched.name || matchedItem.matched.jpname || name
+      // Use custom English name if user selected one, otherwise use matched name from database
+      const matchedName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
       console.log(`Actor ${name} matched to: ${matchedName}`)
       return matchedName
     }
@@ -581,8 +836,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isDirectorIgnored) {
     const matchedDirector = matchedData.directors[0]
     if (matchedDirector?.matched) {
-      // Use the matched director name from database
-      director = matchedDirector.matched.name || matchedDirector.matched.jpname || parsedData.director
+      // Use custom English name if user selected one, otherwise use matched name from database
+      director = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || parsedData.director
       console.log(`Director ${parsedData.director} matched to: ${director}`)
     } else {
       director = parsedData.director
@@ -596,8 +851,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isStudioIgnored) {
     const matchedStudio = matchedData.studios[0]
     if (matchedStudio?.matched) {
-      // Use the matched studio name from database
-      studio = matchedStudio.matched.name || matchedStudio.matched.jpname || parsedData.studio
+      // Use custom English name if user selected one, otherwise use matched name from database
+      studio = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || parsedData.studio
       console.log(`Studio ${parsedData.studio} matched to: ${studio}`)
     } else {
       studio = parsedData.studio
@@ -611,8 +866,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isSeriesIgnored) {
     const matchedSeries = matchedData.series[0]
     if (matchedSeries?.matched) {
-      // Use the matched series name from database
-      series = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
+      // Use custom English name if user selected one, otherwise use matched name from database
+      series = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
       console.log(`Series ${parsedData.series} matched to: ${series}`)
     } else {
       series = parsedData.series
@@ -715,12 +970,27 @@ function castMatchesQuery(castMember: MasterDataItem, query: string): boolean {
   
   const searchQuery = query.toLowerCase().trim()
   
-  // Search in name and jpname
-  if (castMember.name?.toLowerCase().includes(searchQuery)) return true
-  if (castMember.jpname?.toLowerCase().includes(searchQuery)) return true
+  // Priority 1: Exact match with Japanese name (highest priority)
+  if (castMember.jpname?.toLowerCase() === searchQuery) return true
+  if (castMember.kanjiName?.toLowerCase() === searchQuery) return true
+  if (castMember.kanaName?.toLowerCase() === searchQuery) return true
   
-  // Search in main alias
+  // Priority 2: Contains match with Japanese name
+  if (castMember.jpname?.toLowerCase().includes(searchQuery)) return true
+  if (castMember.kanjiName?.toLowerCase().includes(searchQuery)) return true
+  if (castMember.kanaName?.toLowerCase().includes(searchQuery)) return true
+  
+  // Priority 3: Exact match with alias
+  if (castMember.alias?.toLowerCase() === searchQuery) return true
+  
+  // Priority 4: Contains match with alias
   if (castMember.alias?.toLowerCase().includes(searchQuery)) return true
+  
+  // Priority 5: Exact match with English name
+  if (castMember.name?.toLowerCase() === searchQuery) return true
+  
+  // Priority 6: Contains match with English name (lowest priority)
+  if (castMember.name?.toLowerCase().includes(searchQuery)) return true
   
   // Search in group-specific aliases
   if (castMember.groupData) {

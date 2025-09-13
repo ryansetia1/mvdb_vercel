@@ -5,6 +5,7 @@ import { Movie } from '../utils/movieApi'
 import { masterDataApi } from '../utils/masterDataApi'
 import { MasterDataForm } from './MasterDataForm'
 import { MultipleMatchSelector } from './MultipleMatchSelector'
+import { EnglishNameSelector } from './EnglishNameSelector'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
@@ -39,6 +40,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     searchName: string
     matches: MasterDataItem[]
   } | null>(null)
+  const [showEnglishNameSelector, setShowEnglishNameSelector] = useState<{
+    type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+    index: number
+    searchName: string
+    matches: MasterDataItem[]
+  } | null>(null)
   const [showDuplicateWarning, setShowDuplicateWarning] = useState<{
     existingMovie: Movie
     newMovieCode: string
@@ -65,6 +72,13 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const [lastAppliedTemplate, setLastAppliedTemplate] = useState<string | null>(null)
   const templateNotificationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [pasteStatus, setPasteStatus] = useState<'idle' | 'pasting' | 'success' | 'error'>('idle')
+  const [parsedEnglishNames, setParsedEnglishNames] = useState<{
+    actresses?: string[]
+    actors?: string[]
+    directors?: string[]
+    studios?: string[]
+    series?: string[]
+  }>({})
 
   // Template auto-apply hook
   const { applyDefaultTemplate, isLoading: templateLoading } = useTemplateAutoApply({
@@ -329,8 +343,23 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         })
       }
       
+      // Extract English names from parsed data (if available)
+      const extractedEnglishNames = {
+        actresses: parsed.actresses.map(name => {
+          // For now, assume the parsed name is Japanese, English name would come from translation
+          // This would be populated from titleEn translation or other sources
+          return undefined // Will be filled when we have English translations
+        }),
+        actors: parsed.actors.map(name => undefined),
+        directors: parsed.director ? [undefined] : [],
+        studios: parsed.studio ? [undefined] : [],
+        series: parsed.series ? [undefined] : []
+      }
+      
+      setParsedEnglishNames(extractedEnglishNames)
+      
       // Match with database
-      matchWithDatabase(parsed, masterData).then(async (matched) => {
+      matchWithDatabase(parsed, masterData, extractedEnglishNames).then(async (matched) => {
         setMatchedData(matched)
         
         // Template auto-apply is now handled by useEffect only to prevent duplicate calls
@@ -865,6 +894,49 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setShowMultipleMatchSelector(null)
   }
 
+  const handleEnglishNameSelect = (selectedItem: MasterDataItem) => {
+    if (!showEnglishNameSelector || !matchedData) return
+
+    const { type, index } = showEnglishNameSelector
+
+    // Determine the correct type key for matchedData
+    let matchedDataType: keyof MatchedData
+    switch (type) {
+      case 'actress':
+        matchedDataType = 'actresses'
+        break
+      case 'actor':
+        matchedDataType = 'actors'
+        break
+      case 'director':
+        matchedDataType = 'directors'
+        break
+      case 'studio':
+        matchedDataType = 'studios'
+        break
+      case 'series':
+        matchedDataType = 'series'
+        break
+      default:
+        return
+    }
+
+    // Update the matched data with custom English name
+    const newMatchedData = { ...matchedData }
+    const matchedItem = newMatchedData[matchedDataType][index]
+    newMatchedData[matchedDataType][index] = {
+      ...matchedItem,
+      customEnglishName: selectedItem.name || selectedItem.titleEn,
+      needsConfirmation: false,
+      needsEnglishNameSelection: false // Mark as resolved
+    }
+    
+    setMatchedData(newMatchedData)
+    
+    // Close selector
+    setShowEnglishNameSelector(null)
+  }
+
   const renderMatchedItems = (items: MatchedData[keyof MatchedData], type: string, typeKey: keyof MatchedData) => {
     if (items.length === 0) return null
 
@@ -925,39 +997,76 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                   ) : (
                     <>
                       {item.multipleMatches.length > 1 && (
-                        <button
-                          onClick={() => {
-                            let type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
-                            switch (typeKey) {
-                              case 'actresses':
-                                type = 'actress'
-                                break
-                              case 'actors':
-                                type = 'actor'
-                                break
-                              case 'directors':
-                                type = 'director'
-                                break
-                              case 'studios':
-                                type = 'studio'
-                                break
-                              case 'series':
-                                type = 'series'
-                                break
-                              default:
-                                return
-                            }
-                            setShowMultipleMatchSelector({
-                              type,
-                              index,
-                              searchName: item.name,
-                              matches: item.multipleMatches
-                            })
-                          }}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-medium shadow-sm"
-                        >
-                          View All Matches ({item.multipleMatches.length})
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              let type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+                              switch (typeKey) {
+                                case 'actresses':
+                                  type = 'actress'
+                                  break
+                                case 'actors':
+                                  type = 'actor'
+                                  break
+                                case 'directors':
+                                  type = 'director'
+                                  break
+                                case 'studios':
+                                  type = 'studio'
+                                  break
+                                case 'series':
+                                  type = 'series'
+                                  break
+                                default:
+                                  return
+                              }
+                              setShowMultipleMatchSelector({
+                                type,
+                                index,
+                                searchName: item.name,
+                                matches: item.multipleMatches
+                              })
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-medium shadow-sm"
+                          >
+                            View All Matches ({item.multipleMatches.length})
+                          </button>
+                          {item.needsEnglishNameSelection && (
+                            <button
+                              onClick={() => {
+                                let type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+                                switch (typeKey) {
+                                  case 'actresses':
+                                    type = 'actress'
+                                    break
+                                  case 'actors':
+                                    type = 'actor'
+                                    break
+                                  case 'directors':
+                                    type = 'director'
+                                    break
+                                  case 'studios':
+                                    type = 'studio'
+                                    break
+                                  case 'series':
+                                    type = 'series'
+                                    break
+                                  default:
+                                    return
+                                }
+                                setShowEnglishNameSelector({
+                                  type,
+                                  index,
+                                  searchName: item.name,
+                                  matches: [item.matched!] // Only show the selected match
+                                })
+                              }}
+                              className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 font-medium shadow-sm"
+                            >
+                              Choose English Name
+                            </button>
+                          )}
+                        </>
                       )}
                       <label className="flex items-center">
                         <input
@@ -1470,6 +1579,22 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           matches={showMultipleMatchSelector.matches}
           searchName={showMultipleMatchSelector.searchName}
           type={showMultipleMatchSelector.type}
+        />
+      )}
+
+      {/* English Name Selector */}
+      {showEnglishNameSelector && matchedData && (
+        <EnglishNameSelector
+          isOpen={true}
+          onClose={() => setShowEnglishNameSelector(null)}
+          onSelect={handleEnglishNameSelect}
+          matches={showEnglishNameSelector.matches}
+          searchName={showEnglishNameSelector.searchName}
+          type={showEnglishNameSelector.type}
+          parsedEnglishName={matchedData[showEnglishNameSelector.type === 'actress' ? 'actresses' : 
+            showEnglishNameSelector.type === 'actor' ? 'actors' :
+            showEnglishNameSelector.type === 'director' ? 'directors' :
+            showEnglishNameSelector.type === 'studio' ? 'studios' : 'series'][showEnglishNameSelector.index]?.parsedEnglishName}
         />
       )}
 
