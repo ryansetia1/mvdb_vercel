@@ -10,6 +10,7 @@ interface JapaneseNameMatcherProps {
   searchName: string
   type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
   parsedEnglishName?: string
+  availableEnglishNames?: string[] // English names from R18.dev
   title?: string // For movie titles
 }
 
@@ -21,6 +22,7 @@ export function JapaneseNameMatcher({
   searchName,
   type,
   parsedEnglishName,
+  availableEnglishNames,
   title
 }: JapaneseNameMatcherProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -116,6 +118,20 @@ export function JapaneseNameMatcher({
         source: 'Parsed Data',
         description: 'From source data (JAVDB, etc.)',
         isParsed: true
+      })
+    }
+    
+    // Available English names from R18.dev (if different from database and parsed)
+    if (availableEnglishNames && availableEnglishNames.length > 0) {
+      availableEnglishNames.forEach(r18Name => {
+        if (r18Name !== dbEnglishName && r18Name !== parsedEnglishName) {
+          options.push({
+            name: r18Name,
+            source: 'R18.dev',
+            description: 'From R18.dev data',
+            isR18: true
+          })
+        }
       })
     }
     
@@ -294,6 +310,11 @@ export function JapaneseNameMatcher({
                           {option.isDefault && (
                             <div className="text-blue-600 dark:text-blue-400">
                               ✓ This is the current database name
+                            </div>
+                          )}
+                          {option.isR18 && (
+                            <div className="text-purple-600 dark:text-purple-400">
+                              ✓ This is from R18.dev data
                             </div>
                           )}
                         </div>

@@ -214,16 +214,16 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     // Create updated movie with merged data
     const updatedMovie = { ...existingMovie }
     
-    // Update selected fields with parsed data
-    if (selectedFields.includes('titleEn') && parsedData.titleEn) {
+    // Update selected fields with parsed data (only if values exist and are not empty)
+    if (selectedFields.includes('titleEn') && parsedData.titleEn && parsedData.titleEn.trim()) {
       updatedMovie.titleEn = parsedData.titleEn
     }
 
-    if (selectedFields.includes('releaseDate') && parsedData.releaseDate) {
+    if (selectedFields.includes('releaseDate') && parsedData.releaseDate && parsedData.releaseDate.trim()) {
       updatedMovie.releaseDate = parsedData.releaseDate
     }
 
-    if (selectedFields.includes('duration') && parsedData.duration) {
+    if (selectedFields.includes('duration') && parsedData.duration && parsedData.duration.trim()) {
       updatedMovie.duration = parsedData.duration
     }
 
@@ -253,6 +253,16 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
         const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
         if (seriesName && seriesName.trim()) {
           updatedMovie.series = seriesName
+        }
+      }
+    }
+
+    if (selectedFields.includes('label') && matchedData?.labels && matchedData.labels.length > 0) {
+      const matchedLabel = matchedData.labels[0]
+      if (matchedLabel.matched && !ignoredItems?.includes('labels-0')) {
+        const labelName = matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.original
+        if (labelName && labelName.trim()) {
+          updatedMovie.label = labelName
         }
       }
     }
@@ -303,6 +313,23 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       if (uniqueNewActors.length > 0) {
         updatedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
       }
+    }
+
+    // Update additional fields only if they have values
+    if (selectedFields.includes('dmcode') && parsedData.dmcode && parsedData.dmcode.trim()) {
+      updatedMovie.dmcode = parsedData.dmcode
+    }
+    if (selectedFields.includes('type') && parsedData.type && parsedData.type.trim()) {
+      updatedMovie.type = parsedData.type
+    }
+    if (selectedFields.includes('cover') && parsedData.cover && parsedData.cover.trim()) {
+      updatedMovie.cover = parsedData.cover
+    }
+    if (selectedFields.includes('gallery') && parsedData.gallery && parsedData.gallery.trim()) {
+      updatedMovie.gallery = parsedData.gallery
+    }
+    if (selectedFields.includes('cropCover')) {
+      updatedMovie.cropCover = parsedData.cropCover
     }
 
     // Update timestamp
