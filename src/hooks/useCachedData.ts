@@ -14,6 +14,11 @@ interface CacheState {
   photobooks: CachedData<Photobook>
   actors: CachedData<MasterDataItem>
   actresses: CachedData<MasterDataItem>
+  directors: CachedData<MasterDataItem>
+  studios: CachedData<MasterDataItem>
+  series: CachedData<MasterDataItem>
+  labels: CachedData<MasterDataItem>
+  groups: CachedData<MasterDataItem>
 }
 
 const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes - extended untuk mengurangi API calls
@@ -178,6 +183,31 @@ export function useCachedData() {
           ...storedCache.actresses,
           loading: false,
           data: (now - storedCache.actresses.timestamp) < CACHE_DURATION ? storedCache.actresses.data : []
+        },
+        directors: {
+          ...(storedCache.directors || { data: [], timestamp: 0 }),
+          loading: false,
+          data: storedCache.directors && (now - storedCache.directors.timestamp) < CACHE_DURATION ? storedCache.directors.data : []
+        },
+        studios: {
+          ...(storedCache.studios || { data: [], timestamp: 0 }),
+          loading: false,
+          data: storedCache.studios && (now - storedCache.studios.timestamp) < CACHE_DURATION ? storedCache.studios.data : []
+        },
+        series: {
+          ...(storedCache.series || { data: [], timestamp: 0 }),
+          loading: false,
+          data: storedCache.series && (now - storedCache.series.timestamp) < CACHE_DURATION ? storedCache.series.data : []
+        },
+        labels: {
+          ...(storedCache.labels || { data: [], timestamp: 0 }),
+          loading: false,
+          data: storedCache.labels && (now - storedCache.labels.timestamp) < CACHE_DURATION ? storedCache.labels.data : []
+        },
+        groups: {
+          ...(storedCache.groups || { data: [], timestamp: 0 }),
+          loading: false,
+          data: storedCache.groups && (now - storedCache.groups.timestamp) < CACHE_DURATION ? storedCache.groups.data : []
         }
       }
       return freshCache
@@ -188,7 +218,12 @@ export function useCachedData() {
       movies: { data: [], timestamp: 0, loading: false },
       photobooks: { data: [], timestamp: 0, loading: false },
       actors: { data: [], timestamp: 0, loading: false },
-      actresses: { data: [], timestamp: 0, loading: false }
+      actresses: { data: [], timestamp: 0, loading: false },
+      directors: { data: [], timestamp: 0, loading: false },
+      studios: { data: [], timestamp: 0, loading: false },
+      series: { data: [], timestamp: 0, loading: false },
+      labels: { data: [], timestamp: 0, loading: false },
+      groups: { data: [], timestamp: 0, loading: false }
     }
   })
 
@@ -196,7 +231,7 @@ export function useCachedData() {
 
   const isDataFresh = useCallback((type: keyof CacheState): boolean => {
     const cached = cache[type]
-    return cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
+    return cached && cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
   }, [cache])
 
   const setData = useCallback(<T>(type: keyof CacheState, data: T[]) => {
@@ -232,7 +267,7 @@ export function useCachedData() {
   ): Promise<T[]> => {
     // Return cached data if fresh and not forcing reload
     if (!force && isDataFresh(type)) {
-      return cache[type].data as T[]
+      return (cache[type]?.data || []) as T[]
     }
 
     // Return existing promise if already loading
@@ -253,7 +288,7 @@ export function useCachedData() {
         console.error(`Failed to load ${type}:`, error)
         setLoading(type, false)
         // Return cached data if available, otherwise empty array
-        return cache[type].data as T[]
+        return (cache[type]?.data || []) as T[]
       })
       .finally(() => {
         delete loadingPromises.current[promiseKey]

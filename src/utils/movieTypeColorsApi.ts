@@ -19,7 +19,7 @@ export const movieTypeColorsApi = {
    */
   async getColors(accessToken: string): Promise<MovieTypeColorConfig> {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
         headers: getAuthHeader(accessToken),
       })
       
@@ -54,7 +54,7 @@ export const movieTypeColorsApi = {
       const requestBody = JSON.stringify({ colors })
       console.log('Sending colors to server:', requestBody)
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
         method: 'POST',
         headers: getAuthHeader(accessToken),
         body: requestBody,
@@ -91,7 +91,7 @@ export const movieTypeColorsApi = {
       const requestBody = JSON.stringify({ colors: defaultColors })
       console.log('Sending reset colors to server:', requestBody)
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movie-type-colors`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movie-type-colors`, {
         method: 'PUT',
         headers: getAuthHeader(accessToken),
         body: requestBody,

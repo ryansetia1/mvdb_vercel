@@ -1,6 +1,6 @@
 import { Hono } from 'npm:hono'
 import { cors } from 'npm:hono/cors'
-import * as kv from './kv_store.tsx'
+import * as kv from './kv_store.ts'
 
 interface ImageTag {
   url: string

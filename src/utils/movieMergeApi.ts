@@ -82,7 +82,8 @@ export async function mergeMovieData(
     if (request.selectedFields.includes('director') && request.matchedData?.directors && request.matchedData.directors.length > 0) {
       const matchedDirector = request.matchedData.directors[0]
       if (matchedDirector.matched && !request.ignoredItems?.includes('directors-0')) {
-        const directorName = matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
         if (directorName && directorName.trim()) {
           mergedMovie.director = directorName
         }
@@ -92,7 +93,8 @@ export async function mergeMovieData(
     if (request.selectedFields.includes('studio') && request.matchedData?.studios && request.matchedData.studios.length > 0) {
       const matchedStudio = request.matchedData.studios[0]
       if (matchedStudio.matched && !request.ignoredItems?.includes('studios-0')) {
-        const studioName = matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
         if (studioName && studioName.trim()) {
           mergedMovie.studio = studioName
         }
@@ -102,7 +104,8 @@ export async function mergeMovieData(
     if (request.selectedFields.includes('series') && request.matchedData?.series && request.matchedData.series.length > 0) {
       const matchedSeries = request.matchedData.series[0]
       if (matchedSeries.matched && !request.ignoredItems?.includes('series-0')) {
-        const seriesName = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.name || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
         if (seriesName && seriesName.trim()) {
           mergedMovie.series = seriesName
         }
@@ -175,6 +178,15 @@ export async function mergeMovieData(
       if (uniqueNewActors.length > 0) {
         mergedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
       }
+    }
+
+    // Handle cropCover - preserve existing value if not in selected fields
+    if (request.selectedFields.includes('cropCover')) {
+      // Only update cropCover if it's explicitly selected
+      mergedMovie.cropCover = request.parsedData.cropCover !== undefined ? request.parsedData.cropCover : existingMovie.cropCover
+    } else {
+      // Preserve existing cropCover value if not selected for update
+      mergedMovie.cropCover = existingMovie.cropCover
     }
 
     // Update timestamp

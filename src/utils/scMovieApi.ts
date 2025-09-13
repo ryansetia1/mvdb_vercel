@@ -38,7 +38,7 @@ export const scMovieApi = {
   // Main function used by components (uses public anon key for GET)
   async getSCMovies(accessToken: string) {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
         headers: getAuthHeader(),
       })
       
@@ -58,7 +58,7 @@ export const scMovieApi = {
   // Alternative function for public access (uses public anon key)
   async getAllSCMovies() {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
         headers: getAuthHeader(),
       })
       
@@ -77,7 +77,7 @@ export const scMovieApi = {
 
   async getSCMovie(id: string) {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies/${id}`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/${id}`, {
         headers: getAuthHeader(),
       })
       
@@ -97,9 +97,9 @@ export const scMovieApi = {
   async createSCMovie(scMovie: SCMovie, accessToken: string) {
     try {
       console.log('Creating SC movie with data:', scMovie)
-      console.log('Using URL:', `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`)
+      console.log('Using URL:', `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`)
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
         method: 'POST',
         headers: getAuthHeader(accessToken),
         body: JSON.stringify(scMovie),
@@ -134,7 +134,7 @@ export const scMovieApi = {
 
   async updateSCMovie(id: string, scMovie: Partial<SCMovie>, accessToken: string) {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies/${id}`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/${id}`, {
         method: 'PUT',
         headers: getAuthHeader(accessToken),
         body: JSON.stringify(scMovie),
@@ -155,7 +155,7 @@ export const scMovieApi = {
 
   async deleteSCMovie(id: string, accessToken: string) {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies/${id}`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/${id}`, {
         method: 'DELETE',
         headers: getAuthHeader(accessToken),
       })
@@ -175,7 +175,7 @@ export const scMovieApi = {
 
   async searchSCMovies(query: string, accessToken?: string) {
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/sc-movies/search/${encodeURIComponent(query)}`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/search/${encodeURIComponent(query)}`, {
         headers: getAuthHeader(),
       })
       

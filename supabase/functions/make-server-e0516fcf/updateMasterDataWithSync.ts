@@ -1,6 +1,6 @@
 import { Context } from 'npm:hono'
-import * as kv from './kv_store.tsx'
-import { updateGroupData } from './updateGroupData.tsx'
+import * as kv from './kv_store.ts'
+import { updateGroupData } from './updateGroupData.ts'
 
 // Master data item interface for type safety
 interface MasterDataItem {

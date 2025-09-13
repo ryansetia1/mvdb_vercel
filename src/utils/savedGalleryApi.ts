@@ -12,7 +12,7 @@ interface SavedGalleryData {
   totalImages: number
 }
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20`
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
 
 class SavedGalleryApi {
   /**

@@ -33,9 +33,10 @@ export function JapaneseNameMatcher({
       // Set default selection to first match
       setSelectedIndex(0)
       const firstMatch = matches[0]
-      setSelectedEnglishName(firstMatch.name || firstMatch.titleEn || '')
+      // Prefer parsed English name if available, otherwise use database name
+      setSelectedEnglishName(parsedEnglishName || firstMatch.name || firstMatch.titleEn || '')
     }
-  }, [matches])
+  }, [matches, parsedEnglishName])
 
   if (!isOpen) return null
 

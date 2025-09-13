@@ -16,6 +16,7 @@ import { AITranslationLoading, AITranslationSpinner } from './AITranslationLoadi
 import { ShimmerInput } from './ShimmerInput'
 import { Brain, Clipboard } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCachedData } from '../hooks/useCachedData'
 
 interface MovieDataParserProps {
   accessToken: string
@@ -43,6 +44,7 @@ function isR18JsonFormat(rawData: string): boolean {
 }
 
 export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }: MovieDataParserProps) {
+  const { invalidateCache } = useCachedData()
   const [rawData, setRawData] = useState('')
   const [parsedData, setParsedData] = useState<ParsedMovieData | null>(null)
   const [matchedData, setMatchedData] = useState<MatchedData | null>(null)
@@ -520,52 +522,24 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           mergedMovie.duration = newMovieData.duration
         }
         
-        // Update director using matched data
-        if (matchedData.directors && matchedData.directors.length > 0) {
-          const matchedDirector = matchedData.directors[0]
-          if (matchedDirector.matched && !ignoredItems.has('directors-0')) {
-            // Use customEnglishName if user selected one, otherwise use matched name from database
-            const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
-            if (directorName && directorName.trim()) {
-              mergedMovie.director = directorName
-            }
-          }
+        // Update director using converted movie data (which already handles customEnglishName correctly)
+        if (newMovieData.director && newMovieData.director.trim()) {
+          mergedMovie.director = newMovieData.director
         }
         
-        // Update studio using matched data
-        if (matchedData.studios && matchedData.studios.length > 0) {
-          const matchedStudio = matchedData.studios[0]
-          if (matchedStudio.matched && !ignoredItems.has('studios-0')) {
-            // Use customEnglishName if user selected one, otherwise use matched name from database
-            const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
-            if (studioName && studioName.trim()) {
-              mergedMovie.studio = studioName
-            }
-          }
+        // Update studio using converted movie data (which already handles customEnglishName correctly)
+        if (newMovieData.studio && newMovieData.studio.trim()) {
+          mergedMovie.studio = newMovieData.studio
         }
         
-        // Update series using matched data
-        if (matchedData.series && matchedData.series.length > 0) {
-          const matchedSeries = matchedData.series[0]
-          if (matchedSeries.matched && !ignoredItems.has('series-0')) {
-            // Use customEnglishName if user selected one, otherwise use matched name from database
-            const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
-            if (seriesName && seriesName.trim()) {
-              mergedMovie.series = seriesName
-            }
-          }
+        // Update series using converted movie data (which already handles customEnglishName correctly)
+        if (newMovieData.series && newMovieData.series.trim()) {
+          mergedMovie.series = newMovieData.series
         }
         
-        // Update label using matched data
-        if (matchedData.labels && matchedData.labels.length > 0) {
-          const matchedLabel = matchedData.labels[0]
-          if (matchedLabel.matched && !ignoredItems.has('labels-0')) {
-            // Use customEnglishName if user selected one, otherwise use matched name from database
-            const labelName = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.name
-            if (labelName && labelName.trim()) {
-              mergedMovie.label = labelName
-            }
-          }
+        // Update label using converted movie data (which already handles customEnglishName correctly)
+        if (newMovieData.label && newMovieData.label.trim()) {
+          mergedMovie.label = newMovieData.label
         }
         
         // Merge actresses and actors using matched data (only add new ones, don't duplicate)
@@ -893,8 +867,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
 
   // Check if types should enable auto-crop
   const shouldEnableAutoCrop = (type: string): boolean => {
-    // Auto-crop for all types except "Un" (uncensored)
-    return type.toLowerCase() !== 'un'
+    // Auto-crop for specific types: Cen, Leaks, Sem, 2versions
+    const autoCropTypes = ['cen', 'leaks', 'sem', '2versions']
+    return autoCropTypes.includes(type.toLowerCase())
   }
 
   // Handle movie type change
@@ -957,18 +932,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
         if (item.matched && item.missingData && item.addMissingData) {
-          // Update the master data item with missing data
-          const updateData: any = {}
-          
-          if (item.missingData.kanjiName) updateData.kanjiName = item.missingData.kanjiName
-          if (item.missingData.kanaName) updateData.kanaName = item.missingData.kanaName
-          if (item.missingData.alias) updateData.alias = item.missingData.alias
-          if (item.missingData.birthdate) updateData.birthdate = item.missingData.birthdate
-          if (item.missingData.tags) updateData.tags = item.missingData.tags
-          if (item.missingData.titleJp) updateData.titleJp = item.missingData.titleJp
-          if (item.missingData.name) updateData.name = item.missingData.name
-
-          // Determine the type for API call
+          // Determine the type for API call first
           let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
           switch (category) {
             case 'actresses':
@@ -993,6 +957,57 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
               continue
           }
 
+          // Update the master data item with missing data
+          // Start with existing data to preserve all fields
+          const updateData: any = { ...item.matched }
+          
+          // Always include the name field (required by API)
+          // Use customEnglishName if user selected one, otherwise use matched name
+          const nameToUse = item.customEnglishName || item.matched.name || item.matched.jpname || item.parsedName
+          updateData.name = nameToUse
+          
+          // For series, include titleEn and titleJp
+          if (masterDataType === 'series') {
+            updateData.titleEn = item.customEnglishName || item.matched.titleEn || item.matched.name
+            updateData.titleJp = item.matched.titleJp || item.matched.jpname
+            // Preserve existing series links if they exist
+            if (item.matched.seriesLinks) updateData.seriesLinks = item.matched.seriesLinks
+          }
+          
+          // For studio, preserve existing studio links
+          if (masterDataType === 'studio') {
+            if (item.matched.studioLinks) updateData.studioLinks = item.matched.studioLinks
+          }
+          
+          // For label, preserve existing label links
+          if (masterDataType === 'label') {
+            if (item.matched.labelLinks) updateData.labelLinks = item.matched.labelLinks
+          }
+          
+          // Add missing data fields (only if they exist in missingData)
+          if (item.missingData.kanjiName) updateData.kanjiName = item.missingData.kanjiName
+          if (item.missingData.kanaName) updateData.kanaName = item.missingData.kanaName
+          if (item.missingData.alias) updateData.alias = item.missingData.alias
+          if (item.missingData.birthdate) updateData.birthdate = item.missingData.birthdate
+          if (item.missingData.tags) updateData.tags = item.missingData.tags
+          if (item.missingData.titleJp) updateData.titleJp = item.missingData.titleJp
+          if (item.missingData.name) updateData.name = item.missingData.name
+          
+          // Ensure critical fields are preserved for actresses/actors/directors
+          if (masterDataType === 'actress' || masterDataType === 'actor' || masterDataType === 'director') {
+            // Preserve Japanese name if it exists
+            if (item.matched.jpname) updateData.jpname = item.matched.jpname
+            // Preserve existing kanji/kana names if they exist and no new ones are being added
+            if (!item.missingData.kanjiName && item.matched.kanjiName) updateData.kanjiName = item.matched.kanjiName
+            if (!item.missingData.kanaName && item.matched.kanaName) updateData.kanaName = item.matched.kanaName
+            // Preserve existing alias if no new one is being added
+            if (!item.missingData.alias && item.matched.alias) updateData.alias = item.matched.alias
+            // Preserve existing birthdate if no new one is being added
+            if (!item.missingData.birthdate && item.matched.birthdate) updateData.birthdate = item.matched.birthdate
+            // Preserve existing tags if no new ones are being added
+            if (!item.missingData.tags && item.matched.tags) updateData.tags = item.matched.tags
+          }
+
           // Add update promise
           updatePromises.push(
             masterDataApi.updateExtendedWithSync(
@@ -1014,6 +1029,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       console.log(`Updating ${updatePromises.length} master data items with missing data...`)
       await Promise.all(updatePromises)
       console.log('Master data updates completed')
+      
+      // Clear cache to ensure fresh data is loaded
+      console.log('Clearing cache after master data updates...')
+      invalidateCache()
     }
   }
 
@@ -1293,17 +1312,34 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                       ⏸ Ignored (will not be saved)
                     </div>
                   ) : item.matched ? (
-                    <div className="text-sm text-green-600">
-                      ✓ Matched: {item.customEnglishName || item.matched!.name}
-                      {item.matched!.jpname && ` (${item.matched!.jpname})`}
-                      {item.customEnglishName && item.customEnglishName !== item.matched!.name && (
-                        <div className="text-xs text-purple-600 mt-1">
-                          ✓ Custom English name selected
+                    <div className="text-sm">
+                      {item.needsConfirmation ? (
+                        <div className="text-orange-600">
+                          ⚠ Japanese name matched, but English name differs
+                          <div className="text-xs text-gray-600 mt-1">
+                            Database: {item.matched!.name}
+                            {(typeKey === 'series' ? item.matched!.titleJp : item.matched!.jpname) && ` (${typeKey === 'series' ? item.matched!.titleJp : item.matched!.jpname})`}
+                          </div>
+                          {item.needsEnglishNameSelection && (
+                            <div className="text-xs text-purple-600 mt-1">
+                              Please choose the correct English name
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {item.multipleMatches.length > 1 && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          +{item.multipleMatches.length - 1} other matches found
+                      ) : (
+                        <div className="text-green-600">
+                          ✓ Matched: {item.customEnglishName || item.matched!.name}
+                          {(typeKey === 'series' ? item.matched!.titleJp : item.matched!.jpname) && ` (${typeKey === 'series' ? item.matched!.titleJp : item.matched!.jpname})`}
+                          {item.customEnglishName && item.customEnglishName !== item.matched!.name && (
+                            <div className="text-xs text-purple-600 mt-1">
+                              ✓ Custom English name selected
+                            </div>
+                          )}
+                          {item.multipleMatches.length > 1 && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              +{item.multipleMatches.length - 1} other matches found
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1379,7 +1415,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                           >
                             Japanese Name Match ({item.multipleMatches.length})
                           </button>
-                          {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName && (
+                          {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) || (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp) || (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName && !item.needsConfirmation && (
                             <button
                               onClick={() => {
                                 console.log('=== CHOOSE ENGLISH NAME CLICKED ===')
@@ -1425,27 +1461,28 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                             </button>
                           )}
                           {/* Debug info for English name selection */}
-                          {typeKey === 'directors' && (
+                          {(typeKey === 'directors' || typeKey === 'series') && (
                             <div className="text-xs text-gray-500 mt-1">
                               Debug: needsEnglishNameSelection={item.needsEnglishNameSelection ? 'true' : 'false'}, 
                               availableEnglishNames={item.availableEnglishNames?.length || 0},
                               parsedEnglishName={item.parsedEnglishName || 'none'},
                               matchedName={item.matched?.name || 'none'},
                               matchedJpname={item.matched?.jpname || 'none'},
+                              matchedTitleJp={item.matched?.titleJp || 'none'},
                               customEnglishName={item.customEnglishName || 'none'},
-                              namesDifferent={item.matched?.name !== item.matched?.jpname ? 'true' : 'false'},
-                              showButton={(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName ? 'true' : 'false'},
+                              namesDifferent={typeKey === 'directors' ? (item.matched?.name !== item.matched?.jpname ? 'true' : 'false') : (item.matched?.name !== item.matched?.titleJp ? 'true' : 'false')},
+                              showButton={(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) || (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp) || (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName ? 'true' : 'false'},
                               condition1={item.needsEnglishNameSelection ? 'true' : 'false'},
                               condition2={(item.availableEnglishNames && item.availableEnglishNames.length > 0) ? 'true' : 'false'},
-                              condition3={(typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) ? 'true' : 'false'},
-                              condition4={(typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) ? 'true' : 'false'},
+                              condition3={typeKey === 'directors' ? (item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname ? 'true' : 'false') : (item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp ? 'true' : 'false')},
+                              condition4={typeKey === 'directors' ? (item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName ? 'true' : 'false') : (item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName ? 'true' : 'false')},
                               hasCustomName={item.customEnglishName ? 'true' : 'false'}
                             </div>
                           )}
                         </>
                       )}
                       {/* Move Choose English Name button outside multipleMatches condition */}
-                      {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName && (
+                      {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname && item.needsConfirmation) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName && item.needsConfirmation) || (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp && item.needsConfirmation) || (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName && item.needsConfirmation)) && !item.customEnglishName && (
                         <button
                           onClick={() => {
                             console.log('=== CHOOSE ENGLISH NAME CLICKED (MOVED) ===')

@@ -467,7 +467,9 @@ export const masterDataApi = {
   async updateSimpleWithSync(type: 'type' | 'tag', id: string, name: string, accessToken: string): Promise<{ data: MasterDataItem, sync: { moviesUpdated: number, scMoviesUpdated: number } }> {
     console.log(`Frontend API: Updating simple ${type} with sync - ID: ${id}, name: "${name}"`)
     
-    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/sync`, {
+    // Use f3064b20 prefix for sync endpoints
+    const syncBaseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
+    const response = await fetch(`${syncBaseUrl}/master/${type}/${id}/sync`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -479,9 +481,18 @@ export const masterDataApi = {
     console.log(`Frontend API: Response status for update simple ${type} with sync:`, response.status)
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error(`Frontend API: Error updating simple ${type} with sync:`, error)
-      throw new Error(error.error || 'Failed to update master data with sync')
+      let errorMessage = `Failed to update master data with sync (${response.status})`
+      try {
+        const error = await response.json()
+        console.error(`Frontend API: Error updating simple ${type} with sync:`, error)
+        errorMessage = error.error || errorMessage
+      } catch (parseError) {
+        console.error(`Frontend API: Error parsing response for simple ${type} with sync:`, parseError)
+        const errorText = await response.text()
+        console.error(`Frontend API: Response text:`, errorText)
+        errorMessage = `HTTP ${response.status}: ${errorText}`
+      }
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()
@@ -493,7 +504,9 @@ export const masterDataApi = {
   async updateExtendedWithSync(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<{ data: MasterDataItem, sync: { moviesUpdated: number, scMoviesUpdated: number } }> {
     console.log(`Frontend API: Updating extended ${type} with sync - ID: ${id}`, data)
     
-    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/extended/sync`, {
+    // Use f3064b20 prefix for sync endpoints
+    const syncBaseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
+    const response = await fetch(`${syncBaseUrl}/master/${type}/${id}/extended/sync`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -505,9 +518,18 @@ export const masterDataApi = {
     console.log(`Frontend API: Response status for update extended ${type} with sync:`, response.status)
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error(`Frontend API: Error updating extended ${type} with sync:`, error)
-      throw new Error(error.error || 'Failed to update master data with sync')
+      let errorMessage = `Failed to update master data with sync (${response.status})`
+      try {
+        const error = await response.json()
+        console.error(`Frontend API: Error updating extended ${type} with sync:`, error)
+        errorMessage = error.error || errorMessage
+      } catch (parseError) {
+        console.error(`Frontend API: Error parsing response for extended ${type} with sync:`, parseError)
+        const errorText = await response.text()
+        console.error(`Frontend API: Response text:`, errorText)
+        errorMessage = `HTTP ${response.status}: ${errorText}`
+      }
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()

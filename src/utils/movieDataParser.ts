@@ -652,13 +652,15 @@ export async function matchWithDatabase(
     
     // For Japanese names, check if kanji/kana names are missing
     if (parsedName && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(parsedName)) {
-      // Check if parsed name contains kanji characters
-      if (/[\u4E00-\u9FAF]/.test(parsedName) && !matchedItem.kanjiName) {
+      // Check if parsed name contains kanji characters or Katakana
+      // Note: We treat Katakana as kanjiName in our database for consistency with R18.dev naming
+      if ((/[\u4E00-\u9FAF]/.test(parsedName) || /[\u30A0-\u30FF]/.test(parsedName)) && !matchedItem.kanjiName) {
         missingData.kanjiName = parsedName
       }
       
       // Check if parsed name contains kana characters
-      if (/[\u3040-\u309F\u30A0-\u30FF]/.test(parsedName) && !matchedItem.kanaName) {
+      // Only set kanaName if it's Hiragana (ひらがな), not Katakana (カタカナ)
+      if (/[\u3040-\u309F]/.test(parsedName) && !matchedItem.kanaName) {
         missingData.kanaName = parsedName
       }
     }
@@ -668,8 +670,8 @@ export async function matchWithDatabase(
       missingData.name = parsedEnglishName
     }
     
-    // For actresses/actors, check additional fields and R18.dev data
-    if (type === 'actress' || type === 'actor') {
+    // For actresses/actors/directors, check additional fields and R18.dev data
+    if (type === 'actress' || type === 'actor' || type === 'director') {
       // Check if alias is missing (could be extracted from parsed data)
       if (parsedName && !matchedItem.alias && parsedName !== matchedItem.jpname) {
         missingData.alias = parsedName
@@ -678,11 +680,14 @@ export async function matchWithDatabase(
       // Check R18.dev data for missing kanji/kana names
       if (r18Data) {
         // Check for missing kanji name from R18.dev
+        // Note: R18.dev's "name_kanji" is actually Katakana (カタカナ), not true Kanji (漢字)
+        // We map it to kanjiName field in our database for consistency
         if (r18Data.name_kanji && !matchedItem.kanjiName) {
           missingData.kanjiName = r18Data.name_kanji
         }
         
         // Check for missing kana name from R18.dev
+        // Note: R18.dev's "name_kana" is Hiragana (ひらがな)
         if (r18Data.name_kana && !matchedItem.kanaName) {
           missingData.kanaName = r18Data.name_kana
         }
@@ -703,6 +708,11 @@ export async function matchWithDatabase(
     // For series, check if Japanese title is missing
     if (type === 'series' && parsedName && !matchedItem.titleJp) {
       missingData.titleJp = parsedName
+    }
+    
+    // For series, check if we need to update English title from R18.dev data
+    if (type === 'series' && r18Data?.name_en && matchedItem.titleEn !== r18Data.name_en) {
+      missingData.titleEn = r18Data.name_en
     }
     
     // For labels, check if Japanese name is missing (but only if it's different from English name)
@@ -939,8 +949,8 @@ export async function matchWithDatabase(
     // Check R18.dev data for additional English names
     const r18ActressData = parsedData.actressInfo?.[i]
     if (matchResult.matched && r18ActressData) {
-      // Use name_en if available, otherwise use name_romaji as English name
-      const r18EnglishName = r18ActressData.name_en || r18ActressData.name_romaji
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = r18ActressData.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
@@ -952,7 +962,7 @@ export async function matchWithDatabase(
         if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
           needsEnglishNameSelection = true
           availableEnglishNames.push(r18EnglishName)
-          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source:', r18ActressData.name_en ? 'name_en' : 'name_romaji', ')')
+          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source: name_en)')
         }
       }
     }
@@ -965,12 +975,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1012,8 +1022,8 @@ export async function matchWithDatabase(
     // Check R18.dev data for additional English names
     const r18ActorData = parsedData.actorInfo?.[i]
     if (matchResult.matched && r18ActorData) {
-      // Use name_en if available, otherwise use name_romaji as English name
-      const r18EnglishName = r18ActorData.name_en || r18ActorData.name_romaji
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = r18ActorData.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
@@ -1025,7 +1035,7 @@ export async function matchWithDatabase(
         if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
           needsEnglishNameSelection = true
           availableEnglishNames.push(r18EnglishName)
-          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source:', r18ActorData.name_en ? 'name_en' : 'name_romaji', ')')
+          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source: name_en)')
         }
       }
     }
@@ -1038,12 +1048,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1111,8 +1121,8 @@ export async function matchWithDatabase(
     
     // Check R18.dev data for additional English names (this is the main check for directors)
     if (matchResult.matched && parsedData.directorInfo) {
-      // Use name_en if available, otherwise use name_romaji as English name
-      const r18EnglishName = parsedData.directorInfo.name_en || parsedData.directorInfo.name_romaji
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = parsedData.directorInfo.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
@@ -1124,7 +1134,7 @@ export async function matchWithDatabase(
         console.log('=== DIRECTOR ENGLISH NAME COMPARISON ===')
         console.log('Database English Name:', dbEnglishName)
         console.log('R18 English Name:', r18EngName)
-        console.log('Source:', parsedData.directorInfo.name_en ? 'name_en' : 'name_romaji')
+        console.log('Source: name_en')
         console.log('Normalized DB Name:', normalizedDbName)
         console.log('Normalized R18 Name:', normalizedR18Name)
         console.log('Names are different:', normalizedDbName !== normalizedR18Name)
@@ -1147,12 +1157,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1192,8 +1202,8 @@ export async function matchWithDatabase(
     
     // Check R18.dev data for additional English names (this is the main check for studios)
     if (matchResult.matched && parsedData.studioInfo) {
-      // Use name_en if available, otherwise use name_ja as fallback
-      const r18EnglishName = parsedData.studioInfo.name_en || parsedData.studioInfo.name_ja
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.studioInfo.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
@@ -1205,7 +1215,7 @@ export async function matchWithDatabase(
         console.log('=== STUDIO ENGLISH NAME COMPARISON ===')
         console.log('Database English Name:', dbEnglishName)
         console.log('R18 English Name:', r18EngName)
-        console.log('Source:', parsedData.studioInfo.name_en ? 'name_en' : 'name_ja')
+        console.log('Source: name_en')
         console.log('Normalized DB Name:', normalizedDbName)
         console.log('Normalized R18 Name:', normalizedR18Name)
         console.log('Names are different:', normalizedDbName !== normalizedR18Name)
@@ -1228,12 +1238,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1301,8 +1311,8 @@ export async function matchWithDatabase(
     
     // Check R18.dev data for additional English names (this is the main check for series)
     if (matchResult.matched && parsedData.seriesInfo) {
-      // Use name_en if available, otherwise use name_ja as fallback
-      const r18EnglishName = parsedData.seriesInfo.name_en || parsedData.seriesInfo.name_ja
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.seriesInfo.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = (matchResult.matched.name || matchResult.matched.titleEn || '').toLowerCase().trim()
@@ -1314,7 +1324,7 @@ export async function matchWithDatabase(
         console.log('=== SERIES ENGLISH NAME COMPARISON ===')
         console.log('Database English Name:', dbEnglishName)
         console.log('R18 English Name:', r18EngName)
-        console.log('Source:', parsedData.seriesInfo.name_en ? 'name_en' : 'name_ja')
+        console.log('Source: name_en')
         console.log('Normalized DB Name:', normalizedDbName)
         console.log('Normalized R18 Name:', normalizedR18Name)
         console.log('Names are different:', normalizedDbName !== normalizedR18Name)
@@ -1337,12 +1347,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1410,8 +1420,8 @@ export async function matchWithDatabase(
     
     // Check R18.dev data for additional English names (this is the main check for labels)
     if (matchResult.matched && parsedData.labelInfo) {
-      // Use name_en if available, otherwise use name_ja as fallback
-      const r18EnglishName = parsedData.labelInfo.name_en || parsedData.labelInfo.name_ja
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.labelInfo.name_en
       
       if (r18EnglishName) {
         const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
@@ -1423,7 +1433,7 @@ export async function matchWithDatabase(
         console.log('=== LABEL ENGLISH NAME COMPARISON ===')
         console.log('Database English Name:', dbEnglishName)
         console.log('R18 English Name:', r18EngName)
-        console.log('Source:', parsedData.labelInfo.name_en ? 'name_en' : 'name_ja')
+        console.log('Source: name_en')
         console.log('Normalized DB Name:', normalizedDbName)
         console.log('Normalized R18 Name:', normalizedR18Name)
         console.log('Names are different:', normalizedDbName !== normalizedR18Name)
@@ -1446,12 +1456,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: false // Default to false, user can choose
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -1643,11 +1653,20 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     const matchedSeries = matchedData.series[0]
     if (matchedSeries?.matched) {
       // Use custom English name if user selected one, otherwise use matched name from database
-      series = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
+      series = matchedSeries.customEnglishName || matchedSeries.matched.name || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
       console.log(`Series ${parsedData.series} matched to: ${series}`)
+      if (matchedSeries.customEnglishName) {
+        console.log(`Using custom English name selected by user: ${matchedSeries.customEnglishName}`)
+      }
     } else {
-      series = parsedData.series
-      console.log(`Series ${parsedData.series} not matched, using original name`)
+      // If no match found but we have R18.dev series info, use the English name from R18
+      if (parsedData.seriesInfo?.name_en) {
+        series = parsedData.seriesInfo.name_en
+        console.log(`Series ${parsedData.series} not matched, using R18 English name: ${series}`)
+      } else {
+        series = parsedData.series
+        console.log(`Series ${parsedData.series} not matched, using original name`)
+      }
     }
   }
 
@@ -1680,6 +1699,7 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     actors: uniqueActors.join(', '),
     dmcode: parsedData.dmcode || '',
     type: 'HC', // Default to HC for parsed movies
+    cropCover: false, // Default to false, will be overridden by MovieDataParser
     // Additional R18.dev data
     galleryImages: parsedData.galleryImages,
     coverImage: parsedData.coverImage,

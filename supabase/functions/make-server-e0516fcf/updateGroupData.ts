@@ -1,5 +1,5 @@
 import { Context } from 'npm:hono'
-import * as kv from './kv_store.tsx'
+import * as kv from './kv_store.ts'
 
 // Master data types
 interface MasterDataItem {

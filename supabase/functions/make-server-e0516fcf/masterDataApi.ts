@@ -1,5 +1,5 @@
 import { Context } from 'npm:hono'
-import * as kv from './kv_store.tsx'
+import * as kv from './kv_store.ts'
 
 // Helper function to sync cast name changes across all movie records
 async function syncCastNameInMovies(castType: 'actor' | 'actress' | 'director', oldName: string, newName: string): Promise<number> {

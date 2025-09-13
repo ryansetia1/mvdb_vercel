@@ -44,7 +44,7 @@ app.get('/make-server-e0516fcf/health', async (c) => {
 })
 
 // Health endpoint with f3064b20 prefix for consistency with other new endpoints
-app.get('/make-server-f3064b20/health', async (c) => {
+app.get('/make-server-e0516fcf/health', async (c) => {
   return c.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -825,7 +825,7 @@ app.post('/make-server-e0516fcf/bulk/assign-template', async (c) => {
 // ==================================================================================
 
 // Get all movies
-app.get('/make-server-f3064b20/movies', async (c) => {
+app.get('/make-server-e0516fcf/movies', async (c) => {
   try {
     const movies = await kv.getByPrefix('movie:')
     return c.json({ movies: movies.map(m => m.value) })
@@ -836,7 +836,7 @@ app.get('/make-server-f3064b20/movies', async (c) => {
 })
 
 // Get single movie
-app.get('/make-server-f3064b20/movies/:id', async (c) => {
+app.get('/make-server-e0516fcf/movies/:id', async (c) => {
   try {
     const id = c.req.param('id')
     const movie = await kv.get(`movie:${id}`)
@@ -853,7 +853,7 @@ app.get('/make-server-f3064b20/movies/:id', async (c) => {
 })
 
 // Create movie
-app.post('/make-server-f3064b20/movies', async (c) => {
+app.post('/make-server-e0516fcf/movies', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -882,7 +882,7 @@ app.post('/make-server-f3064b20/movies', async (c) => {
 })
 
 // Update movie
-app.put('/make-server-f3064b20/movies/:id', async (c) => {
+app.put('/make-server-e0516fcf/movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -916,7 +916,7 @@ app.put('/make-server-f3064b20/movies/:id', async (c) => {
 })
 
 // Delete movie
-app.delete('/make-server-f3064b20/movies/:id', async (c) => {
+app.delete('/make-server-e0516fcf/movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -942,7 +942,7 @@ app.delete('/make-server-f3064b20/movies/:id', async (c) => {
 })
 
 // Search movies
-app.get('/make-server-f3064b20/movies/search/:query', async (c) => {
+app.get('/make-server-e0516fcf/movies/search/:query', async (c) => {
   try {
     const query = c.req.param('query').toLowerCase()
     const movies = await kv.getByPrefix('movie:')
@@ -990,7 +990,7 @@ app.get('/make-server-f3064b20/movies/search/:query', async (c) => {
 // ==================================================================================
 
 // Get custom nav items for authenticated user
-app.get('/make-server-f3064b20/custom-nav-items', async (c) => {
+app.get('/make-server-e0516fcf/custom-nav-items', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1011,7 +1011,7 @@ app.get('/make-server-f3064b20/custom-nav-items', async (c) => {
 })
 
 // Save custom nav items for authenticated user
-app.post('/make-server-f3064b20/custom-nav-items', async (c) => {
+app.post('/make-server-e0516fcf/custom-nav-items', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1047,7 +1047,7 @@ app.post('/make-server-f3064b20/custom-nav-items', async (c) => {
 })
 
 // Delete specific custom nav item for authenticated user
-app.delete('/make-server-f3064b20/custom-nav-items/:itemId', async (c) => {
+app.delete('/make-server-e0516fcf/custom-nav-items/:itemId', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1079,9 +1079,9 @@ app.delete('/make-server-f3064b20/custom-nav-items/:itemId', async (c) => {
 // ==================================================================================
 
 // Update group data with gallery support - THIS ROUTE WAS MISSING!
-app.put('/make-server-f3064b20/master/group/:id/extended', updateGroupData)
+app.put('/make-server-e0516fcf/master/group/:id/extended', updateGroupData)
 
-app.post('/make-server-f3064b20/custom-nav-items/reorder', async (c) => {
+app.post('/make-server-e0516fcf/custom-nav-items/reorder', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1131,7 +1131,7 @@ app.post('/make-server-f3064b20/custom-nav-items/reorder', async (c) => {
 // ==================================================================================
 
 // Get saved gallery for a movie
-app.get('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
+app.get('/make-server-e0516fcf/saved-gallery/:movieId', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1155,7 +1155,7 @@ app.get('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
 })
 
 // Save gallery URLs for a movie
-app.put('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
+app.put('/make-server-e0516fcf/saved-gallery/:movieId', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1183,7 +1183,7 @@ app.put('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
 })
 
 // Delete saved gallery for a movie
-app.delete('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
+app.delete('/make-server-e0516fcf/saved-gallery/:movieId', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1208,7 +1208,7 @@ app.delete('/make-server-f3064b20/saved-gallery/:movieId', async (c) => {
 // ==================================================================================
 
 // Get all movie links
-app.get('/make-server-f3064b20/movie-links', async (c) => {
+app.get('/make-server-e0516fcf/movie-links', async (c) => {
   try {
     const accessToken = c.req.header('X-Access-Token')
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1226,7 +1226,7 @@ app.get('/make-server-f3064b20/movie-links', async (c) => {
 })
 
 // Get movie links for a specific movie (bidirectional)
-app.get('/make-server-f3064b20/movie-links/bidirectional/:movieId', async (c) => {
+app.get('/make-server-e0516fcf/movie-links/bidirectional/:movieId', async (c) => {
   try {
     const accessToken = c.req.header('X-Access-Token')
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1254,7 +1254,7 @@ app.get('/make-server-f3064b20/movie-links/bidirectional/:movieId', async (c) =>
 })
 
 // Get movie links for a specific movie (only as primary)
-app.get('/make-server-f3064b20/movie-links/movie/:movieId', async (c) => {
+app.get('/make-server-e0516fcf/movie-links/movie/:movieId', async (c) => {
   try {
     const accessToken = c.req.header('X-Access-Token')
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1278,7 +1278,7 @@ app.get('/make-server-f3064b20/movie-links/movie/:movieId', async (c) => {
 })
 
 // Create movie link
-app.post('/make-server-f3064b20/movie-links', async (c) => {
+app.post('/make-server-e0516fcf/movie-links', async (c) => {
   try {
     const accessToken = c.req.header('X-Access-Token')
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1338,7 +1338,7 @@ app.post('/make-server-f3064b20/movie-links', async (c) => {
 })
 
 // Delete movie link
-app.delete('/make-server-f3064b20/movie-links/:id', async (c) => {
+app.delete('/make-server-e0516fcf/movie-links/:id', async (c) => {
   try {
     const accessToken = c.req.header('X-Access-Token')
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1368,7 +1368,7 @@ app.delete('/make-server-f3064b20/movie-links/:id', async (c) => {
 // ==================================================================================
 
 // Get all SC movies
-app.get('/make-server-f3064b20/sc-movies', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies', async (c) => {
   try {
     const scMovies = await kv.getByPrefix('scmovie:')
     return c.json({ scMovies: scMovies.map(m => m.value) })
@@ -1379,7 +1379,7 @@ app.get('/make-server-f3064b20/sc-movies', async (c) => {
 })
 
 // Get single SC movie
-app.get('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const id = c.req.param('id')
     const scMovie = await kv.get(`scmovie:${id}`)
@@ -1396,7 +1396,7 @@ app.get('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Create SC movie (protected route)
-app.post('/make-server-f3064b20/sc-movies', async (c) => {
+app.post('/make-server-e0516fcf/sc-movies', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1425,7 +1425,7 @@ app.post('/make-server-f3064b20/sc-movies', async (c) => {
 })
 
 // Update SC movie (protected route)
-app.put('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.put('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1459,7 +1459,7 @@ app.put('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Delete SC movie (protected route)
-app.delete('/make-server-f3064b20/sc-movies/:id', async (c) => {
+app.delete('/make-server-e0516fcf/sc-movies/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1485,7 +1485,7 @@ app.delete('/make-server-f3064b20/sc-movies/:id', async (c) => {
 })
 
 // Search SC movies
-app.get('/make-server-f3064b20/sc-movies/search/:query', async (c) => {
+app.get('/make-server-e0516fcf/sc-movies/search/:query', async (c) => {
   try {
     const query = c.req.param('query').toLowerCase()
     const scMovies = await kv.getByPrefix('scmovie:')
@@ -1511,10 +1511,10 @@ app.get('/make-server-f3064b20/sc-movies/search/:query', async (c) => {
 // ==================================================================================
 
 // Update simple master data (type, tag) with sync
-app.put('/make-server-f3064b20/master/:type/:id/sync', updateSimpleMasterDataWithSync)
+app.put('/make-server-e0516fcf/master/:type/:id/sync', updateSimpleMasterDataWithSync)
 
 // Update extended master data (actor, actress, director, series, studio, label, group) with sync
-app.put('/make-server-f3064b20/master/:type/:id/extended/sync', updateExtendedMasterDataWithSync)
+app.put('/make-server-e0516fcf/master/:type/:id/extended/sync', updateExtendedMasterDataWithSync)
 
 // Get single movie
 app.get('/make-server-e0516fcf/movies/:id', async (c) => {
@@ -1821,7 +1821,7 @@ app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
 })
 
 // Duplicate extended master data routes with f3064b20 prefix for consistency
-app.post('/make-server-f3064b20/master/:type/extended', async (c) => {
+app.post('/make-server-e0516fcf/master/:type/extended', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1840,7 +1840,7 @@ app.post('/make-server-f3064b20/master/:type/extended', async (c) => {
   }
 })
 
-app.put('/make-server-f3064b20/master/:type/:id/extended', async (c) => {
+app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1860,7 +1860,7 @@ app.put('/make-server-f3064b20/master/:type/:id/extended', async (c) => {
 })
 
 // Master data routes with f3064b20 prefix
-app.get('/make-server-f3064b20/master/:type', async (c) => {
+app.get('/make-server-e0516fcf/master/:type', async (c) => {
   try {
     return await getMasterData(c)
   } catch (error) {
@@ -1869,7 +1869,7 @@ app.get('/make-server-f3064b20/master/:type', async (c) => {
   }
 })
 
-app.post('/make-server-f3064b20/master/:type', async (c) => {
+app.post('/make-server-e0516fcf/master/:type', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -1888,7 +1888,7 @@ app.post('/make-server-f3064b20/master/:type', async (c) => {
   }
 })
 
-app.delete('/make-server-f3064b20/master/:type/:id', async (c) => {
+app.delete('/make-server-e0516fcf/master/:type/:id', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -2329,7 +2329,7 @@ app.get('/make-server-e0516fcf/movie-studios', async (c) => {
 })
 
 // Get template counts for stats
-app.get('/make-server-f3064b20/template-counts', async (c) => {
+app.get('/make-server-e0516fcf/template-counts', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -2352,7 +2352,7 @@ app.get('/make-server-f3064b20/template-counts', async (c) => {
 })
 
 // Get favorites for stats
-app.get('/make-server-f3064b20/favorites', async (c) => {
+app.get('/make-server-e0516fcf/favorites', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -2379,7 +2379,7 @@ app.get('/make-server-f3064b20/favorites', async (c) => {
 })
 
 // Get photobooks for stats
-app.get('/make-server-f3064b20/photobooks', async (c) => {
+app.get('/make-server-e0516fcf/photobooks', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -3381,32 +3381,32 @@ app.post('/make-server-e0516fcf/favorites/check', async (c) => {
 // ==================================================================================
 
 // Get all master data by type
-app.get('/make-server-f3064b20/master/:type', getMasterData)
+app.get('/make-server-e0516fcf/master/:type', getMasterData)
 
 // Create new master data item (simple types)
-app.post('/make-server-f3064b20/master/:type', createMasterData)
+app.post('/make-server-e0516fcf/master/:type', createMasterData)
 
 // Create extended master data item (complex types)
-app.post('/make-server-f3064b20/master/:type/extended', createExtendedMasterData)
+app.post('/make-server-e0516fcf/master/:type/extended', createExtendedMasterData)
 
 // Update extended master data item
 
 
 // Update extended master data item with sync
-app.put('/make-server-f3064b20/master/:type/:id/extended/sync', updateExtendedMasterDataWithSync)
+app.put('/make-server-e0516fcf/master/:type/:id/extended/sync', updateExtendedMasterDataWithSync)
 
 // Update simple master data item with sync
-app.put('/make-server-f3064b20/master/:type/:id/sync', updateSimpleMasterDataWithSync)
+app.put('/make-server-e0516fcf/master/:type/:id/sync', updateSimpleMasterDataWithSync)
 
 // Delete master data item
-app.delete('/make-server-f3064b20/master/:type/:id', deleteMasterData)
+app.delete('/make-server-e0516fcf/master/:type/:id', deleteMasterData)
 
 // ==================================================================================
 // MOVIE TYPE COLORS ROUTES (with f3064b20 prefix for consistency)
 // ==================================================================================
 
 // Get movie type colors
-app.get('/make-server-f3064b20/movie-type-colors', async (c) => {
+app.get('/make-server-e0516fcf/movie-type-colors', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -3460,7 +3460,7 @@ app.get('/make-server-f3064b20/movie-type-colors', async (c) => {
 })
 
 // Save movie type colors
-app.post('/make-server-f3064b20/movie-type-colors', async (c) => {
+app.post('/make-server-e0516fcf/movie-type-colors', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -3520,7 +3520,7 @@ app.post('/make-server-f3064b20/movie-type-colors', async (c) => {
 })
 
 // Reset movie type colors to defaults
-app.put('/make-server-f3064b20/movie-type-colors', async (c) => {
+app.put('/make-server-e0516fcf/movie-type-colors', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
@@ -3758,7 +3758,7 @@ app.put('/make-server-e0516fcf/movie-type-colors', async (c) => {
 })
 
 // Debug endpoint to list all KV store keys
-app.get('/make-server-f3064b20/debug/kv-keys', async (c) => {
+app.get('/make-server-e0516fcf/debug/kv-keys', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
