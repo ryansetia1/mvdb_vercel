@@ -3,6 +3,7 @@ import { Movie } from '../../utils/movieApi'
 import { MovieCard } from '../MovieCard'
 import { MasterDataItem, masterDataApi } from '../../utils/masterDataApi'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 
 interface FilteredMoviesContentProps {
   movies: Movie[]
@@ -122,6 +123,15 @@ export function FilteredMoviesContent({
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedMovies = filteredMovies.slice(startIndex, endIndex)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => setCurrentPage(page),
+    'filtered-movies-content',
+    true
+  )
 
   if (filteredMovies.length === 0) {
     return (

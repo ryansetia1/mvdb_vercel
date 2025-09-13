@@ -13,6 +13,7 @@ import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
 import { Search, Filter, X, SortAsc, SortDesc } from 'lucide-react'
 import { AdvancedSearchTest } from '../AdvancedSearchTest'
+import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 
 interface FilteredCustomNavContentProps {
   movies: Movie[]
@@ -233,12 +234,6 @@ export function FilteredCustomNavContent({
     return Array.from(types).sort()
   }, [customNavFilteredMovies])
 
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedMovies.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const moviesToShow = filteredAndSortedMovies.slice(startIndex, endIndex)
-
   // Update filters function
   const updateFilters = (updates: Partial<{
     tagFilter: string
@@ -317,6 +312,21 @@ export function FilteredCustomNavContent({
       currentPage: 1
     })
   }
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedMovies.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const moviesToShow = filteredAndSortedMovies.slice(startIndex, endIndex)
+
+  // Keyboard navigation for pagination using global hook
+  useGlobalKeyboardPagination(
+    currentPage,
+    totalPages,
+    (page: number) => updateFilters({ currentPage: page }),
+    'filtered-custom-nav-content',
+    true
+  )
 
   // Randomize function
   const handleRandomize = () => {
