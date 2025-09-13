@@ -9,14 +9,27 @@ import { ImageSearchIframe } from './ImageSearchIframe'
 import { toast } from 'sonner'
 
 interface MasterDataFormProps {
-  type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+  type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
   initialName: string
   accessToken: string
   onSave: (item: MasterDataItem) => void
   onCancel: () => void
+  // Additional R18.dev data
+  r18Data?: {
+    // For director
+    name_romaji?: string
+    name_kanji?: string
+    name_kana?: string
+    // For series
+    name_en?: string
+    name_ja?: string
+    // For label
+    label_name_en?: string
+    label_name_ja?: string
+  }
 }
 
-export function MasterDataForm({ type, initialName, accessToken, onSave, onCancel }: MasterDataFormProps) {
+export function MasterDataForm({ type, initialName, accessToken, onSave, onCancel, r18Data }: MasterDataFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [translating, setTranslating] = useState(false)
@@ -45,7 +58,9 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
   const [formData, setFormData] = useState(() => {
     const baseData = {
       name: initialName,
-      jpname: initialName
+      jpname: initialName,
+      kanjiName: '',
+      kanaName: ''
     }
 
     switch (type) {
@@ -86,6 +101,11 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           alias: '',
           tags: '',
           profilePicture: ''
+        }
+      case 'label':
+        return {
+          ...baseData,
+          labelLinks: ''
         }
       default:
         return baseData
@@ -199,6 +219,8 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           newItem = await masterDataApi.createExtended('studio', {
             name: formData.name,
             jpname: formData.jpname,
+            kanjiName: formData.kanjiName || undefined,
+            kanaName: formData.kanaName || undefined,
             alias: formData.alias || undefined,
             studioLinks: formData.studioLinks || undefined
           }, accessToken)
@@ -207,6 +229,8 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           newItem = await masterDataApi.createExtended('actress', {
             name: formData.name,
             jpname: formData.jpname,
+            kanjiName: formData.kanjiName || undefined,
+            kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
             tags: formData.tags || undefined,
@@ -218,6 +242,8 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           newItem = await masterDataApi.createExtended('actor', {
             name: formData.name,
             jpname: formData.jpname,
+            kanjiName: formData.kanjiName || undefined,
+            kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
             tags: formData.tags || undefined,
@@ -228,10 +254,21 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           newItem = await masterDataApi.createExtended('director', {
             name: formData.name,
             jpname: formData.jpname,
+            kanjiName: formData.kanjiName || undefined,
+            kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
             tags: formData.tags || undefined,
             profilePicture: formData.profilePicture || undefined
+          }, accessToken)
+          break
+        case 'label':
+          newItem = await masterDataApi.createExtended('label', {
+            name: formData.name,
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName || undefined,
+            kanaName: formData.kanaName || undefined,
+            labelLinks: formData.labelLinks || undefined
           }, accessToken)
           break
         default:
@@ -327,6 +364,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
       case 'actress': return 'Tambah Aktris Baru'
       case 'actor': return 'Tambah Aktor Baru'
       case 'director': return 'Tambah Director Baru'
+      case 'label': return 'Tambah Label Baru'
       default: return 'Tambah Data Baru'
     }
   }
@@ -335,6 +373,44 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">{getTitle()}</h3>
+        
+        {/* R18.dev Data Information */}
+        {r18Data && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="font-medium text-blue-900">Data dari R18.dev</h4>
+              <span className="text-xs text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded">
+                Konfirmasi
+              </span>
+            </div>
+            
+            {type === 'director' && r18Data.name_romaji && (
+              <div className="text-sm text-blue-800 space-y-1">
+                <div><strong>Romaji:</strong> {r18Data.name_romaji}</div>
+                {r18Data.name_kanji && <div><strong>Kanji:</strong> {r18Data.name_kanji}</div>}
+                {r18Data.name_kana && <div><strong>Kana:</strong> {r18Data.name_kana}</div>}
+              </div>
+            )}
+            
+            {type === 'series' && (r18Data.name_en || r18Data.name_ja) && (
+              <div className="text-sm text-blue-800 space-y-1">
+                {r18Data.name_en && <div><strong>English:</strong> {r18Data.name_en}</div>}
+                {r18Data.name_ja && <div><strong>Japanese:</strong> {r18Data.name_ja}</div>}
+              </div>
+            )}
+            
+            {type === 'label' && (r18Data.label_name_en || r18Data.label_name_ja) && (
+              <div className="text-sm text-blue-800 space-y-1">
+                {r18Data.label_name_en && <div><strong>English:</strong> {r18Data.label_name_en}</div>}
+                {r18Data.label_name_ja && <div><strong>Japanese:</strong> {r18Data.label_name_ja}</div>}
+              </div>
+            )}
+            
+            <div className="mt-2 text-xs text-blue-600">
+              Data ini akan ditambahkan ke database dengan informasi lengkap.
+            </div>
+          </div>
+        )}
         
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -526,6 +602,30 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kanji Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanjiName}
+                  onChange={(e) => setFormData({ ...formData, kanjiName: e.target.value })}
+                  placeholder="Masukkan nama dalam kanji (漢字)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kana Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanaName}
+                  onChange={(e) => setFormData({ ...formData, kanaName: e.target.value })}
+                  placeholder="Masukkan nama dalam kana (かな)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Alias
                 </label>
                 <input
@@ -614,6 +714,30 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   type="text"
                   value={formData.jpname}
                   onChange={(e) => setFormData({ ...formData, jpname: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kanji Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanjiName}
+                  onChange={(e) => setFormData({ ...formData, kanjiName: e.target.value })}
+                  placeholder="Masukkan nama dalam kanji (漢字)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kana Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanaName}
+                  onChange={(e) => setFormData({ ...formData, kanaName: e.target.value })}
+                  placeholder="Masukkan nama dalam kana (かな)"
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -710,6 +834,112 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   />
                 </div>
               )}
+            </>
+          )}
+
+          {/* Label specific fields */}
+          {type === 'label' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nama Label (English) *
+                </label>
+                <div className="flex gap-2">
+                  <ShimmerInput
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    isShimmering={translating}
+                    className="flex-1"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={translateNameToEnglish}
+                    disabled={translating || convertingRomaji || !formData.jpname}
+                    className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    title="Translate to English using DeepSeek R1"
+                  >
+                    {translating ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Translating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        <span>Translate</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={convertToRomaji}
+                    disabled={translating || convertingRomaji || !formData.jpname}
+                    className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    title="Convert to Romaji using DeepSeek R1"
+                  >
+                    {convertingRomaji ? (
+                      <>
+                        <AITranslationSpinner size="sm" />
+                        <span>AI Converting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Romaji</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nama Jepang
+                </label>
+                <input
+                  type="text"
+                  value={formData.jpname}
+                  onChange={(e) => setFormData({ ...formData, jpname: e.target.value })}
+                  placeholder="Masukkan nama label dalam bahasa Jepang"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kanji Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanjiName}
+                  onChange={(e) => setFormData({ ...formData, kanjiName: e.target.value })}
+                  placeholder="Masukkan nama dalam kanji (漢字)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kana Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.kanaName}
+                  onChange={(e) => setFormData({ ...formData, kanaName: e.target.value })}
+                  placeholder="Masukkan nama dalam kana (かな)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Label Links
+                </label>
+                <textarea
+                  value={formData.labelLinks}
+                  onChange={(e) => setFormData({ ...formData, labelLinks: e.target.value })}
+                  placeholder="Masukkan links label (pisahkan dengan baris baru)"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-20"
+                />
+              </div>
             </>
           )}
 

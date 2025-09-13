@@ -14,6 +14,8 @@ interface MasterDataItem {
   studioLinks?: string
   labelLinks?: string
   jpname?: string
+  kanjiName?: string // Kanji name for Japanese characters
+  kanaName?: string // Kana name for Japanese pronunciation
   alias?: string
   profilePicture?: string
   website?: string
@@ -390,7 +392,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData } = body
     console.log(`Server: Updating ${type} ${id} with data:`, body)
 
     if (!name?.trim()) {
@@ -491,6 +493,8 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
       ...existingItem,
       name: newName,
       jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       birthdate: birthdate?.trim() || undefined,
       alias: alias?.trim() || undefined,
       links: processedLinks,
@@ -702,8 +706,8 @@ async function updateLabelData(c: Context) {
     console.log('Server: Updating label data for ID:', id)
     
     const body = await c.req.json()
-    const { name, labelLinks } = body
-    console.log('Server: Update label data received:', { name, labelLinks })
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
+    console.log('Server: Update label data received:', { name, jpname, kanjiName, kanaName, labelLinks })
 
     if (!name?.trim()) {
       return c.json({ error: 'Label name is required' }, 400)
@@ -744,6 +748,9 @@ async function updateLabelData(c: Context) {
     const updatedItem: MasterDataItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }

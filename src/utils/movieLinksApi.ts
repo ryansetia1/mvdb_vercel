@@ -15,7 +15,7 @@ export interface CreateMovieLinkData {
   description?: string
 }
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20`
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
 
 export const movieLinksApi = {
   // Get all movie links

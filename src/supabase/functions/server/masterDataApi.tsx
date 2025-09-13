@@ -142,6 +142,8 @@ export interface MasterDataItem {
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
+  kanjiName?: string // Kanji name for Japanese characters
+  kanaName?: string // Kana name for Japanese pronunciation
   birthdate?: string // Changed from age to birthdate
   alias?: string
   links?: LabeledLink[] // Changed to array of labeled links
@@ -326,7 +328,7 @@ export async function createExtendedMasterData(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
     console.log(`Server: Creating extended ${type} with data:`, body)
 
     if (!name?.trim()) {
@@ -419,6 +421,8 @@ export async function createExtendedMasterData(c: Context) {
       type: type as MasterDataItem['type'],
       createdAt: new Date().toISOString(),
       jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       birthdate: birthdate?.trim() || undefined,
       alias: alias?.trim() || undefined,
       links: processedLinks,
@@ -539,7 +543,7 @@ export async function createStudioData(c: Context) {
   try {
     console.log('Server: Creating studio data')
     const body = await c.req.json()
-    const { name, jpname, alias, studioLinks } = body
+    const { name, jpname, kanjiName, kanaName, alias, studioLinks } = body
     console.log('Server: Studio data:', body)
 
     if (!name?.trim()) {
@@ -587,6 +591,8 @@ export async function createStudioData(c: Context) {
       type: 'studio',
       createdAt: new Date().toISOString(),
       jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       alias: alias?.trim() || undefined,
       studioLinks: studioLinks?.trim() || undefined
     }
@@ -610,7 +616,7 @@ export async function createLabelData(c: Context) {
   try {
     console.log('Server: Creating label data')
     const body = await c.req.json()
-    const { name, labelLinks } = body
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
     console.log('Server: Label data:', body)
 
     if (!name?.trim()) {
@@ -657,6 +663,9 @@ export async function createLabelData(c: Context) {
       name: name.trim(),
       type: 'label',
       createdAt: new Date().toISOString(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined
     }
 
@@ -874,7 +883,7 @@ export async function updateExtendedMasterData(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
     console.log(`Server: Updating extended ${type} with data:`, body)
 
     if (!name?.trim()) {
@@ -979,6 +988,8 @@ export async function updateExtendedMasterData(c: Context) {
       ...existingItem,
       name: name.trim(),
       jpname: jpname?.trim() || (jpname === null || jpname === '' ? undefined : existingItem.jpname),
+      kanjiName: kanjiName?.trim() || (kanjiName === null || kanjiName === '' ? undefined : existingItem.kanjiName),
+      kanaName: kanaName?.trim() || (kanaName === null || kanaName === '' ? undefined : existingItem.kanaName),
       birthdate: birthdate?.trim() || (birthdate === null || birthdate === '' ? undefined : existingItem.birthdate),
       alias: alias?.trim() || (alias === null || alias === '' ? undefined : existingItem.alias),
       links: processedLinks !== undefined ? processedLinks : existingItem.links,
@@ -1098,7 +1109,7 @@ export async function updateStudioData(c: Context) {
     console.log('Server: Updating studio data with ID:', id)
     
     const body = await c.req.json()
-    const { name, jpname, alias, studioLinks } = body
+    const { name, jpname, kanjiName, kanaName, alias, studioLinks } = body
     console.log('Server: Studio update data:', body)
 
     if (!name?.trim()) {
@@ -1142,6 +1153,8 @@ export async function updateStudioData(c: Context) {
       ...existingItem,
       name: name.trim(),
       jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       alias: alias?.trim() || undefined,
       studioLinks: studioLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
@@ -1167,7 +1180,7 @@ export async function updateLabelData(c: Context) {
     console.log('Server: Updating label data with ID:', id)
     
     const body = await c.req.json()
-    const { name, labelLinks } = body
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
     console.log('Server: Label update data:', body)
 
     if (!name?.trim()) {
@@ -1210,6 +1223,9 @@ export async function updateLabelData(c: Context) {
     const updatedItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }
@@ -1217,6 +1233,14 @@ export async function updateLabelData(c: Context) {
     await kv.set(`master_label_${id}`, JSON.stringify(updatedItem))
     
     console.log('Server: Successfully updated label:', updatedItem)
+    console.log('Server: Returning label data with fields:', {
+      id: updatedItem.id,
+      name: updatedItem.name,
+      jpname: updatedItem.jpname,
+      kanjiName: updatedItem.kanjiName,
+      kanaName: updatedItem.kanaName,
+      labelLinks: updatedItem.labelLinks
+    })
     return c.json({ data: updatedItem })
   } catch (error) {
     console.error('Server: Update label data error:', error)
@@ -1589,6 +1613,7 @@ export async function updateExtendedWithSync(c: Context) {
     } else if (type === 'studio') {
       updatedResult = await updateStudioData(c)
     } else if (type === 'label') {
+      console.log('Server: Calling updateLabelData for label type')
       updatedResult = await updateLabelData(c)
     } else if (type === 'group') {
       updatedResult = await updateGroupData(c)
@@ -1602,11 +1627,13 @@ export async function updateExtendedWithSync(c: Context) {
     }
 
     const updatedData = await updatedResult.json()
+    console.log('Server: Received updated data from updateLabelData:', updatedData)
     const newName = updatedData.data.name || updatedData.data.titleEn
 
     // Skip sync if name hasn't changed or if this type doesn't affect movies
     if (oldName === newName || !['actor', 'actress', 'director'].includes(type)) {
       console.log(`Server: Name unchanged or type doesn't affect movies, skipping sync`)
+      console.log('Server: Returning label data from updateExtendedMasterDataWithSync:', updatedData.data)
       return c.json({ 
         data: updatedData.data, 
         sync: { moviesUpdated: 0, scMoviesUpdated: 0 }

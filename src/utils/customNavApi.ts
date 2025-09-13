@@ -20,7 +20,7 @@ class CustomNavApi {
   }
 
   constructor() {
-    this.baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-f3064b20`
+    this.baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf`
   }
 
   async getCustomNavItems(accessToken: string): Promise<CustomNavItem[]> {

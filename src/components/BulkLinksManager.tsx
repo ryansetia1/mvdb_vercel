@@ -122,7 +122,7 @@ export function BulkLinksManager({ accessToken, isOpen, onOpenChange }: BulkLink
   const loadMovies = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movies`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movies`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
@@ -261,7 +261,7 @@ export function BulkLinksManager({ accessToken, isOpen, onOpenChange }: BulkLink
           }
 
           // Update movie with all link types at once
-          const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-f3064b20/movies/${movieId}`, {
+          const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/movies/${movieId}`, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${accessToken}`,

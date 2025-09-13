@@ -11,43 +11,159 @@ export interface ParsedMovieData {
   director: string
   studio: string
   series: string
+  label?: string
   rating?: string
   actresses: string[]
   actors: string[]
   rawData: string
   dmcode?: string
+  // Additional data from R18.dev format
+  galleryImages?: string[]
+  coverImage?: string
+  sampleUrl?: string
+  // Additional director info from R18.dev
+  directorInfo?: {
+    name_romaji?: string
+    name_kanji?: string
+    name_kana?: string
+    name_en?: string
+  }
+  // Additional series info from R18.dev
+  seriesInfo?: {
+    name_en?: string
+    name_ja?: string
+  }
+  // Additional label info from R18.dev
+  labelInfo?: {
+    name_en?: string
+    name_ja?: string
+  }
+  // Additional studio info from R18.dev
+  studioInfo?: {
+    name_en?: string
+    name_ja?: string
+  }
+  // Additional actress info from R18.dev
+  actressInfo?: Array<{
+    name_romaji?: string
+    name_kanji?: string
+    name_kana?: string
+    name_en?: string
+  }>
+  // Additional actor info from R18.dev
+  actorInfo?: Array<{
+    name_romaji?: string
+    name_kanji?: string
+    name_kana?: string
+    name_en?: string
+  }>
 }
 
 export interface MatchedData {
   actresses: {
-    name: string
+    name: string // Parsed name from source
+    parsedEnglishName?: string // English name from parsed data (if available)
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string // User-selected English name
+    hasDifferentEnglishNames?: boolean // Flag to indicate different English names between parsed and database
+    needsEnglishNameSelection?: boolean // Flag to indicate English name selection needed
+    availableEnglishNames?: string[] // Available English names from different sources
+    missingData?: {
+      kanjiName?: string // Kanji name from parsed data that's not in database
+      kanaName?: string // Kana name from parsed data that's not in database
+      alias?: string // Alias from parsed data that's not in database
+      birthdate?: string // Birthdate from parsed data that's not in database
+      tags?: string // Tags from parsed data that's not in database
+    }
+    addMissingData?: boolean // User choice to add missing data to database
   }[]
   actors: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+    availableEnglishNames?: string[]
+    missingData?: {
+      kanjiName?: string
+      kanaName?: string
+      alias?: string
+      birthdate?: string
+      tags?: string
+    }
+    addMissingData?: boolean
   }[]
   directors: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+    availableEnglishNames?: string[]
+    missingData?: {
+      kanjiName?: string
+      kanaName?: string
+      alias?: string
+    }
+    addMissingData?: boolean
   }[]
   studios: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+    availableEnglishNames?: string[]
+    missingData?: {
+      kanjiName?: string
+      kanaName?: string
+      alias?: string
+    }
+    addMissingData?: boolean
   }[]
   series: {
     name: string
+    parsedEnglishName?: string
     matched: MasterDataItem | null
     multipleMatches: MasterDataItem[]
     needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+    availableEnglishNames?: string[]
+    missingData?: {
+      titleJp?: string // Japanese title from parsed data that's not in database
+      alias?: string
+    }
+    addMissingData?: boolean
+  }[]
+  labels: {
+    name: string
+    parsedEnglishName?: string
+    matched: MasterDataItem | null
+    multipleMatches: MasterDataItem[]
+    needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+    availableEnglishNames?: string[]
+    missingData?: {
+      kanjiName?: string
+      kanaName?: string
+      alias?: string
+    }
+    addMissingData?: boolean
   }[]
 }
 
@@ -103,10 +219,174 @@ function detectJapaneseFemaleName(name: string): boolean {
 }
 
 /**
+ * Interface for R18.dev JSON format
+ */
+interface R18JsonData {
+  actors: Array<{
+    id: number
+    image_url: string
+    name_kana: string
+    name_kanji: string
+    name_romaji: string
+    name_en?: string
+  }>
+  actresses: Array<{
+    id: number
+    image_url: string
+    name_kana: string
+    name_kanji: string
+    name_romaji: string
+    name_en?: string
+  }>
+  authors: any[]
+  categories: Array<{
+    id: number
+    name_en: string
+    name_en_is_machine_translation: boolean
+    name_ja: string
+  }>
+  comment_en: string
+  content_id: string
+  directors: Array<{
+    id: number
+    name_kana: string
+    name_kanji: string
+    name_romaji: string
+    name_en?: string
+  }>
+  dvd_id: string
+  gallery: Array<{
+    image_full: string
+    image_thumb: string
+  }>
+  histrions: any[]
+  jacket_full_url: string
+  jacket_thumb_url: string
+  label_id: number
+  label_name_en: string
+  label_name_ja: string
+  maker_id: number
+  maker_name_en: string
+  maker_name_ja: string
+  release_date: string
+  runtime_mins: number
+  sample_url: string
+  series_id: number
+  series_name_en: string
+  series_name_en_is_machine_translation: boolean
+  series_name_ja: string
+  service_code: string
+  site_id: number
+  title_en: string
+  title_en_is_machine_translation: boolean
+  title_en_uncensored: string
+  title_ja: string
+}
+
+/**
+ * Check if the raw data is R18.dev JSON format
+ */
+function isR18JsonFormat(rawData: string): boolean {
+  try {
+    const parsed = JSON.parse(rawData.trim())
+    return (
+      parsed &&
+      typeof parsed === 'object' &&
+      'dvd_id' in parsed &&
+      'title_ja' in parsed &&
+      'actresses' in parsed &&
+      'release_date' in parsed &&
+      'runtime_mins' in parsed
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Parse R18.dev JSON format
+ */
+function parseR18JsonData(rawData: string): ParsedMovieData | null {
+  try {
+    const data: R18JsonData = JSON.parse(rawData.trim())
+    
+    const parsed: ParsedMovieData = {
+      code: data.dvd_id || '',
+      titleJp: data.title_ja || '',
+      titleEn: data.title_en || data.title_en_uncensored || '',
+      releaseDate: data.release_date || '',
+      duration: data.runtime_mins ? `${data.runtime_mins} minutes` : '',
+      director: data.directors.length > 0 ? (data.directors[0].name_kanji || data.directors[0].name_kana || data.directors[0].name_romaji) : '',
+      studio: data.maker_name_en || data.maker_name_ja || '',
+      series: data.series_name_en || data.series_name_ja || '',
+      label: data.label_name_en || data.label_name_ja || '',
+      actresses: data.actresses.map(actress => actress.name_romaji || actress.name_kanji || actress.name_kana),
+      actors: data.actors.map(actor => actor.name_romaji || actor.name_kanji || actor.name_kana),
+      rawData,
+      // Additional R18.dev data
+      galleryImages: data.gallery.map(img => img.image_full),
+      coverImage: data.jacket_full_url,
+      sampleUrl: data.sample_url,
+      // Director info from R18.dev
+      directorInfo: data.directors.length > 0 ? {
+        name_romaji: data.directors[0].name_romaji,
+        name_kanji: data.directors[0].name_kanji,
+        name_kana: data.directors[0].name_kana,
+        name_en: data.directors[0].name_en
+      } : undefined,
+      // Series info from R18.dev
+      seriesInfo: data.series_name_ja || data.series_name_en ? {
+        name_en: data.series_name_en,
+        name_ja: data.series_name_ja
+      } : undefined,
+      // Label info from R18.dev
+      labelInfo: data.label_name_ja || data.label_name_en ? {
+        name_en: data.label_name_en,
+        name_ja: data.label_name_ja
+      } : undefined,
+      // Studio info from R18.dev
+      studioInfo: data.maker_name_ja || data.maker_name_en ? {
+        name_en: data.maker_name_en,
+        name_ja: data.maker_name_ja
+      } : undefined,
+      // Actress info from R18.dev
+      actressInfo: data.actresses.map(actress => ({
+        name_romaji: actress.name_romaji,
+        name_kanji: actress.name_kanji,
+        name_kana: actress.name_kana,
+        name_en: actress.name_en
+      })),
+      // Actor info from R18.dev
+      actorInfo: data.actors.map(actor => ({
+        name_romaji: actor.name_romaji,
+        name_kanji: actor.name_kanji,
+        name_kana: actor.name_kana,
+        name_en: actor.name_en
+      }))
+    }
+
+    // Validate required fields
+    if (!parsed.code || !parsed.titleJp || !parsed.releaseDate) {
+      return null
+    }
+
+    return parsed
+  } catch (error) {
+    console.error('Error parsing R18 JSON data:', error)
+    return null
+  }
+}
+
+/**
  * Parse pasted movie data from various formats
  */
 export function parseMovieData(rawData: string): ParsedMovieData | null {
   try {
+    // Check if it's R18.dev JSON format first
+    if (isR18JsonFormat(rawData)) {
+      return parseR18JsonData(rawData)
+    }
+
     const lines = rawData.split('\n').map(line => line.trim()).filter(line => line.length > 0)
     
     if (lines.length === 0) return null
@@ -184,6 +464,9 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
             break
           case 'Series':
             parsed.series = cleanValue
+            break
+          case 'Label':
+            parsed.label = cleanValue
             break
           case 'Rating':
             parsed.rating = cleanValue
@@ -286,20 +569,212 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
  */
 export async function matchWithDatabase(
   parsedData: ParsedMovieData,
-  masterData: MasterDataItem[]
+  masterData: MasterDataItem[],
+  parsedEnglishNames?: {
+    actresses?: string[]
+    actors?: string[]
+    directors?: string[]
+    studios?: string[]
+    series?: string[]
+    labels?: string[]
+  }
 ): Promise<MatchedData> {
   const matched: MatchedData = {
     actresses: [],
     actors: [],
     directors: [],
     studios: [],
-    series: []
+    series: [],
+    labels: []
   }
 
-  // Helper function to find matches
+  // Helper function to calculate match score (higher = better match)
+  const calculateMatchScore = (candidate: MasterDataItem, query: string): number => {
+    const searchQuery = query.toLowerCase().trim()
+    let score = 0
+    
+    // Exact matches get highest scores
+    if (candidate.jpname?.toLowerCase() === searchQuery) score += 100
+    if (candidate.kanjiName?.toLowerCase() === searchQuery) score += 100
+    if (candidate.kanaName?.toLowerCase() === searchQuery) score += 100
+    if (candidate.alias?.toLowerCase() === searchQuery) score += 80
+    if (candidate.name?.toLowerCase() === searchQuery) score += 60
+    
+    // Contains matches get lower scores
+    if (candidate.jpname?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.kanjiName?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.kanaName?.toLowerCase().includes(searchQuery)) score += 50
+    if (candidate.alias?.toLowerCase().includes(searchQuery)) score += 40
+    if (candidate.name?.toLowerCase().includes(searchQuery)) score += 30
+    
+    // Group-specific aliases
+    if (candidate.groupData) {
+      for (const groupName in candidate.groupData) {
+        const groupInfo = candidate.groupData[groupName]
+        if (groupInfo.alias?.toLowerCase() === searchQuery) score += 70
+        if (groupInfo.alias?.toLowerCase().includes(searchQuery)) score += 35
+      }
+    }
+    
+    // Series-specific matching
+    if (candidate.type === 'series') {
+      if (candidate.titleEn?.toLowerCase() === searchQuery) score += 60
+      if (candidate.titleJp?.toLowerCase() === searchQuery) score += 100
+      if (candidate.titleEn?.toLowerCase().includes(searchQuery)) score += 30
+      if (candidate.titleJp?.toLowerCase().includes(searchQuery)) score += 50
+    }
+    
+    // Label-specific matching - handle case where Japanese name equals English name
+    if (candidate.type === 'label') {
+      // For labels, if jpname and name are the same, give higher score for exact match
+      if (candidate.jpname === candidate.name && candidate.name?.toLowerCase() === searchQuery) {
+        score += 120 // Higher score for exact match when both names are same
+      }
+      // Also check if the query matches either jpname or name when they're different
+      if (candidate.jpname !== candidate.name) {
+        if (candidate.jpname?.toLowerCase() === searchQuery) score += 100
+        if (candidate.name?.toLowerCase() === searchQuery) score += 100
+      }
+      // Additional check: if both names are the same and query matches, give extra points
+      if (candidate.jpname === candidate.name && candidate.name?.toLowerCase().includes(searchQuery)) {
+        score += 60 // Additional points for partial match when names are same
+      }
+    }
+    
+    return score
+  }
+  
+  // Helper function to detect missing data in database
+  const detectMissingData = (matchedItem: MasterDataItem | null, parsedName: string, type: string, parsedEnglishName?: string, r18Data?: any): any => {
+    if (!matchedItem) return null
+    
+    const missingData: any = {}
+    
+    // For Japanese names, check if kanji/kana names are missing
+    if (parsedName && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(parsedName)) {
+      // Check if parsed name contains kanji characters or Katakana
+      // Note: We treat Katakana as kanjiName in our database for consistency with R18.dev naming
+      if ((/[\u4E00-\u9FAF]/.test(parsedName) || /[\u30A0-\u30FF]/.test(parsedName)) && !matchedItem.kanjiName) {
+        missingData.kanjiName = parsedName
+      }
+      
+      // Check if parsed name contains kana characters
+      // Only set kanaName if it's Hiragana (ひらがな), not Katakana (カタカナ)
+      if (/[\u3040-\u309F]/.test(parsedName) && !matchedItem.kanaName) {
+        missingData.kanaName = parsedName
+      }
+    }
+    
+    // Check if English name is missing and we have parsed English name
+    if (parsedEnglishName && !matchedItem.name) {
+      missingData.name = parsedEnglishName
+    }
+    
+    // For actresses/actors/directors, check additional fields and R18.dev data
+    if (type === 'actress' || type === 'actor' || type === 'director') {
+      // Check if alias is missing (could be extracted from parsed data)
+      if (parsedName && !matchedItem.alias && parsedName !== matchedItem.jpname) {
+        missingData.alias = parsedName
+      }
+      
+      // Check R18.dev data for missing kanji/kana names
+      if (r18Data) {
+        // Check for missing kanji name from R18.dev
+        // Note: R18.dev's "name_kanji" is actually Katakana (カタカナ), not true Kanji (漢字)
+        // We map it to kanjiName field in our database for consistency
+        if (r18Data.name_kanji && !matchedItem.kanjiName) {
+          missingData.kanjiName = r18Data.name_kanji
+        }
+        
+        // Check for missing kana name from R18.dev
+        // Note: R18.dev's "name_kana" is Hiragana (ひらがな)
+        if (r18Data.name_kana && !matchedItem.kanaName) {
+          missingData.kanaName = r18Data.name_kana
+        }
+        
+        // Check for missing Japanese name from R18.dev
+        if (r18Data.name_ja && !matchedItem.jpname) {
+          missingData.jpname = r18Data.name_ja
+        }
+        
+        // Check for missing English name from R18.dev
+        const englishName = r18Data.name_en || r18Data.name_romaji
+        if (englishName && !matchedItem.name) {
+          missingData.name = englishName
+        }
+      }
+    }
+    
+    // For series, check if Japanese title is missing
+    if (type === 'series' && parsedName && !matchedItem.titleJp) {
+      missingData.titleJp = parsedName
+    }
+    
+    // For series, check if we need to update English title from R18.dev data
+    if (type === 'series' && r18Data?.name_en && matchedItem.titleEn !== r18Data.name_en) {
+      missingData.titleEn = r18Data.name_en
+    }
+    
+    // For labels, check if Japanese name is missing (but only if it's different from English name)
+    if (type === 'label' && parsedName && !matchedItem.jpname && parsedName !== matchedItem.name) {
+      missingData.jpname = parsedName
+    }
+    
+    return Object.keys(missingData).length > 0 ? missingData : null
+  }
+
+  // Helper function to check if matches are truly different (not just variations of same person)
+  const areMatchesTrulyDifferent = (matches: MasterDataItem[]): boolean => {
+    if (matches.length <= 1) return false
+    
+    // Check if all matches have the same Japanese name (jpname, kanjiName, kanaName)
+    const japaneseNames = new Set()
+    const englishNames = new Set()
+    
+    matches.forEach(match => {
+      // Collect Japanese names
+      if (match.jpname) japaneseNames.add(match.jpname.toLowerCase())
+      if (match.kanjiName) japaneseNames.add(match.kanjiName.toLowerCase())
+      if (match.kanaName) japaneseNames.add(match.kanaName.toLowerCase())
+      
+      // For series, also check titleJp
+      if (match.titleJp) japaneseNames.add(match.titleJp.toLowerCase())
+      
+      // Collect English names
+      const englishName = match.name || match.titleEn
+      if (englishName) englishNames.add(englishName.toLowerCase())
+    })
+    
+    // If all matches share the same Japanese name, they're likely the same person/series
+    if (japaneseNames.size === 1) {
+      console.log('All matches share same Japanese name, likely same person/series')
+      return false
+    }
+    
+    // If all matches share the same English name, no need to choose
+    if (englishNames.size === 1) {
+      console.log('All matches share same English name, no need to choose')
+      return false
+    }
+    
+    // Additional check: if the difference is only in minor variations (like spacing, punctuation)
+    const normalizedEnglishNames = Array.from(englishNames).map(name => 
+      (name as string).replace(/[\s\-_.,]/g, '').toLowerCase()
+    )
+    const uniqueNormalizedNames = new Set(normalizedEnglishNames)
+    
+    if (uniqueNormalizedNames.size === 1) {
+      console.log('English names are just minor variations, no need to choose')
+      return false
+    }
+    
+    return true
+  }
+  
+  // Helper function to find matches with scoring
   const findMatches = (name: string, type: MasterDataItem['type']): { matched: MasterDataItem | null, multipleMatches: MasterDataItem[] } => {
     const candidates = masterData.filter(item => item.type === type)
-    const matches: MasterDataItem[] = []
+    const matches: { candidate: MasterDataItem, score: number }[] = []
     
     // Debug logging for studio matching
     if (type === 'studio') {
@@ -311,29 +786,120 @@ export async function matchWithDatabase(
       console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
     }
     
+    // Debug logging for director matching
+    if (type === 'director') {
+      console.log('=== FIND MATCHES FOR DIRECTOR ===')
+      console.log('Searching for:', name)
+      console.log('Candidates found:', candidates.length)
+      console.log('Candidate names:', candidates.map(c => c.name).filter(Boolean))
+      console.log('Candidate jpnames:', candidates.map(c => c.jpname).filter(Boolean))
+      console.log('Candidate kanjiNames:', candidates.map(c => c.kanjiName).filter(Boolean))
+      console.log('Candidate kanaNames:', candidates.map(c => c.kanaName).filter(Boolean))
+      console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
+    }
+    
+    // Debug logging for series matching
+    if (type === 'series') {
+      console.log('=== FIND MATCHES FOR SERIES ===')
+      console.log('Searching for:', name)
+      console.log('Candidates found:', candidates.length)
+      console.log('Candidate names:', candidates.map(c => c.name).filter(Boolean))
+      console.log('Candidate jpnames:', candidates.map(c => c.jpname).filter(Boolean))
+      console.log('Candidate titleEn:', candidates.map(c => c.titleEn).filter(Boolean))
+      console.log('Candidate titleJp:', candidates.map(c => c.titleJp).filter(Boolean))
+      console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
+    }
+    
+    // Debug logging for label matching
+    if (type === 'label') {
+      console.log('=== FIND MATCHES FOR LABEL ===')
+      console.log('Searching for:', name)
+      console.log('Candidates found:', candidates.length)
+      console.log('Candidate names:', candidates.map(c => c.name).filter(Boolean))
+      console.log('Candidate jpnames:', candidates.map(c => c.jpname).filter(Boolean))
+      console.log('Candidate aliases:', candidates.map(c => c.alias).filter(Boolean))
+    }
+    
     for (const candidate of candidates) {
-      const matchesQuery = castMatchesQuery(candidate, name)
-      if (matchesQuery) {
-        matches.push(candidate)
+      const score = calculateMatchScore(candidate, name)
+      
+      // Debug logging for director - show all scores
+      if (type === 'director') {
+        console.log('Director candidate:', candidate.name, '|', candidate.jpname, '|', candidate.kanjiName, '|', candidate.kanaName, '|', candidate.alias, 'Score:', score)
+      }
+      
+      // Debug logging for series - show all scores
+      if (type === 'series') {
+        console.log('Series candidate:', candidate.name, '|', candidate.jpname, '|', candidate.titleEn, '|', candidate.titleJp, '|', candidate.alias, 'Score:', score)
+      }
+      
+      // Debug logging for label - show all scores
+      if (type === 'label') {
+        console.log('Label candidate:', candidate.name, '|', candidate.jpname, '|', candidate.alias, 'Score:', score)
+        console.log('  - Query:', name)
+        console.log('  - Candidate name:', candidate.name)
+        console.log('  - Candidate jpname:', candidate.jpname)
+        console.log('  - Names are same:', candidate.jpname === candidate.name)
+      }
+      
+      // Only include matches with meaningful scores (avoid very weak matches)
+      // For labels, use lower threshold if Japanese name equals English name
+      const minScore = type === 'label' && candidate.jpname === candidate.name ? 20 : 30
+      
+      if (score >= minScore) {
+        matches.push({ candidate, score })
         if (type === 'studio') {
-          console.log('Studio match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias)
+          console.log('Studio match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias, 'Score:', score)
+        }
+        if (type === 'director') {
+          console.log('Director match found:', candidate.name, '|', candidate.jpname, '|', candidate.kanjiName, '|', candidate.kanaName, '|', candidate.alias, 'Score:', score)
+        }
+        if (type === 'series') {
+          console.log('Series match found:', candidate.name, '|', candidate.jpname, '|', candidate.titleEn, '|', candidate.titleJp, '|', candidate.alias, 'Score:', score)
+        }
+        if (type === 'label') {
+          console.log('Label match found:', candidate.name, '|', candidate.jpname, '|', candidate.alias, 'Score:', score)
         }
       }
     }
     
+    // Sort by score (highest first)
+    matches.sort((a, b) => b.score - a.score)
+    
     if (type === 'studio') {
       console.log('Total matches found:', matches.length)
+      console.log('Sorted matches:', matches.map(m => ({ name: m.candidate.name, score: m.score })))
+    }
+    if (type === 'director') {
+      console.log('Total director matches found:', matches.length)
+      console.log('Sorted director matches:', matches.map(m => ({ name: m.candidate.name, jpname: m.candidate.jpname, score: m.score })))
+    }
+    if (type === 'series') {
+      console.log('Total series matches found:', matches.length)
+      console.log('Sorted series matches:', matches.map(m => ({ name: m.candidate.name, jpname: m.candidate.jpname, titleEn: m.candidate.titleEn, titleJp: m.candidate.titleJp, score: m.score })))
+    }
+    if (type === 'label') {
+      console.log('Total label matches found:', matches.length)
+      console.log('Sorted label matches:', matches.map(m => ({ name: m.candidate.name, jpname: m.candidate.jpname, score: m.score })))
     }
     
-    // If multiple matches found, return the first one as matched and all as multipleMatches
-    if (matches.length > 1) {
+    const sortedCandidates = matches.map(m => m.candidate)
+    
+    // Only consider it as multiple matches if the top matches have similar high scores
+    // This prevents weak matches from being considered as alternatives
+    const topScore = matches[0]?.score || 0
+    const highScoreMatches = matches.filter(m => m.score >= topScore * 0.8) // Within 80% of top score
+    const highScoreCandidates = highScoreMatches.map(m => m.candidate)
+    
+    // If multiple high-score matches found, return them as multipleMatches
+    if (highScoreCandidates.length > 1) {
       return {
-        matched: matches[0], // First match as default
-        multipleMatches: matches
+        matched: highScoreCandidates[0], // Highest scored match as default
+        multipleMatches: highScoreCandidates
       }
-    } else if (matches.length === 1) {
+    } else if (sortedCandidates.length >= 1) {
       return {
-        matched: matches[0],
+        matched: sortedCandidates[0],
         multipleMatches: []
       }
     }
@@ -345,82 +911,557 @@ export async function matchWithDatabase(
   }
 
   // Match actresses
-  for (const actressName of parsedData.actresses) {
+  for (let i = 0; i < parsedData.actresses.length; i++) {
+    const actressName = parsedData.actresses[i]
+    const parsedEnglishName = parsedEnglishNames?.actresses?.[i]
+    
     console.log('=== MATCHING ACTRESS ===')
     console.log('Searching for actress:', actressName)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(actressName, 'actress')
     console.log('Actress match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      // Check if names are different (not just minor variations)
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names
+    const r18ActressData = parsedData.actressInfo?.[i]
+    if (matchResult.matched && r18ActressData) {
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = r18ActressData.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source: name_en)')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, actressName, 'actress', parsedEnglishName, r18ActressData)
+    
     matched.actresses.push({
       name: actressName,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
   // Match actors
-  for (const actorName of parsedData.actors) {
+  for (let i = 0; i < parsedData.actors.length; i++) {
+    const actorName = parsedData.actors[i]
+    const parsedEnglishName = parsedEnglishNames?.actors?.[i]
+    
     console.log('=== MATCHING ACTOR ===')
     console.log('Searching for actor:', actorName)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(actorName, 'actor')
     console.log('Actor match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names
+    const r18ActorData = parsedData.actorInfo?.[i]
+    if (matchResult.matched && r18ActorData) {
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = r18ActorData.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('R18 English name differs:', dbEnglishName, 'vs', r18EngName, '(source: name_en)')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, actorName, 'actor', parsedEnglishName, r18ActorData)
+    
     matched.actors.push({
       name: actorName,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
   // Match directors
   if (parsedData.director) {
+    const parsedEnglishName = parsedEnglishNames?.directors?.[0]
+    
     console.log('=== MATCHING DIRECTOR ===')
     console.log('Searching for director:', parsedData.director)
+    console.log('Parsed English name:', parsedEnglishName)
+    console.log('Director info from R18.dev:', parsedData.directorInfo)
     
-    const matchResult = findMatches(parsedData.director, 'director')
+    // Try matching with all name variations from R18.dev
+    let matchResult = findMatches(parsedData.director, 'director')
+    
+    // If no match found and we have R18.dev director info, try other name variations
+    if (!matchResult.matched && parsedData.directorInfo) {
+      console.log('No match found with primary name, trying other variations...')
+      
+      // Try with romaji name
+      if (parsedData.directorInfo.name_romaji && parsedData.directorInfo.name_romaji !== parsedData.director) {
+        console.log('Trying with romaji name:', parsedData.directorInfo.name_romaji)
+        const romajiMatch = findMatches(parsedData.directorInfo.name_romaji, 'director')
+        if (romajiMatch.matched) {
+          matchResult = romajiMatch
+          console.log('Found match with romaji name!')
+        }
+      }
+      
+      // Try with kana name
+      if (!matchResult.matched && parsedData.directorInfo.name_kana && parsedData.directorInfo.name_kana !== parsedData.director) {
+        console.log('Trying with kana name:', parsedData.directorInfo.name_kana)
+        const kanaMatch = findMatches(parsedData.directorInfo.name_kana, 'director')
+        if (kanaMatch.matched) {
+          matchResult = kanaMatch
+          console.log('Found match with kana name!')
+        }
+      }
+    }
+    
     console.log('Director match result:', matchResult)
+    
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name (if available)
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names (this is the main check for directors)
+    if (matchResult.matched && parsedData.directorInfo) {
+      // Only use name_en for English name comparison, not name_romaji
+      const r18EnglishName = parsedData.directorInfo.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        console.log('=== DIRECTOR ENGLISH NAME COMPARISON ===')
+        console.log('Database English Name:', dbEnglishName)
+        console.log('R18 English Name:', r18EngName)
+        console.log('Source: name_en')
+        console.log('Normalized DB Name:', normalizedDbName)
+        console.log('Normalized R18 Name:', normalizedR18Name)
+        console.log('Names are different:', normalizedDbName !== normalizedR18Name)
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('✅ R18 English name differs - NEEDS SELECTION')
+        } else {
+          console.log('✅ R18 English name matches - NO SELECTION NEEDED')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, parsedData.director, 'director', parsedEnglishName, parsedData.directorInfo)
     
     matched.directors.push({
       name: parsedData.director,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
   // Match studios
   if (parsedData.studio) {
+    const parsedEnglishName = parsedEnglishNames?.studios?.[0]
+    
     console.log('=== MATCHING STUDIO ===')
     console.log('Searching for studio:', parsedData.studio)
+    console.log('Parsed English name:', parsedEnglishName)
     
     const matchResult = findMatches(parsedData.studio, 'studio')
     console.log('Studio match result:', matchResult)
     
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name (if available)
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names (this is the main check for studios)
+    if (matchResult.matched && parsedData.studioInfo) {
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.studioInfo.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        console.log('=== STUDIO ENGLISH NAME COMPARISON ===')
+        console.log('Database English Name:', dbEnglishName)
+        console.log('R18 English Name:', r18EngName)
+        console.log('Source: name_en')
+        console.log('Normalized DB Name:', normalizedDbName)
+        console.log('Normalized R18 Name:', normalizedR18Name)
+        console.log('Names are different:', normalizedDbName !== normalizedR18Name)
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('✅ R18 English name differs - NEEDS SELECTION')
+        } else {
+          console.log('✅ R18 English name matches - NO SELECTION NEEDED')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, parsedData.studio, 'studio', parsedEnglishName, parsedData.studioInfo)
+    
     matched.studios.push({
       name: parsedData.studio,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
   // Match series
   if (parsedData.series) {
+    const parsedEnglishName = parsedEnglishNames?.series?.[0]
+    
     console.log('=== MATCHING SERIES ===')
     console.log('Searching for series:', parsedData.series)
+    console.log('Parsed English name:', parsedEnglishName)
+    console.log('Series info from R18.dev:', parsedData.seriesInfo)
     
-    const matchResult = findMatches(parsedData.series, 'series')
+    // Try matching with all name variations from R18.dev
+    let matchResult = findMatches(parsedData.series, 'series')
+    
+    // If no match found and we have R18.dev series info, try other name variations
+    if (!matchResult.matched && parsedData.seriesInfo) {
+      console.log('No match found with primary name, trying other variations...')
+      
+      // Try with English name
+      if (parsedData.seriesInfo.name_en && parsedData.seriesInfo.name_en !== parsedData.series) {
+        console.log('Trying with English name:', parsedData.seriesInfo.name_en)
+        const englishMatch = findMatches(parsedData.seriesInfo.name_en, 'series')
+        if (englishMatch.matched) {
+          matchResult = englishMatch
+          console.log('Found match with English name!')
+        }
+      }
+      
+      // Try with Japanese name (if different from primary)
+      if (!matchResult.matched && parsedData.seriesInfo.name_ja && parsedData.seriesInfo.name_ja !== parsedData.series) {
+        console.log('Trying with Japanese name:', parsedData.seriesInfo.name_ja)
+        const japaneseMatch = findMatches(parsedData.seriesInfo.name_ja, 'series')
+        if (japaneseMatch.matched) {
+          matchResult = japaneseMatch
+          console.log('Found match with Japanese name!')
+        }
+      }
+    }
+    
     console.log('Series match result:', matchResult)
+    
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name
+    if (matchResult.matched && parsedEnglishName && (matchResult.matched.name || matchResult.matched.titleEn)) {
+      const dbEnglishName = (matchResult.matched.name || matchResult.matched.titleEn || '').toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names (this is the main check for series)
+    if (matchResult.matched && parsedData.seriesInfo) {
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.seriesInfo.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = (matchResult.matched.name || matchResult.matched.titleEn || '').toLowerCase().trim()
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        console.log('=== SERIES ENGLISH NAME COMPARISON ===')
+        console.log('Database English Name:', dbEnglishName)
+        console.log('R18 English Name:', r18EngName)
+        console.log('Source: name_en')
+        console.log('Normalized DB Name:', normalizedDbName)
+        console.log('Normalized R18 Name:', normalizedR18Name)
+        console.log('Names are different:', normalizedDbName !== normalizedR18Name)
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('✅ R18 English name differs - NEEDS SELECTION')
+        } else {
+          console.log('✅ R18 English name matches - NO SELECTION NEEDED')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, parsedData.series, 'series', parsedEnglishName, parsedData.seriesInfo)
     
     matched.series.push({
       name: parsedData.series,
+      parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+    })
+  }
+
+  // Match labels
+  if (parsedData.label) {
+    const parsedEnglishName = parsedEnglishNames?.labels?.[0]
+    
+    console.log('=== MATCHING LABEL ===')
+    console.log('Searching for label:', parsedData.label)
+    console.log('Parsed English name:', parsedEnglishName)
+    console.log('Label info from R18.dev:', parsedData.labelInfo)
+    
+    // Try matching with all name variations from R18.dev
+    let matchResult = findMatches(parsedData.label, 'label')
+    
+    // If no match found and we have R18.dev label info, try other name variations
+    if (!matchResult.matched && parsedData.labelInfo) {
+      console.log('No match found with primary name, trying other variations...')
+      
+      // Try with English name
+      if (parsedData.labelInfo.name_en && parsedData.labelInfo.name_en !== parsedData.label) {
+        console.log('Trying with English name:', parsedData.labelInfo.name_en)
+        const englishMatch = findMatches(parsedData.labelInfo.name_en, 'label')
+        if (englishMatch.matched) {
+          matchResult = englishMatch
+          console.log('Found match with English name!')
+        }
+      }
+      
+      // Try with Japanese name (if different from primary)
+      if (!matchResult.matched && parsedData.labelInfo.name_ja && parsedData.labelInfo.name_ja !== parsedData.label) {
+        console.log('Trying with Japanese name:', parsedData.labelInfo.name_ja)
+        const japaneseMatch = findMatches(parsedData.labelInfo.name_ja, 'label')
+        if (japaneseMatch.matched) {
+          matchResult = japaneseMatch
+          console.log('Found match with Japanese name!')
+        }
+      }
+    }
+    
+    console.log('Label match result:', matchResult)
+    
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    let availableEnglishNames: string[] = []
+    
+    // Check parsed English name
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        availableEnglishNames.push(parsedEnglishName)
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    // Check R18.dev data for additional English names (this is the main check for labels)
+    if (matchResult.matched && parsedData.labelInfo) {
+      // Only use name_en for English name comparison, not name_ja
+      const r18EnglishName = parsedData.labelInfo.name_en
+      
+      if (r18EnglishName) {
+        const dbEnglishName = matchResult.matched.name?.toLowerCase().trim() || ''
+        const r18EngName = r18EnglishName.toLowerCase().trim()
+        
+        const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+        const normalizedR18Name = r18EngName.replace(/[\s\-_.,]/g, '')
+        
+        console.log('=== LABEL ENGLISH NAME COMPARISON ===')
+        console.log('Database English Name:', dbEnglishName)
+        console.log('R18 English Name:', r18EngName)
+        console.log('Source: name_en')
+        console.log('Normalized DB Name:', normalizedDbName)
+        console.log('Normalized R18 Name:', normalizedR18Name)
+        console.log('Names are different:', normalizedDbName !== normalizedR18Name)
+        
+        if (normalizedDbName !== normalizedR18Name && !availableEnglishNames.includes(r18EnglishName)) {
+          needsEnglishNameSelection = true
+          availableEnglishNames.push(r18EnglishName)
+          console.log('✅ R18 English name differs - NEEDS SELECTION')
+        } else {
+          console.log('✅ R18 English name matches - NO SELECTION NEEDED')
+        }
+      }
+    }
+    
+    // Detect missing data in database
+    const missingData = detectMissingData(matchResult.matched, parsedData.label, 'label', parsedEnglishName, parsedData.labelInfo)
+    
+    matched.labels.push({
+      name: parsedData.label,
+      parsedEnglishName,
+      matched: matchResult.matched,
+      multipleMatches: matchResult.multipleMatches,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection,
+      availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
+      missingData,
+      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
     })
   }
 
@@ -542,8 +1583,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actresses[index]
     if (matchedItem?.matched) {
-      // Use the matched name from database (prefer English name, fallback to Japanese)
-      const matchedName = matchedItem.matched.name || matchedItem.matched.jpname || name
+      // Use custom English name if user selected one, otherwise use matched name from database
+      const matchedName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
       console.log(`Actress ${name} matched to: ${matchedName}`)
       return matchedName
     }
@@ -563,8 +1604,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     // Use matched data if available, otherwise use original name
     const matchedItem = matchedData.actors[index]
     if (matchedItem?.matched) {
-      // Use the matched name from database (prefer English name, fallback to Japanese)
-      const matchedName = matchedItem.matched.name || matchedItem.matched.jpname || name
+      // Use custom English name if user selected one, otherwise use matched name from database
+      const matchedName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
       console.log(`Actor ${name} matched to: ${matchedName}`)
       return matchedName
     }
@@ -581,8 +1622,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isDirectorIgnored) {
     const matchedDirector = matchedData.directors[0]
     if (matchedDirector?.matched) {
-      // Use the matched director name from database
-      director = matchedDirector.matched.name || matchedDirector.matched.jpname || parsedData.director
+      // Use custom English name if user selected one, otherwise use matched name from database
+      director = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || parsedData.director
       console.log(`Director ${parsedData.director} matched to: ${director}`)
     } else {
       director = parsedData.director
@@ -596,8 +1637,8 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isStudioIgnored) {
     const matchedStudio = matchedData.studios[0]
     if (matchedStudio?.matched) {
-      // Use the matched studio name from database
-      studio = matchedStudio.matched.name || matchedStudio.matched.jpname || parsedData.studio
+      // Use custom English name if user selected one, otherwise use matched name from database
+      studio = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || parsedData.studio
       console.log(`Studio ${parsedData.studio} matched to: ${studio}`)
     } else {
       studio = parsedData.studio
@@ -611,12 +1652,36 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
   if (!isSeriesIgnored) {
     const matchedSeries = matchedData.series[0]
     if (matchedSeries?.matched) {
-      // Use the matched series name from database
-      series = matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
+      // Use custom English name if user selected one, otherwise use matched name from database
+      series = matchedSeries.customEnglishName || matchedSeries.matched.name || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || parsedData.series
       console.log(`Series ${parsedData.series} matched to: ${series}`)
+      if (matchedSeries.customEnglishName) {
+        console.log(`Using custom English name selected by user: ${matchedSeries.customEnglishName}`)
+      }
     } else {
-      series = parsedData.series
-      console.log(`Series ${parsedData.series} not matched, using original name`)
+      // If no match found but we have R18.dev series info, use the English name from R18
+      if (parsedData.seriesInfo?.name_en) {
+        series = parsedData.seriesInfo.name_en
+        console.log(`Series ${parsedData.series} not matched, using R18 English name: ${series}`)
+      } else {
+        series = parsedData.series
+        console.log(`Series ${parsedData.series} not matched, using original name`)
+      }
+    }
+  }
+
+  // Check if label is ignored and use matched data
+  const isLabelIgnored = ignoredItems?.has('labels-0')
+  let label = ''
+  if (!isLabelIgnored && parsedData.label) {
+    const matchedLabel = matchedData.labels[0]
+    if (matchedLabel?.matched) {
+      // Use custom English name if user selected one, otherwise use matched name from database
+      label = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || parsedData.label
+      console.log(`Label ${parsedData.label} matched to: ${label}`)
+    } else {
+      label = parsedData.label
+      console.log(`Label ${parsedData.label} not matched, using original name`)
     }
   }
 
@@ -629,10 +1694,16 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     director,
     studio,
     series,
+    label,
     actress: uniqueActresses.join(', '),
     actors: uniqueActors.join(', '),
     dmcode: parsedData.dmcode || '',
-    type: 'HC' // Default to HC for parsed movies
+    type: 'HC', // Default to HC for parsed movies
+    cropCover: false, // Default to false, will be overridden by MovieDataParser
+    // Additional R18.dev data
+    galleryImages: parsedData.galleryImages,
+    coverImage: parsedData.coverImage,
+    sampleUrl: parsedData.sampleUrl
   }
   
   console.log('=== FINAL MOVIE DATA ===')
@@ -680,6 +1751,10 @@ export function mergeMovieData(
     mergedMovie.series = parsedData.series
   }
 
+  if (selectedFields.has('label') && parsedData.label) {
+    mergedMovie.label = parsedData.label
+  }
+
   if (selectedFields.has('actress') && parsedData.actresses.length > 0) {
     // Merge actresses - combine existing and new, remove duplicates
     const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()) : []
@@ -715,12 +1790,27 @@ function castMatchesQuery(castMember: MasterDataItem, query: string): boolean {
   
   const searchQuery = query.toLowerCase().trim()
   
-  // Search in name and jpname
-  if (castMember.name?.toLowerCase().includes(searchQuery)) return true
-  if (castMember.jpname?.toLowerCase().includes(searchQuery)) return true
+  // Priority 1: Exact match with Japanese name (highest priority)
+  if (castMember.jpname?.toLowerCase() === searchQuery) return true
+  if (castMember.kanjiName?.toLowerCase() === searchQuery) return true
+  if (castMember.kanaName?.toLowerCase() === searchQuery) return true
   
-  // Search in main alias
+  // Priority 2: Contains match with Japanese name
+  if (castMember.jpname?.toLowerCase().includes(searchQuery)) return true
+  if (castMember.kanjiName?.toLowerCase().includes(searchQuery)) return true
+  if (castMember.kanaName?.toLowerCase().includes(searchQuery)) return true
+  
+  // Priority 3: Exact match with alias
+  if (castMember.alias?.toLowerCase() === searchQuery) return true
+  
+  // Priority 4: Contains match with alias
   if (castMember.alias?.toLowerCase().includes(searchQuery)) return true
+  
+  // Priority 5: Exact match with English name
+  if (castMember.name?.toLowerCase() === searchQuery) return true
+  
+  // Priority 6: Contains match with English name (lowest priority)
+  if (castMember.name?.toLowerCase().includes(searchQuery)) return true
   
   // Search in group-specific aliases
   if (castMember.groupData) {

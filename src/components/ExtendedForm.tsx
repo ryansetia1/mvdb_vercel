@@ -23,6 +23,8 @@ interface ExtendedFormProps {
 interface FormData {
   name: string
   jpname: string
+  kanjiName: string
+  kanaName: string
   birthdate: Date | undefined
   alias: string
   links: LabeledLink[]
@@ -38,6 +40,8 @@ interface FormData {
 const initialFormData: FormData = {
   name: '',
   jpname: '',
+  kanjiName: '',
+  kanaName: '',
   birthdate: undefined,
   alias: '',
   links: [],
@@ -260,6 +264,8 @@ export function ExtendedForm({ type, accessToken, data, onDataChange, initialEdi
       const submitData = {
         name: formData.name.trim(),
         jpname: formData.jpname.trim() || undefined,
+        kanjiName: formData.kanjiName.trim() || undefined,
+        kanaName: formData.kanaName.trim() || undefined,
         birthdate: birthdateString,
         alias: formData.alias.trim() || undefined,
         links: formData.links.length > 0 ? formData.links : undefined,
@@ -357,6 +363,8 @@ export function ExtendedForm({ type, accessToken, data, onDataChange, initialEdi
     setFormData({
       name: item.name || '',
       jpname: item.jpname || '',
+      kanjiName: item.kanjiName || '',
+      kanaName: item.kanaName || '',
       birthdate: birthdateValue,
       alias: item.alias || '',
       links: linkArray,
@@ -429,6 +437,26 @@ export function ExtendedForm({ type, accessToken, data, onDataChange, initialEdi
                   value={formData.jpname}
                   onChange={(e) => handleInputChange('jpname', e.target.value)}
                   placeholder="Masukkan nama Jepang"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kanjiName">Kanji Name</Label>
+                <Input
+                  id="kanjiName"
+                  value={formData.kanjiName}
+                  onChange={(e) => handleInputChange('kanjiName', e.target.value)}
+                  placeholder="Masukkan nama dalam kanji (漢字)"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kanaName">Kana Name</Label>
+                <Input
+                  id="kanaName"
+                  value={formData.kanaName}
+                  onChange={(e) => handleInputChange('kanaName', e.target.value)}
+                  placeholder="Masukkan nama dalam kana (かな)"
                 />
               </div>
 

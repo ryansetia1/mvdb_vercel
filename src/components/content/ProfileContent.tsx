@@ -13,15 +13,17 @@ import { StudiosGrid } from './profile/StudiosGrid'
 import { SeriesGrid } from './profile/SeriesGrid'
 import { processProfileImages, getAllProfileImages } from './profile/helpers'
 import { ProfileContentProps, ProfileState } from './profile/types'
-import { masterDataApi } from '../../utils/masterDataApi'
+import { masterDataApi, MasterDataItem } from '../../utils/masterDataApi'
 import { movieApi } from '../../utils/movieApi'
 import { photobookApi, photobookHelpers } from '../../utils/photobookApi'
+import { useCachedData } from '../../hooks/useCachedData'
 import { ArrowLeft, Film, Camera, Users, Building, List, Edit } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ActorForm } from '../ActorForm'
 
 export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
+  const { loadData: loadCachedData } = useCachedData()
   const [state, setState] = useState<ProfileState>({
     profile: null,
     movies: [],
@@ -132,8 +134,8 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
     setState(prev => ({ ...prev, isLoading: true, error: '' }))
 
     try {
-      // Load profile data
-      const profiles = await masterDataApi.getByType(type, accessToken)
+      // Load profile data using cache (same as movie detail page)
+      const profiles = await loadCachedData(type, () => masterDataApi.getByType(type, accessToken))
       const foundProfile = profiles.find(p => p.name === name)
 
       // Load movies

@@ -29,11 +29,15 @@ export function DirectorSelector({
   const [error, setError] = useState('')
   const [newDirectorName, setNewDirectorName] = useState('')
   const [newDirectorJpName, setNewDirectorJpName] = useState('')
+  const [newDirectorKanjiName, setNewDirectorKanjiName] = useState('')
+  const [newDirectorKanaName, setNewDirectorKanaName] = useState('')
   const [selectedPersonId, setSelectedPersonId] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingJpName, setEditingJpName] = useState('')
+  const [editingKanjiName, setEditingKanjiName] = useState('')
+  const [editingKanaName, setEditingKanaName] = useState('')
 
   // Load actors and actresses when component mounts
   useEffect(() => {
@@ -75,6 +79,8 @@ export function DirectorSelector({
       const directorData: Partial<MasterDataItem> = {
         name: selectedPerson.name || '',
         jpname: selectedPerson.jpname || undefined,
+        kanjiName: selectedPerson.kanjiName || undefined,
+        kanaName: selectedPerson.kanaName || undefined,
         profilePicture: selectedPerson.profilePicture || undefined,
         birthdate: selectedPerson.birthdate || undefined,
         alias: selectedPerson.alias || undefined,
@@ -97,16 +103,20 @@ export function DirectorSelector({
     if (!name) return
 
     try {
-      // Use createExtended to include jpname if provided
+      // Use createExtended to include jpname, kanjiName, and kanaName if provided
       const directorData: Partial<MasterDataItem> = {
         name,
-        jpname: newDirectorJpName.trim() || undefined
+        jpname: newDirectorJpName.trim() || undefined,
+        kanjiName: newDirectorKanjiName.trim() || undefined,
+        kanaName: newDirectorKanaName.trim() || undefined
       }
       
       const newDirector = await masterDataApi.createExtended('director', directorData, accessToken)
       onDirectorAdd(newDirector)
       setNewDirectorName('')
       setNewDirectorJpName('')
+      setNewDirectorKanjiName('')
+      setNewDirectorKanaName('')
       setError('')
     } catch (error: any) {
       setError(`Gagal menambah director: ${error.message}`)
@@ -129,12 +139,16 @@ export function DirectorSelector({
     setEditingId(director.id)
     setEditingName(director.name || '')
     setEditingJpName(director.jpname || '')
+    setEditingKanjiName(director.kanjiName || '')
+    setEditingKanaName(director.kanaName || '')
   }
 
   const handleEditCancel = () => {
     setEditingId(null)
     setEditingName('')
     setEditingJpName('')
+    setEditingKanjiName('')
+    setEditingKanaName('')
   }
 
   const handleEditSave = async (id: string) => {
@@ -145,7 +159,12 @@ export function DirectorSelector({
       const updatedDirector = await masterDataApi.updateExtended(
         'director', 
         id, 
-        { name, jpname: editingJpName.trim() || undefined }, 
+        { 
+          name, 
+          jpname: editingJpName.trim() || undefined,
+          kanjiName: editingKanjiName.trim() || undefined,
+          kanaName: editingKanaName.trim() || undefined
+        }, 
         accessToken
       )
       
@@ -156,6 +175,8 @@ export function DirectorSelector({
       setEditingId(null)
       setEditingName('')
       setEditingJpName('')
+      setEditingKanjiName('')
+      setEditingKanaName('')
       setError('')
     } catch (error: any) {
       setError(`Gagal mengupdate director: ${error.message}`)
@@ -294,6 +315,24 @@ export function DirectorSelector({
                 />
               </div>
               
+              <div>
+                <Input
+                  placeholder="Kanji Name (opsional)..."
+                  value={newDirectorKanjiName}
+                  onChange={(e) => setNewDirectorKanjiName(e.target.value)}
+                  onKeyPress={(e) => handleKeyPress(e, 'new')}
+                />
+              </div>
+              
+              <div>
+                <Input
+                  placeholder="Kana Name (opsional)..."
+                  value={newDirectorKanaName}
+                  onChange={(e) => setNewDirectorKanaName(e.target.value)}
+                  onKeyPress={(e) => handleKeyPress(e, 'new')}
+                />
+              </div>
+              
               <Button onClick={handleAddNewDirector} className="w-full" disabled={!newDirectorName.trim()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Director Baru
@@ -332,6 +371,28 @@ export function DirectorSelector({
                           placeholder="Nama Jepang (opsional)..."
                           value={editingJpName}
                           onChange={(e) => setEditingJpName(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') handleEditSave(director.id)
+                            if (e.key === 'Escape') handleEditCancel()
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          placeholder="Kanji Name (opsional)..."
+                          value={editingKanjiName}
+                          onChange={(e) => setEditingKanjiName(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') handleEditSave(director.id)
+                            if (e.key === 'Escape') handleEditCancel()
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          placeholder="Kana Name (opsional)..."
+                          value={editingKanaName}
+                          onChange={(e) => setEditingKanaName(e.target.value)}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') handleEditSave(director.id)
                             if (e.key === 'Escape') handleEditCancel()
