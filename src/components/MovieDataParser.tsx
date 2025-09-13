@@ -429,7 +429,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       setParsedEnglishNames(extractedEnglishNames)
       
       // Match with database
-      matchWithDatabase(parsed, masterData, extractedEnglishNames).then(async (matched) => {
+      matchWithDatabase(parsed, masterData, extractedEnglishNames, detectedSource).then(async (matched) => {
         setMatchedData(matched)
         
         // Template auto-apply is now handled by useEffect only to prevent duplicate calls
@@ -515,7 +515,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           titleEn: titleEn
         }
 
-        const newMovieData = convertToMovie(updatedParsedData, matchedData, ignoredItems)
+        const newMovieData = convertToMovie(updatedParsedData, matchedData, ignoredItems, detectedSource)
         // Override movie type with user selection and add cover/gallery
         newMovieData.type = movieType
         newMovieData.cover = cover
@@ -700,7 +700,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           titleEn: titleEn
         }
 
-        const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems)
+        const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems, detectedSource)
         // Override movie type with user selection and add cover/gallery
         movie.type = movieType
         movie.cover = cover
@@ -750,7 +750,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       titleEn: titleEn
     }
 
-    const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems)
+    const movie = convertToMovie(updatedParsedData, matchedData, ignoredItems, detectedSource)
     // Override movie type with user selection and add cover/gallery
     movie.type = movieType
     movie.cover = cover
@@ -910,6 +910,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
 
   const isItemIgnored = (typeKey: keyof MatchedData, index: number): boolean => {
     const itemKey = `${typeKey}-${index}`
+    
+    // For JavDB simple parser, only use manual ignore state (user choice)
+    // Don't auto-ignore based on matched data
     return ignoredItems.has(itemKey)
   }
 
@@ -1695,7 +1698,20 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                   ? 'bg-green-500'
                   : 'bg-gray-500'
               }`}></div>
-              {detectedSource === 'javdb' ? '📋 JavDB Format' : '🔗 R18.dev Format'}
+              {detectedSource === 'javdb' 
+                ? '📋 JavDB Format (Simple Parser)' 
+                : detectedSource === 'r18'
+                ? '🔗 R18.dev Format (Complex Parser)'
+                : '❓ Unknown Format (Fallback Parser)'
+              }
+            </div>
+            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              {detectedSource === 'javdb' 
+                ? 'Menggunakan parser sederhana berdasarkan commit 5d5a725'
+                : detectedSource === 'r18'
+                ? 'Menggunakan parser kompleks untuk JSON R18.dev'
+                : 'Menggunakan parser fallback untuk format tidak dikenal'
+              }
             </div>
           </div>
         )}
