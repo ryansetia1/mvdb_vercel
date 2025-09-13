@@ -401,15 +401,18 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       
       // Extract English names from parsed data (if available)
       const extractedEnglishNames = {
-        actresses: parsed.actresses.map(name => {
-          // For now, assume the parsed name is Japanese, English name would come from translation
-          // This would be populated from titleEn translation or other sources
-          return undefined // Will be filled when we have English translations
+        actresses: parsed.actresses.map((name, index) => {
+          // Use R18.dev English name if available, fallback to romaji
+          return parsed.actressInfo?.[index]?.name_en || parsed.actressInfo?.[index]?.name_romaji || undefined
         }),
-        actors: parsed.actors.map(name => undefined),
-        directors: parsed.director ? [undefined] : [],
-        studios: parsed.studio ? [undefined] : [],
-        series: parsed.series ? [undefined] : []
+        actors: parsed.actors.map((name, index) => {
+          // Use R18.dev English name if available, fallback to romaji
+          return parsed.actorInfo?.[index]?.name_en || parsed.actorInfo?.[index]?.name_romaji || undefined
+        }),
+        directors: parsed.director ? [parsed.directorInfo?.name_en || parsed.directorInfo?.name_romaji || undefined] : [],
+        studios: parsed.studio ? [parsed.studioInfo?.name_en || undefined] : [],
+        series: parsed.series ? [parsed.seriesInfo?.name_en || undefined] : [],
+        labels: parsed.label ? [parsed.labelInfo?.name_en || undefined] : []
       }
       
       setParsedEnglishNames(extractedEnglishNames)
@@ -491,8 +494,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       try {
         setLoading(true)
         
-        // Update master data with missing data first
-        await updateMasterDataWithMissingData()
+        // Update master data with conflicts first
+        await updateMasterDataWithConflicts()
         
         // Create updated parsed data with dmcode, titleEn, and movieType
         const updatedParsedData = {
@@ -677,8 +680,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       try {
         setLoading(true)
         
-        // Update master data with missing data first
-        await updateMasterDataWithMissingData()
+        // Update master data with conflicts first
+        await updateMasterDataWithConflicts()
         
         const updatedParsedData = {
           ...parsedData,
@@ -909,17 +912,17 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setMatchedData(newMatchedData)
   }
 
-  const handleAddMissingData = (type: keyof MatchedData, index: number, addMissing: boolean) => {
+  const handleShouldUpdateData = (type: keyof MatchedData, index: number, shouldUpdate: boolean) => {
     if (!matchedData) return
 
     const newMatchedData = { ...matchedData }
     const item = newMatchedData[type][index]
-    item.addMissingData = addMissing
+    item.shouldUpdateData = shouldUpdate
     
     setMatchedData(newMatchedData)
   }
 
-  const updateMasterDataWithMissingData = async () => {
+  const updateMasterDataWithConflicts = async () => {
     if (!matchedData) return
 
     const updatePromises: Promise<any>[] = []
@@ -931,7 +934,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       const items = matchedData[category]
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.matched && item.missingData && item.addMissingData) {
+        if (item.matched && (item.missingData || item.shouldUpdateData)) {
           // Determine the type for API call first
           let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
           switch (category) {
@@ -985,27 +988,27 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           }
           
           // Add missing data fields (only if they exist in missingData)
-          if (item.missingData.kanjiName) updateData.kanjiName = item.missingData.kanjiName
-          if (item.missingData.kanaName) updateData.kanaName = item.missingData.kanaName
-          if (item.missingData.alias) updateData.alias = item.missingData.alias
-          if (item.missingData.birthdate) updateData.birthdate = item.missingData.birthdate
-          if (item.missingData.tags) updateData.tags = item.missingData.tags
-          if (item.missingData.titleJp) updateData.titleJp = item.missingData.titleJp
-          if (item.missingData.name) updateData.name = item.missingData.name
+          if (item.missingData?.kanjiName) updateData.kanjiName = item.missingData.kanjiName
+          if (item.missingData?.kanaName) updateData.kanaName = item.missingData.kanaName
+          if (item.missingData?.alias) updateData.alias = item.missingData.alias
+          if (item.missingData?.birthdate) updateData.birthdate = item.missingData.birthdate
+          if (item.missingData?.tags) updateData.tags = item.missingData.tags
+          if (item.missingData?.titleJp) updateData.titleJp = item.missingData.titleJp
+          if (item.missingData?.name) updateData.name = item.missingData.name
           
           // Ensure critical fields are preserved for actresses/actors/directors
           if (masterDataType === 'actress' || masterDataType === 'actor' || masterDataType === 'director') {
             // Preserve Japanese name if it exists
             if (item.matched.jpname) updateData.jpname = item.matched.jpname
             // Preserve existing kanji/kana names if they exist and no new ones are being added
-            if (!item.missingData.kanjiName && item.matched.kanjiName) updateData.kanjiName = item.matched.kanjiName
-            if (!item.missingData.kanaName && item.matched.kanaName) updateData.kanaName = item.matched.kanaName
+            if (!item.missingData?.kanjiName && item.matched.kanjiName) updateData.kanjiName = item.matched.kanjiName
+            if (!item.missingData?.kanaName && item.matched.kanaName) updateData.kanaName = item.matched.kanaName
             // Preserve existing alias if no new one is being added
-            if (!item.missingData.alias && item.matched.alias) updateData.alias = item.matched.alias
+            if (!item.missingData?.alias && item.matched.alias) updateData.alias = item.matched.alias
             // Preserve existing birthdate if no new one is being added
-            if (!item.missingData.birthdate && item.matched.birthdate) updateData.birthdate = item.matched.birthdate
+            if (!item.missingData?.birthdate && item.matched.birthdate) updateData.birthdate = item.matched.birthdate
             // Preserve existing tags if no new ones are being added
-            if (!item.missingData.tags && item.matched.tags) updateData.tags = item.matched.tags
+            if (!item.missingData?.tags && item.matched.tags) updateData.tags = item.matched.tags
           }
 
           // Add update promise
@@ -1340,6 +1343,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                               +{item.multipleMatches.length - 1} other matches found
                             </div>
                           )}
+                          {/* Show auto-confirm message for series */}
+                          {typeKey === 'series' && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              🔄 Series otomatis dikonfirmasi dan akan diupdate
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1415,7 +1424,19 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                           >
                             Japanese Name Match ({item.multipleMatches.length})
                           </button>
-                          {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) || (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp) || (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName)) && !item.customEnglishName && !item.needsConfirmation && (
+                          {(
+                            // General conditions for all categories
+                            item.needsEnglishNameSelection || 
+                            (item.availableEnglishNames && item.availableEnglishNames.length > 0) ||
+                            // Directors: show button if there's a difference between Japanese and English names
+                            (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname) ||
+                            (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) ||
+                            // Series: don't check needsConfirmation since it's auto-confirmed
+                            (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp) ||
+                            (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName) ||
+                            // Other categories: check needsConfirmation
+                            (typeKey !== 'series' && typeKey !== 'directors' && item.needsConfirmation)
+                          ) && !item.customEnglishName && (
                             <button
                               onClick={() => {
                                 console.log('=== CHOOSE ENGLISH NAME CLICKED ===')
@@ -1482,13 +1503,18 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                         </>
                       )}
                       {/* Move Choose English Name button outside multipleMatches condition */}
-                      {(item.needsEnglishNameSelection || (item.availableEnglishNames && item.availableEnglishNames.length > 0) || (typeKey === 'directors' && item.matched && item.matched.name && item.matched.jpname && item.matched.name !== item.matched.jpname && item.needsConfirmation) || (typeKey === 'directors' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName && item.needsConfirmation) || (typeKey === 'series' && item.matched && item.matched.name && item.matched.titleJp && item.matched.name !== item.matched.titleJp && item.needsConfirmation) || (typeKey === 'series' && item.matched && item.matched.name && item.parsedEnglishName && item.matched.name !== item.parsedEnglishName && item.needsConfirmation)) && !item.customEnglishName && (
+                      {(
+                        // General conditions for all categories
+                        item.needsEnglishNameSelection || 
+                        (item.availableEnglishNames && item.availableEnglishNames.length > 0) ||
+                        // Directors: show button only if there's a conflict that needs resolution
+                        (typeKey === 'directors' && item.hasDifferentEnglishNames) ||
+                        // Series: don't show button since it's auto-confirmed and auto-updated
+                        // Other categories: check needsConfirmation
+                        (typeKey !== 'series' && typeKey !== 'directors' && item.needsConfirmation)
+                      ) && !item.customEnglishName && (
                         <button
                           onClick={() => {
-                            console.log('=== CHOOSE ENGLISH NAME CLICKED (MOVED) ===')
-                            console.log('Item:', item)
-                            console.log('Available English Names:', item.availableEnglishNames)
-                            console.log('Parsed English Name:', item.parsedEnglishName)
                             
                             let type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
                             switch (typeKey) {
@@ -1527,56 +1553,68 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                           Choose English Name
                         </button>
                       )}
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={!item.needsConfirmation}
-                          onChange={(e) => handleConfirmMatch(typeKey, index, e.target.checked)}
-                          className="mr-2"
-                        />
-                        Confirm
-                      </label>
+                      {/* Hide confirm checkbox for series - auto-confirmed */}
+                      {typeKey !== 'series' && (
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={!item.needsConfirmation}
+                            onChange={(e) => handleConfirmMatch(typeKey, index, e.target.checked)}
+                            className="mr-2"
+                          />
+                          Confirm
+                        </label>
+                      )}
                       
-                      {/* Missing Data Section */}
-                      {item.missingData && (
+                      {/* Missing Data Section - Hide for series since they're auto-updated */}
+                      {item.missingData && typeKey !== 'series' && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <div className="text-sm font-medium text-yellow-800 mb-2">
                             📝 Data yang belum ada di database:
                           </div>
                           <div className="space-y-1 text-sm text-yellow-700">
-                            {item.missingData.kanjiName && (
+                            {item.missingData?.kanjiName && (
                               <div>• Kanji Name: {item.missingData.kanjiName}</div>
                             )}
-                            {item.missingData.kanaName && (
+                            {item.missingData?.kanaName && (
                               <div>• Kana Name: {item.missingData.kanaName}</div>
                             )}
-                            {item.missingData.alias && (
+                            {item.missingData?.alias && (
                               <div>• Alias: {item.missingData.alias}</div>
                             )}
-                            {item.missingData.birthdate && (
+                            {item.missingData?.birthdate && (
                               <div>• Birthdate: {item.missingData.birthdate}</div>
                             )}
-                            {item.missingData.tags && (
+                            {item.missingData?.tags && (
                               <div>• Tags: {item.missingData.tags}</div>
                             )}
-                            {item.missingData.titleJp && (
+                            {item.missingData?.titleJp && (
                               <div>• Japanese Title: {item.missingData.titleJp}</div>
                             )}
-                            {item.missingData.name && (
+                            {item.missingData?.name && (
                               <div>• English Name: {item.missingData.name}</div>
                             )}
                           </div>
-                          <label className="flex items-center mt-2">
-                            <input
-                              type="checkbox"
-                              checked={item.addMissingData || false}
-                              onChange={(e) => handleAddMissingData(typeKey, index, e.target.checked)}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-yellow-800">
-                              Tambahkan data ini ke database
-                            </span>
-                          </label>
+                          {/* Hide update checkbox for series - auto-updated */}
+                          {typeKey !== 'series' && (
+                            <label className="flex items-center mt-2">
+                              <input
+                                type="checkbox"
+                                checked={item.shouldUpdateData || false}
+                                onChange={(e) => handleShouldUpdateData(typeKey, index, e.target.checked)}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-yellow-800">
+                                Update data yang berbeda di database
+                              </span>
+                            </label>
+                          )}
+                          {/* Show auto-update message for series */}
+                          {typeKey === 'series' && (
+                            <div className="mt-2 text-sm text-green-800 font-medium">
+                              ✅ Series akan otomatis diupdate dengan data terbaru
+                            </div>
+                          )}
                         </div>
                       )}
                     </>

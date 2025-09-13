@@ -103,6 +103,7 @@ export function JapaneseNameMatcher({
     
     // Database English name
     const dbEnglishName = match.name || match.titleEn
+    
     if (dbEnglishName) {
       options.push({
         name: dbEnglishName,
@@ -121,6 +122,7 @@ export function JapaneseNameMatcher({
         isParsed: true
       })
     }
+    
     
     // Available English names from R18.dev (if different from database and parsed)
     if (availableEnglishNames && availableEnglishNames.length > 0) {
