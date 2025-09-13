@@ -77,7 +77,7 @@ export interface MatchedData {
       birthdate?: string // Birthdate from parsed data that's not in database
       tags?: string // Tags from parsed data that's not in database
     }
-    addMissingData?: boolean // User choice to add missing data to database
+    shouldUpdateData?: boolean // User choice to update conflicting data in database
   }[]
   actors: {
     name: string
@@ -96,7 +96,7 @@ export interface MatchedData {
       birthdate?: string
       tags?: string
     }
-    addMissingData?: boolean
+    shouldUpdateData?: boolean
   }[]
   directors: {
     name: string
@@ -113,7 +113,7 @@ export interface MatchedData {
       kanaName?: string
       alias?: string
     }
-    addMissingData?: boolean
+    shouldUpdateData?: boolean
   }[]
   studios: {
     name: string
@@ -130,7 +130,7 @@ export interface MatchedData {
       kanaName?: string
       alias?: string
     }
-    addMissingData?: boolean
+    shouldUpdateData?: boolean
   }[]
   series: {
     name: string
@@ -146,7 +146,7 @@ export interface MatchedData {
       titleJp?: string // Japanese title from parsed data that's not in database
       alias?: string
     }
-    addMissingData?: boolean
+    shouldUpdateData?: boolean
   }[]
   labels: {
     name: string
@@ -163,7 +163,7 @@ export interface MatchedData {
       kanaName?: string
       alias?: string
     }
-    addMissingData?: boolean
+    shouldUpdateData?: boolean
   }[]
 }
 
@@ -980,7 +980,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
     })
   }
 
@@ -1053,7 +1053,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
     })
   }
 
@@ -1162,7 +1162,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
     })
   }
 
@@ -1243,7 +1243,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
     })
   }
 
@@ -1347,12 +1347,12 @@ export async function matchWithDatabase(
       parsedEnglishName,
       matched: matchResult.matched,
       multipleMatches: matchResult.multipleMatches,
-      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1 || needsEnglishNameSelection,
+      needsConfirmation: false, // Auto-confirm series - no manual confirmation needed
       hasDifferentEnglishNames,
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: true // Auto-update series data - always update when there are differences
     })
   }
 
@@ -1461,7 +1461,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      addMissingData: missingData !== null // Auto-set to true if there's missing data to update
+      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
     })
   }
 
