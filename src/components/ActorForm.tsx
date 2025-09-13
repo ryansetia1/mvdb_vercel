@@ -1,5 +1,23 @@
 import { useState, useEffect } from 'react'
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -10,13 +28,69 @@ import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
 import { ClickableAvatar } from './ClickableAvatar'
 import { ImageSearchIframe } from './ImageSearchIframe'
 import { toast } from 'sonner'
+
+// Sortable Photo Component
+interface SortablePhotoProps {
+  photo: string
+  index: number
+  name: string
+  onRemove: (index: number) => void
+}
+
+function SortablePhoto({ photo, index, name, onRemove }: SortablePhotoProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `photo-${index}` })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative transition-transform ${
+        isDragging ? 'scale-105 shadow-lg z-50' : ''
+      }`}
+      {...attributes}
+      {...listeners}
+    >
+      <ClickableAvatar
+        src={photo}
+        alt={`${name} foto ${index + 1}`}
+        fallback={(name || 'A').charAt(0)}
+        size="xl"
+      />
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 shadow-md hover:shadow-lg z-10"
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(index)
+        }}
+        title={`Hapus foto ${index + 1}`}
+      >
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  )
+}
 
 interface ActorFormProps {
   type: 'actor' | 'actress'
@@ -64,6 +138,14 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
   const [autoSearchTakuLinks, setAutoSearchTakuLinks] = useState(false) // Control auto search for Taku Links
   const [activeTab, setActiveTab] = useState('basic') // Tab state
+
+  // DnD Kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   // Reset autoSearchImage after it's been used
   useEffect(() => {
@@ -376,39 +458,24 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }
 
-  const moveProfilePicture = (index: number, direction: 'up' | 'down') => {
-    const newPictures = [...formData.profilePictures]
-    const targetIndex = direction === 'up' ? index - 1 : index + 1
-    
-    // Check bounds
-    if (targetIndex < 0 || targetIndex >= newPictures.length) {
-      return
-    }
-    
-    // Swap positions
-    [newPictures[index], newPictures[targetIndex]] = [newPictures[targetIndex], newPictures[index]]
-    
-    handleInputChange('profilePictures', newPictures)
-    toast.success(`Foto ${index + 1} dipindahkan ke posisi ${targetIndex + 1}`)
-  }
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) {
-      return
-    }
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
 
-    const sourceIndex = result.source.index
-    const destinationIndex = result.destination.index
-
-    if (sourceIndex === destinationIndex) {
+    if (!over || active.id === over.id) {
       return
     }
 
     // Get only non-empty photos for reordering
     const nonEmptyPhotos = formData.profilePictures.filter(p => p.trim())
-    const newNonEmptyPhotos = Array.from(nonEmptyPhotos)
-    const [reorderedItem] = newNonEmptyPhotos.splice(sourceIndex, 1)
-    newNonEmptyPhotos.splice(destinationIndex, 0, reorderedItem)
+    const sourceIndex = nonEmptyPhotos.findIndex((_, i) => `photo-${i}` === active.id)
+    const destinationIndex = nonEmptyPhotos.findIndex((_, i) => `photo-${i}` === over.id)
+
+    if (sourceIndex === -1 || destinationIndex === -1 || sourceIndex === destinationIndex) {
+      return
+    }
+
+    const newNonEmptyPhotos = arrayMove(nonEmptyPhotos, sourceIndex, destinationIndex)
 
     // Reconstruct the full array with empty fields in their original positions
     const newPictures = [...formData.profilePictures]
@@ -1097,55 +1164,28 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                   <p className="text-sm text-muted-foreground mb-2">
                     💡 Drag & drop foto untuk mengubah urutan (field pertama = avatar utama)
                   </p>
-                  <DragDropContext onDragEnd={handleDragEnd}>
-                    <Droppable droppableId="photo-preview" direction="horizontal">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex flex-wrap gap-2 p-2 rounded-lg transition-colors ${
-                            snapshot.isDraggingOver ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
-                            <Draggable key={`${pic}-${index}`} draggableId={`photo-${index}`} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`relative transition-transform ${
-                                    snapshot.isDragging ? 'scale-105 shadow-lg' : ''
-                                  }`}
-                                >
-                                  <ClickableAvatar
-                                    src={pic}
-                                    alt={`${formData.name} foto ${index + 1}`}
-                                    fallback={(formData.name || 'A').charAt(0)}
-                                    size="xl"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 shadow-md hover:shadow-lg z-10"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleRemovePhotoFromPreview(index)
-                                    }}
-                                    title={`Hapus foto ${index + 1}`}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </DragDropContext>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={formData.profilePictures.filter(p => p.trim()).map((_, index) => `photo-${index}`)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="flex flex-wrap gap-2 p-2 rounded-lg">
+                        {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
+                          <SortablePhoto
+                            key={`${pic}-${index}`}
+                            photo={pic}
+                            index={index}
+                            name={formData.name}
+                            onRemove={handleRemovePhotoFromPreview}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 </div>
               )}
               
@@ -1164,26 +1204,6 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveProfilePicture(index, 'up')}
-                        disabled={index === 0}
-                        title="Pindahkan ke atas"
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveProfilePicture(index, 'down')}
-                        disabled={index === formData.profilePictures.length - 1}
-                        title="Pindahkan ke bawah"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
                       <Button
                         type="button"
                         variant="outline"
