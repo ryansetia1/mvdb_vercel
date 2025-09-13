@@ -616,7 +616,7 @@ export async function createLabelData(c: Context) {
   try {
     console.log('Server: Creating label data')
     const body = await c.req.json()
-    const { name, labelLinks } = body
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
     console.log('Server: Label data:', body)
 
     if (!name?.trim()) {
@@ -663,6 +663,9 @@ export async function createLabelData(c: Context) {
       name: name.trim(),
       type: 'label',
       createdAt: new Date().toISOString(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined
     }
 
@@ -1177,7 +1180,7 @@ export async function updateLabelData(c: Context) {
     console.log('Server: Updating label data with ID:', id)
     
     const body = await c.req.json()
-    const { name, labelLinks } = body
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
     console.log('Server: Label update data:', body)
 
     if (!name?.trim()) {
@@ -1220,6 +1223,9 @@ export async function updateLabelData(c: Context) {
     const updatedItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }
@@ -1227,6 +1233,14 @@ export async function updateLabelData(c: Context) {
     await kv.set(`master_label_${id}`, JSON.stringify(updatedItem))
     
     console.log('Server: Successfully updated label:', updatedItem)
+    console.log('Server: Returning label data with fields:', {
+      id: updatedItem.id,
+      name: updatedItem.name,
+      jpname: updatedItem.jpname,
+      kanjiName: updatedItem.kanjiName,
+      kanaName: updatedItem.kanaName,
+      labelLinks: updatedItem.labelLinks
+    })
     return c.json({ data: updatedItem })
   } catch (error) {
     console.error('Server: Update label data error:', error)
@@ -1599,6 +1613,7 @@ export async function updateExtendedWithSync(c: Context) {
     } else if (type === 'studio') {
       updatedResult = await updateStudioData(c)
     } else if (type === 'label') {
+      console.log('Server: Calling updateLabelData for label type')
       updatedResult = await updateLabelData(c)
     } else if (type === 'group') {
       updatedResult = await updateGroupData(c)
@@ -1612,11 +1627,13 @@ export async function updateExtendedWithSync(c: Context) {
     }
 
     const updatedData = await updatedResult.json()
+    console.log('Server: Received updated data from updateLabelData:', updatedData)
     const newName = updatedData.data.name || updatedData.data.titleEn
 
     // Skip sync if name hasn't changed or if this type doesn't affect movies
     if (oldName === newName || !['actor', 'actress', 'director'].includes(type)) {
       console.log(`Server: Name unchanged or type doesn't affect movies, skipping sync`)
+      console.log('Server: Returning label data from updateExtendedMasterDataWithSync:', updatedData.data)
       return c.json({ 
         data: updatedData.data, 
         sync: { moviesUpdated: 0, scMoviesUpdated: 0 }

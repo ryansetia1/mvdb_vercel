@@ -24,6 +24,24 @@ interface MovieDataParserProps {
   existingMovie?: Movie
 }
 
+// Helper function to check if data is R18.dev JSON format
+function isR18JsonFormat(rawData: string): boolean {
+  try {
+    const parsed = JSON.parse(rawData.trim())
+    return (
+      parsed &&
+      typeof parsed === 'object' &&
+      'dvd_id' in parsed &&
+      'title_ja' in parsed &&
+      'actresses' in parsed &&
+      'release_date' in parsed &&
+      'runtime_mins' in parsed
+    )
+  } catch {
+    return false
+  }
+}
+
 export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }: MovieDataParserProps) {
   const [rawData, setRawData] = useState('')
   const [parsedData, setParsedData] = useState<ParsedMovieData | null>(null)
@@ -35,6 +53,15 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
     index: number
     name: string
+    r18Data?: {
+      name_romaji?: string
+      name_kanji?: string
+      name_kana?: string
+      name_en?: string
+      name_ja?: string
+      label_name_en?: string
+      label_name_ja?: string
+    }
   } | null>(null)
   const [showMultipleMatchSelector, setShowMultipleMatchSelector] = useState<{
     type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
@@ -818,11 +845,40 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         return
     }
 
+    // Prepare R18.dev data for the form
+    let r18Data: any = undefined
+    if (parsedData && isR18JsonFormat(parsedData.rawData)) {
+      try {
+        const r18JsonData = JSON.parse(parsedData.rawData)
+        
+        if (masterDataType === 'director' && parsedData.directorInfo) {
+          r18Data = {
+            name_romaji: parsedData.directorInfo.name_romaji,
+            name_kanji: parsedData.directorInfo.name_kanji,
+            name_kana: parsedData.directorInfo.name_kana
+          }
+        } else if (masterDataType === 'series' && parsedData.seriesInfo) {
+          r18Data = {
+            name_en: parsedData.seriesInfo.name_en,
+            name_ja: parsedData.seriesInfo.name_ja
+          }
+        } else if (masterDataType === 'label' && parsedData.labelInfo) {
+          r18Data = {
+            label_name_en: parsedData.labelInfo.name_en,
+            label_name_ja: parsedData.labelInfo.name_ja
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing R18.dev data:', error)
+      }
+    }
+
     // Show master data form
     setShowMasterDataForm({
       type: masterDataType,
       index,
-      name: item.name
+      name: item.name,
+      r18Data
     })
   }
 
@@ -1583,6 +1639,58 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                 <strong>Rating:</strong> {parsedData.rating || 'N/A'}
               </div>
             </div>
+            
+            {/* Additional R18.dev Data */}
+            {(parsedData.galleryImages || parsedData.coverImage || parsedData.sampleUrl || parsedData.commentEn) && (
+              <div className="mt-4 p-3 border rounded-lg bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <h4 className="font-medium text-purple-900 dark:text-purple-100">R18.dev Data</h4>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 font-medium bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded">
+                    Additional Info
+                  </span>
+                </div>
+                
+                {parsedData.coverImage && (
+                  <div className="mb-3">
+                    <strong className="text-sm text-purple-800">Cover Image:</strong>
+                    <div className="text-xs text-purple-700 font-mono bg-purple-100 p-1 rounded mt-1 break-all">
+                      {parsedData.coverImage}
+                    </div>
+                  </div>
+                )}
+                
+                {parsedData.galleryImages && parsedData.galleryImages.length > 0 && (
+                  <div className="mb-3">
+                    <strong className="text-sm text-purple-800">Gallery Images ({parsedData.galleryImages.length}):</strong>
+                    <div className="text-xs text-purple-700 font-mono bg-purple-100 p-1 rounded mt-1 max-h-32 overflow-y-auto">
+                      {parsedData.galleryImages.map((url, index) => (
+                        <div key={index} className="break-all">
+                          {url}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {parsedData.sampleUrl && (
+                  <div className="mb-3">
+                    <strong className="text-sm text-purple-800">Sample Video:</strong>
+                    <div className="text-xs text-purple-700 font-mono bg-purple-100 p-1 rounded mt-1 break-all">
+                      {parsedData.sampleUrl}
+                    </div>
+                  </div>
+                )}
+                
+                {parsedData.commentEn && (
+                  <div className="mb-3">
+                    <strong className="text-sm text-purple-800">Description:</strong>
+                    <div className="text-xs text-purple-700 bg-purple-100 p-2 rounded mt-1 max-h-24 overflow-y-auto">
+                      {parsedData.commentEn}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-4">
               <div className="flex items-center gap-2">
                 <strong>DM Code:</strong>
@@ -1622,6 +1730,105 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             <div className="mt-2">
               <strong>Actors:</strong> {parsedData.actors.join(', ')}
             </div>
+            
+            {/* R18.dev Cast Information */}
+            {parsedData.rawData && isR18JsonFormat(parsedData.rawData) && (
+              <div className="mt-4 p-3 border rounded-lg bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <h4 className="font-medium text-indigo-900 dark:text-indigo-100">Cast Details</h4>
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-100 dark:bg-indigo-900/30 px-2 py-1 rounded">
+                    R18.dev Format
+                  </span>
+                </div>
+                
+                {(() => {
+                  try {
+                    const r18Data = JSON.parse(parsedData.rawData)
+                    return (
+                      <div className="space-y-3">
+                        {r18Data.actresses && r18Data.actresses.length > 0 && (
+                          <div>
+                            <strong className="text-sm text-indigo-800">Actresses:</strong>
+                            <div className="mt-1 space-y-1">
+                              {r18Data.actresses.map((actress: any, index: number) => (
+                                <div key={index} className="text-xs text-indigo-700 bg-indigo-100 p-2 rounded">
+                                  <div><strong>Romaji:</strong> {actress.name_romaji}</div>
+                                  <div><strong>Kanji:</strong> {actress.name_kanji}</div>
+                                  <div><strong>Kana:</strong> {actress.name_kana}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {r18Data.actors && r18Data.actors.length > 0 && (
+                          <div>
+                            <strong className="text-sm text-indigo-800">Actors:</strong>
+                            <div className="mt-1 space-y-1">
+                              {r18Data.actors.map((actor: any, index: number) => (
+                                <div key={index} className="text-xs text-indigo-700 bg-indigo-100 p-2 rounded">
+                                  <div><strong>Romaji:</strong> {actor.name_romaji}</div>
+                                  <div><strong>Kanji:</strong> {actor.name_kanji}</div>
+                                  <div><strong>Kana:</strong> {actor.name_kana}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {r18Data.directors && r18Data.directors.length > 0 && (
+                          <div>
+                            <strong className="text-sm text-indigo-800">Directors:</strong>
+                            <div className="mt-1 space-y-1">
+                              {r18Data.directors.map((director: any, index: number) => (
+                                <div key={index} className="text-xs text-indigo-700 bg-indigo-100 p-2 rounded">
+                                  <div><strong>Romaji:</strong> {director.name_romaji}</div>
+                                  <div><strong>Kanji:</strong> {director.name_kanji}</div>
+                                  <div><strong>Kana:</strong> {director.name_kana}</div>
+                                  <div className="mt-1 text-xs text-indigo-600">
+                                    <strong>Used for matching:</strong> {parsedData.director}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Series Information */}
+                        {(r18Data.series_name_en || r18Data.series_name_ja) && (
+                          <div>
+                            <strong className="text-sm text-indigo-800">Series:</strong>
+                            <div className="mt-1 text-xs text-indigo-700 bg-indigo-100 p-2 rounded">
+                              <div><strong>English:</strong> {r18Data.series_name_en}</div>
+                              <div><strong>Japanese:</strong> {r18Data.series_name_ja}</div>
+                              <div className="mt-1 text-xs text-indigo-600">
+                                <strong>Used for matching:</strong> {parsedData.series}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Label Information */}
+                        {(r18Data.label_name_en || r18Data.label_name_ja) && (
+                          <div>
+                            <strong className="text-sm text-indigo-800">Label:</strong>
+                            <div className="mt-1 text-xs text-indigo-700 bg-indigo-100 p-2 rounded">
+                              <div><strong>English:</strong> {r18Data.label_name_en}</div>
+                              <div><strong>Japanese:</strong> {r18Data.label_name_ja}</div>
+                              <div className="mt-1 text-xs text-indigo-600">
+                                <strong>Used for matching:</strong> {parsedData.label}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  } catch (error) {
+                    return null
+                  }
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1667,6 +1874,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           accessToken={accessToken}
           onSave={handleMasterDataSave}
           onCancel={() => setShowMasterDataForm(null)}
+          r18Data={showMasterDataForm.r18Data}
         />
       )}
 

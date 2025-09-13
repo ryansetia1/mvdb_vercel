@@ -706,8 +706,8 @@ async function updateLabelData(c: Context) {
     console.log('Server: Updating label data for ID:', id)
     
     const body = await c.req.json()
-    const { name, labelLinks } = body
-    console.log('Server: Update label data received:', { name, labelLinks })
+    const { name, jpname, kanjiName, kanaName, labelLinks } = body
+    console.log('Server: Update label data received:', { name, jpname, kanjiName, kanaName, labelLinks })
 
     if (!name?.trim()) {
       return c.json({ error: 'Label name is required' }, 400)
@@ -748,6 +748,9 @@ async function updateLabelData(c: Context) {
     const updatedItem: MasterDataItem = {
       ...existingItem,
       name: name.trim(),
+      jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       labelLinks: labelLinks?.trim() || undefined,
       updatedAt: new Date().toISOString()
     }

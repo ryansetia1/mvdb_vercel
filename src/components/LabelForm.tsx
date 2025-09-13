@@ -19,6 +19,9 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
   const [editingItem, setEditingItem] = useState<MasterDataItem | null>(null)
   const [formData, setFormData] = useState({
     name: '',
+    jpname: '',
+    kanjiName: '',
+    kanaName: '',
     labelLinks: ''
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -28,11 +31,17 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
     if (editingItem) {
       setFormData({
         name: editingItem.name || '',
+        jpname: editingItem.jpname || '',
+        kanjiName: editingItem.kanjiName || '',
+        kanaName: editingItem.kanaName || '',
         labelLinks: editingItem.labelLinks || ''
       })
     } else {
       setFormData({
         name: '',
+        jpname: '',
+        kanjiName: '',
+        kanaName: '',
         labelLinks: ''
       })
     }
@@ -60,7 +69,7 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
       
       setIsDialogOpen(false)
       setEditingItem(null)
-      setFormData({ name: '', labelLinks: '' })
+      setFormData({ name: '', jpname: '', kanjiName: '', kanaName: '', labelLinks: '' })
     } catch (error: any) {
       setError(`Failed to save label: ${error.message}`)
     } finally {
@@ -116,13 +125,43 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
               )}
               
               <div>
-                <Label htmlFor="name">Label Name *</Label>
+                <Label htmlFor="name">Label Name (English) *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g. Universal Pictures, Warner Bros"
                   required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="jpname">Nama Jepang</Label>
+                <Input
+                  id="jpname"
+                  value={formData.jpname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, jpname: e.target.value }))}
+                  placeholder="Masukkan nama label dalam bahasa Jepang"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kanjiName">Kanji Name</Label>
+                <Input
+                  id="kanjiName"
+                  value={formData.kanjiName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, kanjiName: e.target.value }))}
+                  placeholder="Masukkan nama dalam kanji (漢字)"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="kanaName">Kana Name</Label>
+                <Input
+                  id="kanaName"
+                  value={formData.kanaName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, kanaName: e.target.value }))}
+                  placeholder="Masukkan nama dalam kana (かな)"
                 />
               </div>
 
@@ -170,6 +209,13 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="font-medium">{item.name}</div>
+                    {item.jpname && (
+                      <div className="text-sm text-muted-foreground">
+                        {item.jpname}
+                        {item.kanjiName && ` (${item.kanjiName})`}
+                        {item.kanaName && ` [${item.kanaName}]`}
+                      </div>
+                    )}
                     {item.labelLinks && (
                       <div className="text-sm text-muted-foreground mt-1">
                         <ExternalLink className="h-3 w-3 inline mr-1" />

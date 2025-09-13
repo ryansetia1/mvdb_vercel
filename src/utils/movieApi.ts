@@ -39,6 +39,12 @@ export interface Movie {
   slinks?: string
   createdAt?: string
   updatedAt?: string
+  
+  // Additional fields from R18.dev format
+  galleryImages?: string[]
+  coverImage?: string
+  sampleUrl?: string
+  commentEn?: string
 }
 
 const getAuthHeader = (accessToken?: string): Record<string, string> => ({
