@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, mergeMovieData, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
+import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, mergeMovieData, detectDataSource, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { Movie } from '../utils/movieApi'
 import { masterDataApi } from '../utils/masterDataApi'
@@ -46,6 +46,7 @@ function isR18JsonFormat(rawData: string): boolean {
 export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }: MovieDataParserProps) {
   const { invalidateCache } = useCachedData()
   const [rawData, setRawData] = useState('')
+  const [detectedSource, setDetectedSource] = useState<'javdb' | 'r18' | 'unknown'>('unknown')
   const [parsedData, setParsedData] = useState<ParsedMovieData | null>(null)
   const [matchedData, setMatchedData] = useState<MatchedData | null>(null)
   const [masterData, setMasterData] = useState<MasterDataItem[]>([])
@@ -151,6 +152,16 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   useEffect(() => {
     loadMasterData()
   }, [])
+
+  // Detect data source when rawData changes
+  useEffect(() => {
+    if (rawData.trim()) {
+      const source = detectDataSource(rawData)
+      setDetectedSource(source)
+    } else {
+      setDetectedSource('unknown')
+    }
+  }, [rawData])
 
   // Pre-fill form with existing movie data when provided
   useEffect(() => {
@@ -1666,6 +1677,29 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Paste Movie Data
         </label>
+        
+        {/* Data Source Indicator */}
+        {rawData.trim() && detectedSource !== 'unknown' && (
+          <div className="mb-2">
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              detectedSource === 'javdb' 
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                : detectedSource === 'r18'
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                detectedSource === 'javdb' 
+                  ? 'bg-blue-500' 
+                  : detectedSource === 'r18'
+                  ? 'bg-green-500'
+                  : 'bg-gray-500'
+              }`}></div>
+              {detectedSource === 'javdb' ? '📋 JavDB Format' : '🔗 R18.dev Format'}
+            </div>
+          </div>
+        )}
+        
         <textarea
           value={rawData}
           onChange={(e) => setRawData(e.target.value)}

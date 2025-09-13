@@ -304,6 +304,56 @@ function isR18JsonFormat(rawData: string): boolean {
 }
 
 /**
+ * Check if the raw data is JavDB format (text-based)
+ */
+function isJavdbFormat(rawData: string): boolean {
+  const lines = rawData.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  
+  if (lines.length === 0) return false
+  
+  // Check for typical JavDB patterns
+  const firstLine = lines[0]
+  
+  // Pattern: CODE + Japanese title (e.g., "SNIS-217 ラブ◆キモメン ティア")
+  const codeMatch = firstLine.match(/^([A-Z0-9-]+)/)
+  if (!codeMatch) return false
+  
+  // Check for Japanese characters in title
+  const titlePart = firstLine.replace(codeMatch[1], '').trim()
+  const hasJapaneseChars = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(titlePart)
+  
+  // Check for typical JavDB structure indicators
+  const hasTypicalStructure = lines.some(line => 
+    line.includes('Release Date:') || 
+    line.includes('Duration:') || 
+    line.includes('Director:') ||
+    line.includes('Studio:') ||
+    line.includes('Series:') ||
+    line.includes('Actresses:') ||
+    line.includes('Actors:')
+  )
+  
+  return hasJapaneseChars && (hasTypicalStructure || lines.length > 1)
+}
+
+/**
+ * Detect data source format
+ */
+export function detectDataSource(rawData: string): 'javdb' | 'r18' | 'unknown' {
+  if (!rawData || !rawData.trim()) return 'unknown'
+  
+  if (isR18JsonFormat(rawData)) {
+    return 'r18'
+  }
+  
+  if (isJavdbFormat(rawData)) {
+    return 'javdb'
+  }
+  
+  return 'unknown'
+}
+
+/**
  * Parse R18.dev JSON format
  */
 function parseR18JsonData(rawData: string): ParsedMovieData | null {
