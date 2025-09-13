@@ -13,8 +13,9 @@ import { StatsContent } from './content/StatsContent'
 import { BackupRestoreContent } from './content/BackupRestoreContent'
 import { DeepSeekTranslationTest } from './DeepSeekTranslationTest'
 import { SetupApiKey } from './SetupApiKey'
+import { CacheManager } from './CacheManager'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link, FileText, BarChart3, Shield, Key } from 'lucide-react'
+import { Film, Settings, User, Users, ArrowRightLeft, PlayCircle, Link, FileText, BarChart3, Shield, Key, Database } from 'lucide-react'
 import { movieApi, Movie } from '../utils/movieApi'
 import { toast } from 'sonner'
 
@@ -56,6 +57,8 @@ export function Dashboard({
     externalEditingProfile ? (externalEditingProfile.type === 'actress' ? 'actresses' : 'actors') : 
     'movies'
   )
+  
+  console.log('Dashboard: Active tab:', activeTab)
   const [editingMovie, setEditingMovie] = useState<any>(externalEditingMovie || null)
   const [editingSCMovie, setEditingSCMovie] = useState<any>(externalEditingSCMovie || null)
   const [editingProfile, setEditingProfile] = useState<{ type: 'actor' | 'actress' | 'director', name: string } | null>(externalEditingProfile || null)
@@ -269,10 +272,18 @@ export function Dashboard({
               <Key className="h-4 w-4" />
               <span>Setup API Key</span>
             </TabsTrigger>
+            <TabsTrigger 
+              value="cache-manager" 
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
+            >
+              <Database className="h-4 w-4" />
+              <span>Cache Manager</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="movies" className="mt-6">
+          {console.log('Dashboard: Rendering movies TabsContent')}
           <MovieList 
             accessToken={accessToken}
             editingMovie={editingMovie}
@@ -380,6 +391,49 @@ export function Dashboard({
 
         <TabsContent value="setup-api-key" className="mt-6">
           <SetupApiKey accessToken={accessToken} />
+        </TabsContent>
+
+        <TabsContent value="cache-manager" className="mt-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Cache Manager</h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Kelola cache aplikasi untuk mempercepat loading dan mengatasi masalah data yang tidak terupdate
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Cache Status</h3>
+                <CacheManager />
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Informasi Cache</h3>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Mengapa Cache Perlu Dibersihkan?</h4>
+                  <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                    <li>• Foto profil aktris tidak terupdate setelah diubah</li>
+                    <li>• Data master tidak ter-refresh setelah edit</li>
+                    <li>• Movie detail page menampilkan data lama</li>
+                    <li>• Performa aplikasi terasa lambat</li>
+                  </ul>
+                </div>
+                
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                  <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-2">Tips Penggunaan</h4>
+                  <ul className="text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
+                    <li>• Bersihkan cache setelah mengupdate foto profil</li>
+                    <li>• Gunakan "Clear All Cache" untuk refresh semua data</li>
+                    <li>• Cache akan otomatis refresh setelah 24 jam</li>
+                    <li>• Tidak perlu khawatir, data asli tetap aman</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

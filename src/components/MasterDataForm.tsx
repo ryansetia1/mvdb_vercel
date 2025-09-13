@@ -187,6 +187,50 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     }
   }
 
+  const handleConfirmR18Data = () => {
+    if (!r18Data) return
+
+    let updatedFormData = { ...formData }
+
+    switch (type) {
+      case 'director':
+        if (r18Data.name_romaji) {
+          updatedFormData.name = r18Data.name_romaji
+        }
+        if (r18Data.name_kanji) {
+          updatedFormData.kanjiName = r18Data.name_kanji
+        }
+        if (r18Data.name_kana) {
+          updatedFormData.kanaName = r18Data.name_kana
+        }
+        break
+
+      case 'series':
+        if (r18Data.name_en) {
+          updatedFormData.titleEn = r18Data.name_en
+        }
+        if (r18Data.name_ja) {
+          updatedFormData.titleJp = r18Data.name_ja
+        }
+        break
+
+      case 'label':
+        if (r18Data.label_name_en) {
+          updatedFormData.name = r18Data.label_name_en
+        }
+        if (r18Data.label_name_ja) {
+          updatedFormData.jpname = r18Data.label_name_ja
+        }
+        break
+
+      default:
+        break
+    }
+
+    setFormData(updatedFormData)
+    toast.success('Data dari R18.dev telah dikonfirmasi dan diisi ke form')
+  }
+
   const handleImageSelect = (imageUrl: string) => {
     setFormData({ ...formData, profilePicture: imageUrl })
   }
@@ -377,11 +421,15 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
         {/* R18.dev Data Information */}
         {r18Data && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-blue-900">Data dari R18.dev</h4>
-              <span className="text-xs text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded">
+              <button
+                type="button"
+                onClick={handleConfirmR18Data}
+                className="text-xs text-blue-600 font-medium bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+              >
                 Konfirmasi
-              </span>
+              </button>
             </div>
             
             {type === 'director' && r18Data.name_romaji && (

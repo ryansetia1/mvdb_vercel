@@ -264,14 +264,18 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
   }
 
-  // Update actors state locally without reloading
+  // Update actors state locally and invalidate cache
   const updateActorLocally = (updatedActor: MasterDataItem) => {
     setActors(prev => prev.map(actor => actor.id === updatedActor.id ? updatedActor : actor))
+    // Invalidate cache to ensure fresh data is loaded in other components
+    invalidateCache('actors')
   }
 
-  // Update actresses state locally without reloading
+  // Update actresses state locally and invalidate cache
   const updateActressLocally = (updatedActress: MasterDataItem) => {
     setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
+    // Invalidate cache to ensure fresh data is loaded in other components
+    invalidateCache('actresses')
   }
 
   // Load initial data using cached system
