@@ -6,6 +6,8 @@ import { masterDataApi } from '../utils/masterDataApi'
 import { MasterDataForm } from './MasterDataForm'
 import { MultipleMatchSelector } from './MultipleMatchSelector'
 import { EnglishNameSelector } from './EnglishNameSelector'
+import { JapaneseNameMatcher } from './JapaneseNameMatcher'
+import { MovieTitleMatcher } from './MovieTitleMatcher'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
@@ -30,7 +32,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showMasterDataForm, setShowMasterDataForm] = useState<{
-    type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+    type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
     index: number
     name: string
   } | null>(null)
@@ -45,6 +47,19 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     index: number
     searchName: string
     matches: MasterDataItem[]
+  } | null>(null)
+  const [showJapaneseNameMatcher, setShowJapaneseNameMatcher] = useState<{
+    type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
+    index: number
+    searchName: string
+    matches: MasterDataItem[]
+    parsedEnglishName?: string
+  } | null>(null)
+  const [showMovieTitleMatcher, setShowMovieTitleMatcher] = useState<{
+    searchName: string
+    matches: MasterDataItem[]
+    parsedEnglishTitle?: string
+    movieCode?: string
   } | null>(null)
   const [showDuplicateWarning, setShowDuplicateWarning] = useState<{
     existingMovie: Movie
@@ -78,6 +93,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     directors?: string[]
     studios?: string[]
     series?: string[]
+    labels?: string[]
   }>({})
 
   // Template auto-apply hook
@@ -778,7 +794,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     if (!item || item.matched) return
 
     // Determine master data type
-    let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+    let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
     switch (type) {
       case 'actresses':
         masterDataType = 'actress'
@@ -794,6 +810,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         break
       case 'series':
         masterDataType = 'series'
+        break
+      case 'labels':
+        masterDataType = 'label'
         break
       default:
         return
@@ -829,6 +848,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         break
       case 'series':
         matchedDataType = 'series'
+        break
+      case 'label':
+        matchedDataType = 'labels'
         break
       default:
         return
@@ -937,6 +959,63 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setShowEnglishNameSelector(null)
   }
 
+  const handleJapaneseNameMatchSelect = (selectedItem: MasterDataItem, englishName?: string) => {
+    if (!showJapaneseNameMatcher || !matchedData) return
+
+    const { type, index } = showJapaneseNameMatcher
+
+    // Determine the correct type key for matchedData
+    let matchedDataType: keyof MatchedData
+    switch (type) {
+      case 'actress':
+        matchedDataType = 'actresses'
+        break
+      case 'actor':
+        matchedDataType = 'actors'
+        break
+      case 'director':
+        matchedDataType = 'directors'
+        break
+      case 'studio':
+        matchedDataType = 'studios'
+        break
+      case 'series':
+        matchedDataType = 'series'
+        break
+      case 'label':
+        matchedDataType = 'labels'
+        break
+      default:
+        return
+    }
+
+    // Update the matched data
+    const newMatchedData = { ...matchedData }
+    const matchedItem = newMatchedData[matchedDataType][index]
+    newMatchedData[matchedDataType][index] = {
+      ...matchedItem,
+      matched: selectedItem,
+      customEnglishName: englishName,
+      needsConfirmation: false,
+      needsEnglishNameSelection: false
+    }
+    
+    setMatchedData(newMatchedData)
+    
+    // Close selector
+    setShowJapaneseNameMatcher(null)
+  }
+
+  const handleMovieTitleMatchSelect = (selectedItem: MasterDataItem, englishTitle?: string) => {
+    if (!showMovieTitleMatcher || !parsedData) return
+
+    // Update the parsed data with the selected English title
+    setTitleEn(englishTitle || selectedItem.titleEn || selectedItem.name || '')
+    
+    // Close selector
+    setShowMovieTitleMatcher(null)
+  }
+
   const renderMatchedItems = (items: MatchedData[keyof MatchedData], type: string, typeKey: keyof MatchedData) => {
     if (items.length === 0) return null
 
@@ -1000,7 +1079,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                         <>
                           <button
                             onClick={() => {
-                              let type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+                              let type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
                               switch (typeKey) {
                                 case 'actresses':
                                   type = 'actress'
@@ -1017,24 +1096,28 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                                 case 'series':
                                   type = 'series'
                                   break
+                                case 'labels':
+                                  type = 'label'
+                                  break
                                 default:
                                   return
                               }
-                              setShowMultipleMatchSelector({
+                              setShowJapaneseNameMatcher({
                                 type,
                                 index,
                                 searchName: item.name,
-                                matches: item.multipleMatches
+                                matches: item.multipleMatches,
+                                parsedEnglishName: item.parsedEnglishName
                               })
                             }}
                             className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-medium shadow-sm"
                           >
-                            View All Matches ({item.multipleMatches.length})
+                            Japanese Name Match ({item.multipleMatches.length})
                           </button>
                           {item.needsEnglishNameSelection && (
                             <button
                               onClick={() => {
-                                let type: 'actor' | 'actress' | 'director' | 'studio' | 'series'
+                                let type: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
                                 switch (typeKey) {
                                   case 'actresses':
                                     type = 'actress'
@@ -1051,14 +1134,18 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                                   case 'series':
                                     type = 'series'
                                     break
+                                  case 'labels':
+                                    type = 'label'
+                                    break
                                   default:
                                     return
                                 }
-                                setShowEnglishNameSelector({
+                                setShowJapaneseNameMatcher({
                                   type,
                                   index,
                                   searchName: item.name,
-                                  matches: [item.matched!] // Only show the selected match
+                                  matches: [item.matched!], // Only show the selected match
+                                  parsedEnglishName: item.parsedEnglishName
                                 })
                               }}
                               className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 font-medium shadow-sm"
@@ -1256,6 +1343,13 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     <span className="font-medium">{parsedData.series}</span>
                   </div>
                 )}
+                {parsedData.label && !mergeMode.existingMovie.label && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400">+</span>
+                    <span className="text-gray-600 dark:text-gray-400">Label:</span>
+                    <span className="font-medium">{parsedData.label}</span>
+                  </div>
+                )}
               </div>
               
               {/* Cast & Crew */}
@@ -1345,6 +1439,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
               <div>
                 <strong>Release Date:</strong> {parsedData.releaseDate}
               </div>
+              {parsedData.label && (
+                <div>
+                  <strong>Label:</strong> {parsedData.label}
+                </div>
+              )}
             </div>
             <div className="mt-4">
               <div className="flex items-center gap-2 mb-2">
@@ -1537,6 +1636,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             {renderMatchedItems(matchedData.directors, 'Directors', 'directors')}
             {renderMatchedItems(matchedData.studios, 'Studios', 'studios')}
             {renderMatchedItems(matchedData.series, 'Series', 'series')}
+            {renderMatchedItems(matchedData.labels, 'Labels', 'labels')}
           </div>
         </div>
       )}
@@ -1595,6 +1695,32 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             showEnglishNameSelector.type === 'actor' ? 'actors' :
             showEnglishNameSelector.type === 'director' ? 'directors' :
             showEnglishNameSelector.type === 'studio' ? 'studios' : 'series'][showEnglishNameSelector.index]?.parsedEnglishName}
+        />
+      )}
+
+      {/* Japanese Name Matcher */}
+      {showJapaneseNameMatcher && (
+        <JapaneseNameMatcher
+          isOpen={true}
+          onClose={() => setShowJapaneseNameMatcher(null)}
+          onSelect={handleJapaneseNameMatchSelect}
+          matches={showJapaneseNameMatcher.matches}
+          searchName={showJapaneseNameMatcher.searchName}
+          type={showJapaneseNameMatcher.type}
+          parsedEnglishName={showJapaneseNameMatcher.parsedEnglishName}
+        />
+      )}
+
+      {/* Movie Title Matcher */}
+      {showMovieTitleMatcher && (
+        <MovieTitleMatcher
+          isOpen={true}
+          onClose={() => setShowMovieTitleMatcher(null)}
+          onSelect={handleMovieTitleMatchSelect}
+          matches={showMovieTitleMatcher.matches}
+          searchName={showMovieTitleMatcher.searchName}
+          parsedEnglishTitle={showMovieTitleMatcher.parsedEnglishTitle}
+          movieCode={showMovieTitleMatcher.movieCode}
         />
       )}
 

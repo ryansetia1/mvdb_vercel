@@ -11,6 +11,7 @@ export interface ParsedMovieData {
   director: string
   studio: string
   series: string
+  label?: string
   rating?: string
   actresses: string[]
   actors: string[]
@@ -60,6 +61,16 @@ export interface MatchedData {
     needsEnglishNameSelection?: boolean
   }[]
   series: {
+    name: string
+    parsedEnglishName?: string
+    matched: MasterDataItem | null
+    multipleMatches: MasterDataItem[]
+    needsConfirmation: boolean
+    customEnglishName?: string
+    hasDifferentEnglishNames?: boolean
+    needsEnglishNameSelection?: boolean
+  }[]
+  labels: {
     name: string
     parsedEnglishName?: string
     matched: MasterDataItem | null
@@ -205,6 +216,9 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
           case 'Series':
             parsed.series = cleanValue
             break
+          case 'Label':
+            parsed.label = cleanValue
+            break
           case 'Rating':
             parsed.rating = cleanValue
             break
@@ -313,6 +327,7 @@ export async function matchWithDatabase(
     directors?: string[]
     studios?: string[]
     series?: string[]
+    labels?: string[]
   }
 ): Promise<MatchedData> {
   const matched: MatchedData = {
@@ -320,7 +335,8 @@ export async function matchWithDatabase(
     actors: [],
     directors: [],
     studios: [],
-    series: []
+    series: [],
+    labels: []
   }
 
   // Helper function to calculate match score (higher = better match)
@@ -679,6 +695,47 @@ export async function matchWithDatabase(
     })
   }
 
+  // Match labels
+  if (parsedData.label) {
+    const parsedEnglishName = parsedEnglishNames?.labels?.[0]
+    
+    console.log('=== MATCHING LABEL ===')
+    console.log('Searching for label:', parsedData.label)
+    console.log('Parsed English name:', parsedEnglishName)
+    
+    const matchResult = findMatches(parsedData.label, 'label')
+    console.log('Label match result:', matchResult)
+    
+    // Check if there are truly different English names in multiple matches (Stage 1)
+    const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
+      areMatchesTrulyDifferent(matchResult.multipleMatches)
+    
+    // Check if English name differs between parsed data and matched database entry (Stage 2)
+    let needsEnglishNameSelection = false
+    if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
+      const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
+      const parsedEngName = parsedEnglishName.toLowerCase().trim()
+      
+      const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
+      const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
+      
+      if (normalizedDbName !== normalizedParsedName) {
+        needsEnglishNameSelection = true
+        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+      }
+    }
+    
+    matched.labels.push({
+      name: parsedData.label,
+      parsedEnglishName,
+      matched: matchResult.matched,
+      multipleMatches: matchResult.multipleMatches,
+      needsConfirmation: !matchResult.matched || matchResult.multipleMatches.length > 1,
+      hasDifferentEnglishNames,
+      needsEnglishNameSelection
+    })
+  }
+
   return matched
 }
 
@@ -875,6 +932,21 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     }
   }
 
+  // Check if label is ignored and use matched data
+  const isLabelIgnored = ignoredItems?.has('labels-0')
+  let label = ''
+  if (!isLabelIgnored && parsedData.label) {
+    const matchedLabel = matchedData.labels[0]
+    if (matchedLabel?.matched) {
+      // Use custom English name if user selected one, otherwise use matched name from database
+      label = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || parsedData.label
+      console.log(`Label ${parsedData.label} matched to: ${label}`)
+    } else {
+      label = parsedData.label
+      console.log(`Label ${parsedData.label} not matched, using original name`)
+    }
+  }
+
   const finalMovie = {
     code: parsedData.code,
     titleJp: parsedData.titleJp,
@@ -884,6 +956,7 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     director,
     studio,
     series,
+    label,
     actress: uniqueActresses.join(', '),
     actors: uniqueActors.join(', '),
     dmcode: parsedData.dmcode || '',
@@ -933,6 +1006,10 @@ export function mergeMovieData(
 
   if (selectedFields.has('series') && parsedData.series) {
     mergedMovie.series = parsedData.series
+  }
+
+  if (selectedFields.has('label') && parsedData.label) {
+    mergedMovie.label = parsedData.label
   }
 
   if (selectedFields.has('actress') && parsedData.actresses.length > 0) {
