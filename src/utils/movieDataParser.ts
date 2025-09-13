@@ -78,6 +78,7 @@ export interface MatchedData {
       tags?: string // Tags from parsed data that's not in database
     }
     shouldUpdateData?: boolean // User choice to update conflicting data in database
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
   actors: {
     name: string
@@ -97,6 +98,7 @@ export interface MatchedData {
       tags?: string
     }
     shouldUpdateData?: boolean
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
   directors: {
     name: string
@@ -114,6 +116,7 @@ export interface MatchedData {
       alias?: string
     }
     shouldUpdateData?: boolean
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
   studios: {
     name: string
@@ -131,6 +134,7 @@ export interface MatchedData {
       alias?: string
     }
     shouldUpdateData?: boolean
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
   series: {
     name: string
@@ -147,6 +151,7 @@ export interface MatchedData {
       alias?: string
     }
     shouldUpdateData?: boolean
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
   labels: {
     name: string
@@ -164,6 +169,7 @@ export interface MatchedData {
       alias?: string
     }
     shouldUpdateData?: boolean
+    isIgnored?: boolean // Flag to indicate if item is ignored (for JavDB simple parser)
   }[]
 }
 
@@ -354,6 +360,147 @@ export function detectDataSource(rawData: string): 'javdb' | 'r18' | 'unknown' {
 }
 
 /**
+ * Simple JavDB parser based on commit 5d5a725 logic
+ * This parser focuses on basic text parsing without complex R18 JSON handling
+ */
+function parseJavdbSimpleData(rawData: string): ParsedMovieData | null {
+  const lines = rawData.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  
+  if (lines.length === 0) return null
+
+  // Initialize parsed data
+  const parsed: ParsedMovieData = {
+    code: '',
+    titleJp: '',
+    releaseDate: '',
+    duration: '',
+    director: '',
+    studio: '',
+    series: '',
+    actresses: [],
+    actors: [],
+    rawData
+  }
+
+  // Parse each line
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    
+    // Extract code and title from first line (e.g., "SNIS-217 ラブ◆キモメン ティア")
+    if (i === 0) {
+      const codeMatch = line.match(/^([A-Z0-9-]+)/)
+      if (codeMatch) {
+        parsed.code = codeMatch[1]
+        parsed.titleJp = line.replace(codeMatch[1], '').trim()
+      } else {
+        parsed.titleJp = line
+      }
+      continue
+    }
+
+    // Handle empty lines
+    if (!line.trim()) continue
+
+    // Skip "Watch Full Movie" line
+    if (line === 'Watch Full Movie') continue
+
+    // Parse structured data - handle both "Key: Value" and "Key:\nValue" formats
+    if (line.includes(':')) {
+      const [key, ...valueParts] = line.split(':')
+      const value = valueParts.join(':').trim()
+      
+      if (value) {
+        switch (key.trim().toLowerCase()) {
+          case 'release date':
+          case 'released date':
+            parsed.releaseDate = value
+            break
+          case 'duration':
+            parsed.duration = value
+            break
+          case 'director':
+            parsed.director = value
+            break
+          case 'studio':
+          case 'maker':
+            parsed.studio = value
+            break
+          case 'series':
+            parsed.series = value
+            break
+          case 'rating':
+            parsed.rating = value
+            break
+          case 'actresses':
+            // Handle comma-separated actresses
+            parsed.actresses = value.split(',').map(name => name.trim()).filter(name => name.length > 0)
+            break
+          case 'actors':
+          case 'actor(s)':
+            // Handle space-separated actors with gender markers
+            const actorNames = value.split(/\s+/).filter(name => name.length > 0)
+            const actresses: string[] = []
+            const actors: string[] = []
+            
+            actorNames.forEach(name => {
+              // Remove gender markers and determine gender
+              const cleanName = name.replace(/[♀♂]/g, '').trim()
+              if (cleanName.length > 0) {
+                if (name.includes('♀')) {
+                  actresses.push(cleanName)
+                } else if (name.includes('♂')) {
+                  actors.push(cleanName)
+                } else {
+                  // If no gender marker, try to detect based on name patterns
+                  if (detectJapaneseFemaleName(cleanName)) {
+                    actresses.push(cleanName)
+                  } else {
+                    actors.push(cleanName)
+                  }
+                }
+              }
+            })
+            
+            parsed.actresses = actresses
+            parsed.actors = actors
+            break
+          case 'tags':
+            // Tags are ignored by the parser as per memory
+            break
+        }
+      }
+    } else {
+      // Handle multi-line values (e.g., "Actresses:\nName1\nName2")
+      const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+      
+      if (line.toLowerCase().includes('actresses') && nextLine && !nextLine.includes(':')) {
+        // Collect actress names until we hit another key or end
+        const actressNames: string[] = []
+        let j = i + 1
+        while (j < lines.length && !lines[j].includes(':') && lines[j].trim()) {
+          actressNames.push(lines[j].trim())
+          j++
+        }
+        parsed.actresses = actressNames
+        i = j - 1 // Skip processed lines
+      } else if (line.toLowerCase().includes('actors') && nextLine && !nextLine.includes(':')) {
+        // Collect actor names until we hit another key or end
+        const actorNames: string[] = []
+        let j = i + 1
+        while (j < lines.length && !lines[j].includes(':') && lines[j].trim()) {
+          actorNames.push(lines[j].trim())
+          j++
+        }
+        parsed.actors = actorNames
+        i = j - 1 // Skip processed lines
+      }
+    }
+  }
+
+  return parsed
+}
+
+/**
  * Parse R18.dev JSON format
  */
 function parseR18JsonData(rawData: string): ParsedMovieData | null {
@@ -430,14 +577,21 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
 
 /**
  * Parse pasted movie data from various formats
+ * Uses different parsers based on detected data source
  */
 export function parseMovieData(rawData: string): ParsedMovieData | null {
   try {
-    // Check if it's R18.dev JSON format first
-    if (isR18JsonFormat(rawData)) {
+    // Detect data source first
+    const dataSource = detectDataSource(rawData)
+    
+    // Use appropriate parser based on data source
+    if (dataSource === 'r18') {
       return parseR18JsonData(rawData)
+    } else if (dataSource === 'javdb') {
+      return parseJavdbSimpleData(rawData)
     }
-
+    
+    // Fallback to original complex parser for unknown formats
     const lines = rawData.split('\n').map(line => line.trim()).filter(line => line.length > 0)
     
     if (lines.length === 0) return null
@@ -616,6 +770,125 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
 }
 
 /**
+ * Simple matching function for JavDB data (no complex missing data detection)
+ */
+function matchJavdbSimple(
+  parsedData: ParsedMovieData,
+  masterData: MasterDataItem[]
+): MatchedData {
+  const matched: MatchedData = {
+    actresses: [],
+    actors: [],
+    directors: [],
+    studios: [],
+    series: [],
+    labels: []
+  }
+
+  // Simple matching for actresses - show Add/Ignore buttons for unmatched items
+  parsedData.actresses.forEach(actressName => {
+    const match = masterData.find(item => 
+      item.type === 'actress' && (
+        item.jpname?.toLowerCase() === actressName.toLowerCase() ||
+        item.kanjiName?.toLowerCase() === actressName.toLowerCase() ||
+        item.kanaName?.toLowerCase() === actressName.toLowerCase() ||
+        item.name?.toLowerCase() === actressName.toLowerCase()
+      )
+    )
+    
+    matched.actresses.push({
+      name: actressName,
+      matched: match || null,
+      multipleMatches: [],
+      needsConfirmation: false, // Auto-confirm for simple matching
+      isIgnored: false // Don't auto-ignore, let user choose
+    })
+  })
+
+  // Simple matching for actors - show Add/Ignore buttons for unmatched items
+  parsedData.actors.forEach(actorName => {
+    const match = masterData.find(item => 
+      item.type === 'actor' && (
+        item.jpname?.toLowerCase() === actorName.toLowerCase() ||
+        item.kanjiName?.toLowerCase() === actorName.toLowerCase() ||
+        item.kanaName?.toLowerCase() === actorName.toLowerCase() ||
+        item.name?.toLowerCase() === actorName.toLowerCase()
+      )
+    )
+    
+    matched.actors.push({
+      name: actorName,
+      matched: match || null,
+      multipleMatches: [],
+      needsConfirmation: false, // Auto-confirm for simple matching
+      isIgnored: false // Don't auto-ignore, let user choose
+    })
+  })
+
+  // Simple matching for directors - show Add/Ignore buttons for unmatched items
+  if (parsedData.director) {
+    const match = masterData.find(item => 
+      item.type === 'director' && (
+        item.jpname?.toLowerCase() === parsedData.director.toLowerCase() ||
+        item.kanjiName?.toLowerCase() === parsedData.director.toLowerCase() ||
+        item.kanaName?.toLowerCase() === parsedData.director.toLowerCase() ||
+        item.name?.toLowerCase() === parsedData.director.toLowerCase()
+      )
+    )
+    
+    matched.directors.push({
+      name: parsedData.director,
+      matched: match || null,
+      multipleMatches: [],
+      needsConfirmation: false, // Auto-confirm for simple matching
+      isIgnored: false // Don't auto-ignore, let user choose
+    })
+  }
+
+  // Simple matching for studios - show Add/Ignore buttons for unmatched items
+  if (parsedData.studio) {
+    const match = masterData.find(item => 
+      item.type === 'studio' && (
+        item.jpname?.toLowerCase() === parsedData.studio.toLowerCase() ||
+        item.kanjiName?.toLowerCase() === parsedData.studio.toLowerCase() ||
+        item.kanaName?.toLowerCase() === parsedData.studio.toLowerCase() ||
+        item.name?.toLowerCase() === parsedData.studio.toLowerCase()
+      )
+    )
+    
+    matched.studios.push({
+      name: parsedData.studio,
+      matched: match || null,
+      multipleMatches: [],
+      needsConfirmation: false, // Auto-confirm for simple matching
+      isIgnored: false // Don't auto-ignore, let user choose
+    })
+  }
+
+  // Simple matching for series - show Add/Ignore buttons for unmatched items
+  if (parsedData.series) {
+    const match = masterData.find(item => 
+      item.type === 'series' && (
+        item.jpname?.toLowerCase() === parsedData.series.toLowerCase() ||
+        item.kanjiName?.toLowerCase() === parsedData.series.toLowerCase() ||
+        item.kanaName?.toLowerCase() === parsedData.series.toLowerCase() ||
+        item.name?.toLowerCase() === parsedData.series.toLowerCase()
+      )
+    )
+    
+    matched.series.push({
+      name: parsedData.series,
+      matched: match || null,
+      multipleMatches: [],
+      needsConfirmation: false, // Auto-confirm for simple matching
+      isIgnored: false // Don't auto-ignore, let user choose
+    })
+  }
+
+  return matched
+}
+
+/**
  * Match parsed data with existing database entries
  */
 export async function matchWithDatabase(
@@ -628,8 +901,13 @@ export async function matchWithDatabase(
     studios?: string[]
     series?: string[]
     labels?: string[]
-  }
+  },
+  dataSource?: 'javdb' | 'r18' | 'unknown'
 ): Promise<MatchedData> {
+  // Use simple matching for JavDB data
+  if (dataSource === 'javdb') {
+    return matchJavdbSimple(parsedData, masterData)
+  }
   const matched: MatchedData = {
     actresses: [],
     actors: [],
@@ -1001,6 +1279,8 @@ export async function matchWithDatabase(
     
     // If no match found and we have R18 data, try other name variations
     if (!matchResult.matched && r18ActressData) {
+      console.log('No match found with primary name, trying R18 names...')
+      
       const nameVariations = [
         r18ActressData.name_kanji,
         r18ActressData.name_kana,
@@ -1023,7 +1303,7 @@ export async function matchWithDatabase(
       }
     }
     
-    console.log('Actress match result:', matchResult)
+    console.log('Final actress match result:', matchResult)
     
     // Check if there are truly different English names in multiple matches (Stage 1)
     const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
@@ -1090,13 +1370,62 @@ export async function matchWithDatabase(
   for (let i = 0; i < parsedData.actors.length; i++) {
     const actorName = parsedData.actors[i]
     const parsedEnglishName = parsedEnglishNames?.actors?.[i]
+    const r18ActorData = parsedData.actorInfo?.[i]
     
     console.log('=== MATCHING ACTOR ===')
     console.log('Searching for actor:', actorName)
     console.log('Parsed English name:', parsedEnglishName)
+    console.log('R18 actor data:', r18ActorData)
     
-    const matchResult = findMatches(actorName, 'actor')
-    console.log('Actor match result:', matchResult)
+    // For R18 data, try multiple search strategies
+    let matchResult = findMatches(actorName, 'actor')
+    
+    // If no match found and we have R18 data, try searching with other names
+    if (!matchResult.matched && r18ActorData) {
+      console.log('No match found with primary name, trying R18 names...')
+      
+      // Try with name_romaji
+      if (r18ActorData.name_romaji && r18ActorData.name_romaji !== actorName) {
+        console.log('Trying with name_romaji:', r18ActorData.name_romaji)
+        const romajiMatch = findMatches(r18ActorData.name_romaji, 'actor')
+        if (romajiMatch.matched) {
+          matchResult = romajiMatch
+          console.log('Found match with name_romaji:', romajiMatch.matched.name)
+        }
+      }
+      
+      // Try with name_kanji if still no match
+      if (!matchResult.matched && r18ActorData.name_kanji && r18ActorData.name_kanji !== actorName) {
+        console.log('Trying with name_kanji:', r18ActorData.name_kanji)
+        const kanjiMatch = findMatches(r18ActorData.name_kanji, 'actor')
+        if (kanjiMatch.matched) {
+          matchResult = kanjiMatch
+          console.log('Found match with name_kanji:', kanjiMatch.matched.name)
+        }
+      }
+      
+      // Try with name_kana if still no match
+      if (!matchResult.matched && r18ActorData.name_kana && r18ActorData.name_kana !== actorName) {
+        console.log('Trying with name_kana:', r18ActorData.name_kana)
+        const kanaMatch = findMatches(r18ActorData.name_kana, 'actor')
+        if (kanaMatch.matched) {
+          matchResult = kanaMatch
+          console.log('Found match with name_kana:', kanaMatch.matched.name)
+        }
+      }
+      
+      // Try with name_en if still no match
+      if (!matchResult.matched && r18ActorData.name_en && r18ActorData.name_en !== actorName) {
+        console.log('Trying with name_en:', r18ActorData.name_en)
+        const enMatch = findMatches(r18ActorData.name_en, 'actor')
+        if (enMatch.matched) {
+          matchResult = enMatch
+          console.log('Found match with name_en:', enMatch.matched.name)
+        }
+      }
+    }
+    
+    console.log('Final actor match result:', matchResult)
     
     // Check if there are truly different English names in multiple matches (Stage 1)
     const hasDifferentEnglishNames = matchResult.multipleMatches.length > 1 && 
@@ -1122,7 +1451,6 @@ export async function matchWithDatabase(
     }
     
     // Check R18.dev data for additional English names
-    const r18ActorData = parsedData.actorInfo?.[i]
     if (matchResult.matched && r18ActorData) {
       // Only use name_en for English name comparison, not name_romaji
       const r18EnglishName = r18ActorData.name_en
@@ -1669,7 +1997,7 @@ export async function analyzeDmcodePatterns(): Promise<Map<string, string>> {
 /**
  * Convert parsed data to Movie interface
  */
-export function convertToMovie(parsedData: ParsedMovieData, matchedData: MatchedData, ignoredItems?: Set<string>): Movie {
+export function convertToMovie(parsedData: ParsedMovieData, matchedData: MatchedData, ignoredItems?: Set<string>, dataSource?: 'javdb' | 'r18' | 'unknown'): Movie {
   console.log('=== convertToMovie ===')
   console.log('Parsed actresses:', parsedData.actresses)
   console.log('Matched actresses:', matchedData.actresses)
@@ -1690,6 +2018,13 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
       console.log(`Actress ${name} matched to: ${matchedName}`)
       return matchedName
     }
+    
+    // For JavDB: auto-ignore unmatched items (no action from user)
+    if (dataSource === 'javdb') {
+      console.log(`Actress ${name} not matched and no action from user, auto-ignoring for JavDB`)
+      return null // Auto-ignore for JavDB
+    }
+    
     console.log(`Actress ${name} not matched, using original name`)
     return name
   }).filter(name => name !== null) // Remove ignored items
@@ -1711,6 +2046,13 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
       console.log(`Actor ${name} matched to: ${matchedName}`)
       return matchedName
     }
+    
+    // For JavDB: auto-ignore unmatched items (no action from user)
+    if (dataSource === 'javdb') {
+      console.log(`Actor ${name} not matched and no action from user, auto-ignoring for JavDB`)
+      return null // Auto-ignore for JavDB
+    }
+    
     console.log(`Actor ${name} not matched, using original name`)
     return name
   }).filter(name => name !== null) // Remove ignored items
@@ -1728,8 +2070,14 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
       director = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || parsedData.director
       console.log(`Director ${parsedData.director} matched to: ${director}`)
     } else {
-      director = parsedData.director
-      console.log(`Director ${parsedData.director} not matched, using original name`)
+      // For JavDB: auto-ignore unmatched items (no action from user)
+      if (dataSource === 'javdb') {
+        console.log(`Director ${parsedData.director} not matched and no action from user, auto-ignoring for JavDB`)
+        director = '' // Auto-ignore for JavDB
+      } else {
+        director = parsedData.director
+        console.log(`Director ${parsedData.director} not matched, using original name`)
+      }
     }
   }
   
@@ -1743,8 +2091,14 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
       studio = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || parsedData.studio
       console.log(`Studio ${parsedData.studio} matched to: ${studio}`)
     } else {
-      studio = parsedData.studio
-      console.log(`Studio ${parsedData.studio} not matched, using original name`)
+      // For JavDB: auto-ignore unmatched items (no action from user)
+      if (dataSource === 'javdb') {
+        console.log(`Studio ${parsedData.studio} not matched and no action from user, auto-ignoring for JavDB`)
+        studio = '' // Auto-ignore for JavDB
+      } else {
+        studio = parsedData.studio
+        console.log(`Studio ${parsedData.studio} not matched, using original name`)
+      }
     }
   }
   
@@ -1761,13 +2115,19 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
         console.log(`Using custom English name selected by user: ${matchedSeries.customEnglishName}`)
       }
     } else {
-      // If no match found but we have R18.dev series info, use the English name from R18
-      if (parsedData.seriesInfo?.name_en) {
-        series = parsedData.seriesInfo.name_en
-        console.log(`Series ${parsedData.series} not matched, using R18 English name: ${series}`)
+      // For JavDB: auto-ignore unmatched items (no action from user)
+      if (dataSource === 'javdb') {
+        console.log(`Series ${parsedData.series} not matched and no action from user, auto-ignoring for JavDB`)
+        series = '' // Auto-ignore for JavDB
       } else {
-        series = parsedData.series
-        console.log(`Series ${parsedData.series} not matched, using original name`)
+        // If no match found but we have R18.dev series info, use the English name from R18
+        if (parsedData.seriesInfo?.name_en) {
+          series = parsedData.seriesInfo.name_en
+          console.log(`Series ${parsedData.series} not matched, using R18 English name: ${series}`)
+        } else {
+          series = parsedData.series
+          console.log(`Series ${parsedData.series} not matched, using original name`)
+        }
       }
     }
   }

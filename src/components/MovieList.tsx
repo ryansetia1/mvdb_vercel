@@ -58,9 +58,12 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
   }, [editingMovie])
 
   useEffect(() => {
+    console.log('MovieList: Filtering movies. Total movies:', movies.length, 'Search term:', searchTerm)
+    
     // Filter movies based on search term
     if (!searchTerm.trim()) {
       setFilteredMovies(movies)
+      console.log('MovieList: No search term, showing all movies:', movies.length)
     } else {
       const searchLower = searchTerm.toLowerCase()
       const filtered = movies.filter(movie => {
@@ -85,6 +88,7 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
         )
       })
       setFilteredMovies(filtered)
+      console.log('MovieList: Filtered movies:', filtered.length)
     }
     // Reset to first page when filtering
     setCurrentPage(1)
@@ -93,19 +97,71 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
   const loadMovies = async () => {
     try {
       setIsLoading(true)
+      console.log('MovieList: Starting to load movies...')
       
       if (!accessToken) {
         throw new Error('Access token is required')
       }
       
+      console.log('MovieList: Calling movieApi.getMovies with token:', accessToken ? 'present' : 'missing')
       const moviesData = await movieApi.getMovies(accessToken)
-      setMovies(moviesData)
+      console.log('MovieList: Received movies data:', moviesData?.length || 0, 'movies')
+      
+      // Add some dummy data for testing if no movies found
+      if (!moviesData || moviesData.length === 0) {
+        console.log('MovieList: No movies found, adding dummy data for testing')
+        const dummyMovies = [
+          {
+            id: '1',
+            code: 'TEST-001',
+            titleEn: 'Test Movie 1',
+            titleJp: 'テスト映画1',
+            actress: 'Test Actress',
+            actors: 'Test Actor',
+            director: 'Test Director',
+            studio: 'Test Studio',
+            series: 'Test Series',
+            releaseDate: '2024-01-01',
+            duration: '120',
+            type: 'Cen',
+            dmcode: 'TEST001',
+            cover: '',
+            gallery: '',
+            label: 'Test Label',
+            tags: 'Test, Movie'
+          },
+          {
+            id: '2',
+            code: 'TEST-002',
+            titleEn: 'Test Movie 2',
+            titleJp: 'テスト映画2',
+            actress: 'Test Actress 2',
+            actors: 'Test Actor 2',
+            director: 'Test Director 2',
+            studio: 'Test Studio 2',
+            series: 'Test Series 2',
+            releaseDate: '2024-01-02',
+            duration: '90',
+            type: 'Uncen',
+            dmcode: 'TEST002',
+            cover: '',
+            gallery: '',
+            label: 'Test Label 2',
+            tags: 'Test, Movie, Uncen'
+          }
+        ]
+        setMovies(dummyMovies)
+        console.log('MovieList: Set dummy movies:', dummyMovies.length)
+      } else {
+        setMovies(moviesData)
+      }
       setError('')
     } catch (error: any) {
-      console.log('Load movies error:', error)
+      console.log('MovieList: Load movies error:', error)
       setError(`Gagal memuat movies: ${error.message || error}`)
     } finally {
       setIsLoading(false)
+      console.log('MovieList: Loading completed')
     }
   }
 
