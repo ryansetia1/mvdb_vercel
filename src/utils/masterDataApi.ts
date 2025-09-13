@@ -39,6 +39,8 @@ export interface MasterDataItem {
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
+  kanjiName?: string // Kanji name for Japanese characters
+  kanaName?: string // Kana name for Japanese pronunciation
   birthdate?: string // Changed from age to birthdate
   alias?: string
   links?: LabeledLink[] // Changed to array of labeled links

@@ -14,6 +14,8 @@ interface MasterDataItem {
   studioLinks?: string
   labelLinks?: string
   jpname?: string
+  kanjiName?: string // Kanji name for Japanese characters
+  kanaName?: string // Kana name for Japanese pronunciation
   alias?: string
   profilePicture?: string
   website?: string
@@ -390,7 +392,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData } = body
     console.log(`Server: Updating ${type} ${id} with data:`, body)
 
     if (!name?.trim()) {
@@ -491,6 +493,8 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
       ...existingItem,
       name: newName,
       jpname: jpname?.trim() || undefined,
+      kanjiName: kanjiName?.trim() || undefined,
+      kanaName: kanaName?.trim() || undefined,
       birthdate: birthdate?.trim() || undefined,
       alias: alias?.trim() || undefined,
       links: processedLinks,
