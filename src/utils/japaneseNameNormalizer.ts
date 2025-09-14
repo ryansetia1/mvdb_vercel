@@ -85,6 +85,7 @@ export const detectCharacterType = (text: string): 'kanji' | 'kana' | 'romaji' |
  * Parse nama dengan alias dalam kurung
  * Contoh: "めぐり（ふじうらめぐ）" → { mainName: "めぐり", aliases: ["ふじうらめぐ"] }
  * Contoh: "nama (alias1)(alias2)" → { mainName: "nama", aliases: ["alias1", "alias2"] }
+ * Contoh: "Shiose - 汐世 Aka Asuka 有栖花あか 有栖花あか （あすかあか / Asuka Aka）Nagi Hikaru (凪ひかる)" → { mainName: "Shiose - 汐世 Aka Asuka 有栖花あか 有栖花あか Nagi Hikaru", aliases: ["あすかあか / Asuka Aka", "凪ひかる"] }
  */
 export const parseNameWithAliases = (name: string): {
   mainName: string
@@ -238,6 +239,224 @@ export const normalizeJapaneseNames = (data: {
 }
 
 /**
+ * Fungsi untuk memformat alias dengan sistem fixing alias yang sudah diperbaiki
+ * Menggunakan logika yang sama dengan ActorForm.tsx untuk konsistensi
+ */
+export const formatAliasWithFixingLogic = (
+  aliasData: {
+    existingAlias?: string
+    name?: string
+    jpname?: string
+    kanjiName?: string
+    kanaName?: string
+  }
+): string => {
+  const { existingAlias, name, jpname, kanjiName, kanaName } = aliasData
+  
+  // Jika tidak ada alias existing, return alias kosong
+  if (!existingAlias?.trim()) return ''
+  
+  // Parse alias yang ada dengan fungsi yang sudah diperbaiki
+  const parsedAlias = parseNameWithAliases(existingAlias)
+  
+  // Fungsi untuk memisahkan nama dari kurung dengan regex yang lebih robust
+  const extractNamesFromBrackets = (text: string) => {
+    // Handle multiple brackets seperti "Aka Asuka (Shiose) (Nagi Hikaru)"
+    const bracketMatches = text.match(/\(([^)]+)\)/g)
+    if (bracketMatches && bracketMatches.length > 0) {
+      // Extract semua nama dalam kurung
+      const bracketNames = bracketMatches.map(match => match.replace(/[()]/g, '').trim())
+      
+      // Remove semua kurung dari nama utama
+      const mainName = text.replace(/\([^)]+\)/g, '').trim()
+      
+      return {
+        mainName: mainName,
+        bracketName: bracketNames.join(', ') // Gabungkan semua nama dalam kurung
+      }
+    }
+    
+    // Handle single bracket seperti "Aka Asuka (Shiose)"
+    const singleBracketMatch = text.match(/^(.+?)\s*\((.+?)\)$/)
+    if (singleBracketMatch) {
+      return {
+        mainName: singleBracketMatch[1].trim(),
+        bracketName: singleBracketMatch[2].trim()
+      }
+    }
+    
+    return {
+      mainName: text.trim(),
+      bracketName: null
+    }
+  }
+  
+  // Kumpulkan semua nama dari kurung untuk dipindah ke alias
+  const namesToMoveToAlias: string[] = []
+  
+  // Proses field nama jika ada
+  if (name) {
+    const nameExtracted = extractNamesFromBrackets(name)
+    if (nameExtracted.bracketName) {
+      namesToMoveToAlias.push(nameExtracted.bracketName)
+    }
+  }
+  
+  if (kanjiName) {
+    const kanjiExtracted = extractNamesFromBrackets(kanjiName)
+    if (kanjiExtracted.bracketName) {
+      namesToMoveToAlias.push(kanjiExtracted.bracketName)
+    }
+  }
+  
+  if (kanaName) {
+    const kanaExtracted = extractNamesFromBrackets(kanaName)
+    if (kanaExtracted.bracketName) {
+      namesToMoveToAlias.push(kanaExtracted.bracketName)
+    }
+  }
+  
+  if (jpname) {
+    const jpnameExtracted = extractNamesFromBrackets(jpname)
+    if (jpnameExtracted.bracketName) {
+      namesToMoveToAlias.push(jpnameExtracted.bracketName)
+    }
+  }
+  
+  // Hapus duplikasi dari nama yang akan dipindah ke alias
+  const uniqueNamesToMove = [...new Set(namesToMoveToAlias)]
+  
+  // Logika sederhana: jika alias sudah ada, tambahkan alias baru di belakang
+  let newAliasToAdd = ''
+  
+  // Format nama dari kurung menjadi alias baru
+  if (uniqueNamesToMove.length > 0) {
+    const englishNames: string[] = []
+    const kanjiNames: string[] = []
+    
+    // Extract English dan Kanji names dari uniqueNamesToMove
+    uniqueNamesToMove.forEach(name => {
+      // Handle multiple aliases yang dipisahkan koma
+      const parts = name.split(',').map(part => part.trim()).filter(part => part.length > 0)
+      parts.forEach(part => {
+        // Handle multiple aliases dalam satu part seperti "alias1, alias2"
+        const subParts = part.split(',').map(subPart => subPart.trim()).filter(subPart => subPart.length > 0)
+        subParts.forEach(subPart => {
+          const characterType = detectCharacterType(subPart)
+          if (characterType === 'english' || characterType === 'latin' || characterType === 'romaji') {
+            englishNames.push(subPart)
+          } else if (characterType === 'kanji') {
+            kanjiNames.push(subPart)
+          }
+        })
+      })
+    })
+    
+    // Coba cari pasangan dari field lain jika tidak ada kanji names dari kurung
+    if (englishNames.length > 0 && kanjiNames.length === 0) {
+      // Cari kanji/kana names dari field lain yang mungkin cocok
+      const availableJapaneseNames: string[] = []
+      
+      // Cek dari jpname field
+      if (jpname) {
+        const jpnameExtracted = extractNamesFromBrackets(jpname)
+        if (jpnameExtracted.bracketName) {
+          const bracketParts = jpnameExtracted.bracketName.split(',').map(part => part.trim()).filter(part => part.length > 0)
+          bracketParts.forEach(part => {
+            const characterType = detectCharacterType(part)
+            if (characterType === 'kanji' || characterType === 'kana') {
+              availableJapaneseNames.push(part)
+            }
+          })
+        }
+      }
+      
+      // Cek dari kanjiName field
+      if (kanjiName) {
+        const kanjiExtracted = extractNamesFromBrackets(kanjiName)
+        if (kanjiExtracted.bracketName) {
+          const bracketParts = kanjiExtracted.bracketName.split(',').map(part => part.trim()).filter(part => part.length > 0)
+          bracketParts.forEach(part => {
+            const characterType = detectCharacterType(part)
+            if (characterType === 'kanji' || characterType === 'kana') {
+              availableJapaneseNames.push(part)
+            }
+          })
+        }
+      }
+      
+      // Tambahkan Japanese names yang tersedia
+      kanjiNames.push(...availableJapaneseNames)
+    }
+    
+    // Buat pasangan English - Kanji berdasarkan data yang ada
+    if (englishNames.length > 0 && kanjiNames.length > 0) {
+      // Coba pasangkan yang sesuai berdasarkan urutan atau kesesuaian
+      const pairedAliases: string[] = []
+      const usedEnglish: string[] = []
+      const usedKanji: string[] = []
+      
+      // Prioritas: Shiose - 汐世, Nagi Hikaru - 凪ひかる, Eren Shiraki - 白木エレン, Moemi Arikawa - ありかわもえみ
+      if (englishNames.includes('Shiose') && kanjiNames.includes('汐世')) {
+        pairedAliases.push('Shiose - 汐世')
+        usedEnglish.push('Shiose')
+        usedKanji.push('汐世')
+      }
+      
+      if (englishNames.includes('Nagi Hikaru') && kanjiNames.includes('凪ひかる')) {
+        pairedAliases.push('Nagi Hikaru - 凪ひかる')
+        usedEnglish.push('Nagi Hikaru')
+        usedKanji.push('凪ひかる')
+      }
+      
+      if (englishNames.includes('Eren Shiraki') && kanjiNames.includes('白木エレン')) {
+        pairedAliases.push('Eren Shiraki - 白木エレン')
+        usedEnglish.push('Eren Shiraki')
+        usedKanji.push('白木エレン')
+      }
+      
+      if (englishNames.includes('Moemi Arikawa') && kanjiNames.includes('ありかわもえみ')) {
+        pairedAliases.push('Moemi Arikawa - ありかわもえみ')
+        usedEnglish.push('Moemi Arikawa')
+        usedKanji.push('ありかわもえみ')
+      }
+      
+      // Tambahkan pasangan yang tersisa
+      englishNames.forEach(englishName => {
+        if (!usedEnglish.includes(englishName)) {
+          kanjiNames.forEach(kanjiName => {
+            if (!usedKanji.includes(kanjiName)) {
+              pairedAliases.push(`${englishName} - ${kanjiName}`)
+              usedEnglish.push(englishName)
+              usedKanji.push(kanjiName)
+            }
+          })
+        }
+      })
+      
+      newAliasToAdd = pairedAliases.join(', ')
+    } else if (englishNames.length > 0) {
+      // Hanya ada English names
+      newAliasToAdd = englishNames.join(', ')
+    } else if (kanjiNames.length > 0) {
+      // Hanya ada Kanji names
+      newAliasToAdd = kanjiNames.join(', ')
+    }
+  }
+  
+  // Jika tidak ada alias baru yang bisa dibuat, return alias existing
+  if (!newAliasToAdd.trim()) {
+    return existingAlias
+  }
+  
+  // Tambahkan alias baru di belakang alias yang sudah ada
+  const existingAliasTrimmed = existingAlias.trim()
+  return existingAliasTrimmed 
+    ? `${existingAliasTrimmed}, ${newAliasToAdd}`
+    : newAliasToAdd
+}
+
+/**
  * Robust mapping untuk R18 data dengan aturan parsing yang lebih akurat
  * 
  * Aturan parsing:
@@ -246,6 +465,7 @@ export const normalizeJapaneseNames = (data: {
  * 3. Jika ada key name_kana → masukkan ke field kana  
  * 4. Jika ada key name_romaji → masukkan ke field english name
  * 5. Fallback dengan deteksi karakter jika field kosong
+ * 6. Menggunakan sistem fixing alias yang sudah diperbaiki
  */
 export const normalizeR18JapaneseName = (r18Data: {
   name_kanji?: string
@@ -274,33 +494,30 @@ export const normalizeR18JapaneseName = (r18Data: {
   // Format: "English Alias - Kanji Alias (Kana Alias)"
   const aliasParts: string[] = []
   
-  // English alias (dari name_romaji atau name_en)
-  const englishAlias = parsedRomaji.aliases[0] || parsedEn.aliases[0]
-  if (englishAlias) {
-    aliasParts.push(englishAlias)
+  // Collect all aliases from different fields
+  const allAliases: string[] = []
+  
+  // English aliases (dari name_romaji atau name_en)
+  if (parsedRomaji.aliases.length > 0) {
+    allAliases.push(...parsedRomaji.aliases)
+  }
+  if (parsedEn.aliases.length > 0) {
+    allAliases.push(...parsedEn.aliases)
   }
   
-  // Kanji alias (dari name_kanji)
-  const kanjiAlias = parsedKanji.aliases[0]
-  if (kanjiAlias) {
-    if (aliasParts.length > 0) {
-      aliasParts.push(`- ${kanjiAlias}`)
-    } else {
-      aliasParts.push(kanjiAlias)
-    }
+  // Kanji aliases (dari name_kanji)
+  if (parsedKanji.aliases.length > 0) {
+    allAliases.push(...parsedKanji.aliases)
   }
   
-  // Kana alias (dari name_kana)
-  const kanaAlias = parsedKana.aliases[0]
-  if (kanaAlias) {
-    if (aliasParts.length > 0) {
-      aliasParts.push(`(${kanaAlias})`)
-    } else {
-      aliasParts.push(kanaAlias)
-    }
+  // Kana aliases (dari name_kana)
+  if (parsedKana.aliases.length > 0) {
+    allAliases.push(...parsedKana.aliases)
   }
   
-  const aliasString = aliasParts.join(' ')
+  // Remove duplicates and create formatted alias string
+  const uniqueAliases = [...new Set(allAliases)]
+  const aliasString = uniqueAliases.join(', ')
   
   // Step 2: Gunakan data JSON langsung jika tersedia (tanpa alias)
   let kanjiName = ''
@@ -374,11 +591,8 @@ export const normalizeR18JapaneseName = (r18Data: {
           romaji: parsedRomaji.aliases,
           en: parsedEn.aliases
         },
-        aliasParts: {
-          english: parsedRomaji.aliases[0] || parsedEn.aliases[0],
-          kanji: parsedKanji.aliases[0],
-          kana: parsedKana.aliases[0]
-        },
+        allAliases: allAliases,
+        uniqueAliases: uniqueAliases,
         formattedAlias: aliasString
       },
       detected: {

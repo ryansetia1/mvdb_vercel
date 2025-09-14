@@ -797,7 +797,7 @@ export function parseMovieData(rawData: string): ParsedMovieData | null {
 }
 
 /**
- * Simple matching function for JavDB data (no complex missing data detection)
+ * Enhanced matching function for JavDB data with better Japanese name detection
  */
 function matchJavdbSimple(
   parsedData: ParsedMovieData,
@@ -812,103 +812,382 @@ function matchJavdbSimple(
     labels: []
   }
 
-  // Simple matching for actresses - show Add/Ignore buttons for unmatched items
+  // Helper function to check if name contains Japanese characters
+  const hasJapaneseChars = (name: string): boolean => {
+    return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(name)
+  }
+
+  // Helper function to extract aliases from alias string
+  const extractAliases = (aliasString: string): string[] => {
+    if (!aliasString) return []
+    return aliasString.split(',').map(alias => alias.trim()).filter(alias => alias.length > 0)
+  }
+
+  // Enhanced matching for actresses with Japanese name support
   parsedData.actresses.forEach(actressName => {
-    const match = masterData.find(item => 
-      item.type === 'actress' && (
-        item.jpname?.toLowerCase() === actressName.toLowerCase() ||
-        item.kanjiName?.toLowerCase() === actressName.toLowerCase() ||
-        item.kanaName?.toLowerCase() === actressName.toLowerCase() ||
-        item.name?.toLowerCase() === actressName.toLowerCase()
-      )
-    )
+    const trimmedName = actressName.trim()
+    const isJapaneseName = hasJapaneseChars(trimmedName)
+    
+    // Find all potential matches
+    const potentialMatches = masterData.filter(item => {
+      if (item.type !== 'actress') return false
+      
+      // Direct name matching
+      if (item.jpname?.trim() === trimmedName) return true
+      if (item.kanjiName?.trim() === trimmedName) return true
+      if (item.kanaName?.trim() === trimmedName) return true
+      if (item.name?.trim() === trimmedName) return true
+      
+      // Case-insensitive matching for English names only
+      if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Alias matching
+      if (item.alias) {
+        const aliases = extractAliases(item.alias)
+        for (const alias of aliases) {
+          if (alias === trimmedName) return true
+          
+          // For Japanese names, also check if alias contains the name
+          if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+          
+          // Case-insensitive alias matching for English names
+          if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+            if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+          }
+        }
+      }
+      
+      return false
+    })
+    
+    // Determine the best match
+    let bestMatch = null
+    let multipleMatches: MasterDataItem[] = []
+    
+    if (potentialMatches.length === 1) {
+      bestMatch = potentialMatches[0]
+    } else if (potentialMatches.length > 1) {
+      // Multiple matches found - let user choose
+      multipleMatches = potentialMatches
+      // Set the first match as default, but mark as needing confirmation
+      bestMatch = potentialMatches[0]
+    }
     
     matched.actresses.push({
       name: actressName,
-      matched: match || null,
-      multipleMatches: [],
-      needsConfirmation: false, // Auto-confirm for simple matching
+      matched: bestMatch,
+      multipleMatches: multipleMatches,
+      needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
       isIgnored: false // Don't auto-ignore, let user choose
     })
   })
 
-  // Simple matching for actors - show Add/Ignore buttons for unmatched items
+  // Enhanced matching for actors with Japanese name support
   parsedData.actors.forEach(actorName => {
-    const match = masterData.find(item => 
-      item.type === 'actor' && (
-        item.jpname?.toLowerCase() === actorName.toLowerCase() ||
-        item.kanjiName?.toLowerCase() === actorName.toLowerCase() ||
-        item.kanaName?.toLowerCase() === actorName.toLowerCase() ||
-        item.name?.toLowerCase() === actorName.toLowerCase()
-      )
-    )
+    const trimmedName = actorName.trim()
+    const isJapaneseName = hasJapaneseChars(trimmedName)
+    
+    // Find all potential matches
+    const potentialMatches = masterData.filter(item => {
+      if (item.type !== 'actor') return false
+      
+      // Direct name matching
+      if (item.jpname?.trim() === trimmedName) return true
+      if (item.kanjiName?.trim() === trimmedName) return true
+      if (item.kanaName?.trim() === trimmedName) return true
+      if (item.name?.trim() === trimmedName) return true
+      
+      // Case-insensitive matching for English names only
+      if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Alias matching
+      if (item.alias) {
+        const aliases = extractAliases(item.alias)
+        for (const alias of aliases) {
+          if (alias === trimmedName) return true
+          
+          // For Japanese names, also check if alias contains the name
+          if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+          
+          // Case-insensitive alias matching for English names
+          if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+            if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+          }
+        }
+      }
+      
+      return false
+    })
+    
+    // Determine the best match
+    let bestMatch = null
+    let multipleMatches: MasterDataItem[] = []
+    
+    if (potentialMatches.length === 1) {
+      bestMatch = potentialMatches[0]
+    } else if (potentialMatches.length > 1) {
+      // Multiple matches found - let user choose
+      multipleMatches = potentialMatches
+      // Set the first match as default, but mark as needing confirmation
+      bestMatch = potentialMatches[0]
+    }
     
     matched.actors.push({
       name: actorName,
-      matched: match || null,
-      multipleMatches: [],
-      needsConfirmation: false, // Auto-confirm for simple matching
+      matched: bestMatch,
+      multipleMatches: multipleMatches,
+      needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
       isIgnored: false // Don't auto-ignore, let user choose
     })
   })
 
-  // Simple matching for directors - show Add/Ignore buttons for unmatched items
+  // Enhanced matching for directors with Japanese name support
   if (parsedData.director) {
-    const match = masterData.find(item => 
-      item.type === 'director' && (
-        item.jpname?.toLowerCase() === parsedData.director.toLowerCase() ||
-        item.kanjiName?.toLowerCase() === parsedData.director.toLowerCase() ||
-        item.kanaName?.toLowerCase() === parsedData.director.toLowerCase() ||
-        item.name?.toLowerCase() === parsedData.director.toLowerCase()
-      )
-    )
+    const trimmedName = parsedData.director.trim()
+    const isJapaneseName = hasJapaneseChars(trimmedName)
+    
+    // Find all potential matches
+    const potentialMatches = masterData.filter(item => {
+      if (item.type !== 'director') return false
+      
+      // Direct name matching
+      if (item.jpname?.trim() === trimmedName) return true
+      if (item.kanjiName?.trim() === trimmedName) return true
+      if (item.kanaName?.trim() === trimmedName) return true
+      if (item.name?.trim() === trimmedName) return true
+      
+      // Case-insensitive matching for English names only
+      if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Alias matching
+      if (item.alias) {
+        const aliases = extractAliases(item.alias)
+        for (const alias of aliases) {
+          if (alias === trimmedName) return true
+          
+          // For Japanese names, also check if alias contains the name
+          if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+          
+          // Case-insensitive alias matching for English names
+          if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+            if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+          }
+        }
+      }
+      
+      return false
+    })
+    
+    // Determine the best match
+    let bestMatch = null
+    let multipleMatches: MasterDataItem[] = []
+    
+    if (potentialMatches.length === 1) {
+      bestMatch = potentialMatches[0]
+    } else if (potentialMatches.length > 1) {
+      // Multiple matches found - let user choose
+      multipleMatches = potentialMatches
+      // Set the first match as default, but mark as needing confirmation
+      bestMatch = potentialMatches[0]
+    }
     
     matched.directors.push({
       name: parsedData.director,
-      matched: match || null,
-      multipleMatches: [],
-      needsConfirmation: false, // Auto-confirm for simple matching
+      matched: bestMatch,
+      multipleMatches: multipleMatches,
+      needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
       isIgnored: false // Don't auto-ignore, let user choose
     })
   }
 
-  // Simple matching for studios - show Add/Ignore buttons for unmatched items
+  // Enhanced matching for studios with Japanese name support
   if (parsedData.studio) {
-    const match = masterData.find(item => 
-      item.type === 'studio' && (
-        item.jpname?.toLowerCase() === parsedData.studio.toLowerCase() ||
-        item.kanjiName?.toLowerCase() === parsedData.studio.toLowerCase() ||
-        item.kanaName?.toLowerCase() === parsedData.studio.toLowerCase() ||
-        item.name?.toLowerCase() === parsedData.studio.toLowerCase()
-      )
-    )
+    const trimmedName = parsedData.studio.trim()
+    const isJapaneseName = hasJapaneseChars(trimmedName)
+    
+    // Find all potential matches
+    const potentialMatches = masterData.filter(item => {
+      if (item.type !== 'studio') return false
+      
+      // Direct name matching
+      if (item.jpname?.trim() === trimmedName) return true
+      if (item.kanjiName?.trim() === trimmedName) return true
+      if (item.kanaName?.trim() === trimmedName) return true
+      if (item.name?.trim() === trimmedName) return true
+      
+      // Case-insensitive matching for English names only
+      if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Alias matching
+      if (item.alias) {
+        const aliases = extractAliases(item.alias)
+        for (const alias of aliases) {
+          if (alias === trimmedName) return true
+          
+          // For Japanese names, also check if alias contains the name
+          if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+          
+          // Case-insensitive alias matching for English names
+          if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+            if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+          }
+        }
+      }
+      
+      return false
+    })
+    
+    // Determine the best match
+    let bestMatch = null
+    let multipleMatches: MasterDataItem[] = []
+    
+    if (potentialMatches.length === 1) {
+      bestMatch = potentialMatches[0]
+    } else if (potentialMatches.length > 1) {
+      // Multiple matches found - let user choose
+      multipleMatches = potentialMatches
+      // Set the first match as default, but mark as needing confirmation
+      bestMatch = potentialMatches[0]
+    }
     
     matched.studios.push({
       name: parsedData.studio,
-      matched: match || null,
-      multipleMatches: [],
-      needsConfirmation: false, // Auto-confirm for simple matching
+      matched: bestMatch,
+      multipleMatches: multipleMatches,
+      needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
       isIgnored: false // Don't auto-ignore, let user choose
     })
   }
 
-  // Simple matching for series - show Add/Ignore buttons for unmatched items
+  // Enhanced matching for series with Japanese name support
   if (parsedData.series) {
-    const match = masterData.find(item => 
-      item.type === 'series' && (
-        item.jpname?.toLowerCase() === parsedData.series.toLowerCase() ||
-        item.kanjiName?.toLowerCase() === parsedData.series.toLowerCase() ||
-        item.kanaName?.toLowerCase() === parsedData.series.toLowerCase() ||
-        item.name?.toLowerCase() === parsedData.series.toLowerCase()
-      )
-    )
+    const trimmedName = parsedData.series.trim()
+    const isJapaneseName = hasJapaneseChars(trimmedName)
+    
+    // Find all potential matches
+    const potentialMatches = masterData.filter(item => {
+      if (item.type !== 'series') return false
+      
+      // Direct name matching
+      if (item.jpname?.trim() === trimmedName) return true
+      if (item.kanjiName?.trim() === trimmedName) return true
+      if (item.kanaName?.trim() === trimmedName) return true
+      if (item.name?.trim() === trimmedName) return true
+      
+      // Case-insensitive matching for English names only
+      if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Alias matching
+      if (item.alias) {
+        const aliases = extractAliases(item.alias)
+        for (const alias of aliases) {
+          if (alias === trimmedName) return true
+          
+          // For Japanese names, also check if alias contains the name
+          if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+          
+          // Case-insensitive alias matching for English names
+          if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+            if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+          }
+        }
+      }
+      
+      return false
+    })
+    
+    // Determine the best match
+    let bestMatch = null
+    let multipleMatches: MasterDataItem[] = []
+    
+    if (potentialMatches.length === 1) {
+      bestMatch = potentialMatches[0]
+    } else if (potentialMatches.length > 1) {
+      // Multiple matches found - let user choose
+      multipleMatches = potentialMatches
+      // Set the first match as default, but mark as needing confirmation
+      bestMatch = potentialMatches[0]
+    }
     
     matched.series.push({
       name: parsedData.series,
-      matched: match || null,
-      multipleMatches: [],
-      needsConfirmation: false, // Auto-confirm for simple matching
+      matched: bestMatch,
+      multipleMatches: multipleMatches,
+      needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
       isIgnored: false // Don't auto-ignore, let user choose
+    })
+  }
+
+  // Enhanced matching for labels with Japanese name support
+  if (parsedData.labels && parsedData.labels.length > 0) {
+    parsedData.labels.forEach(labelName => {
+      const trimmedName = labelName.trim()
+      const isJapaneseName = hasJapaneseChars(trimmedName)
+      
+      // Find all potential matches
+      const potentialMatches = masterData.filter(item => {
+        if (item.type !== 'label') return false
+        
+        // Direct name matching
+        if (item.jpname?.trim() === trimmedName) return true
+        if (item.kanjiName?.trim() === trimmedName) return true
+        if (item.kanaName?.trim() === trimmedName) return true
+        if (item.name?.trim() === trimmedName) return true
+        
+        // Case-insensitive matching for English names only
+        if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+          return item.name.toLowerCase() === trimmedName.toLowerCase()
+        }
+        
+        // Alias matching
+        if (item.alias) {
+          const aliases = extractAliases(item.alias)
+          for (const alias of aliases) {
+            if (alias === trimmedName) return true
+            
+            // For Japanese names, also check if alias contains the name
+            if (isJapaneseName && hasJapaneseChars(alias) && alias.includes(trimmedName)) return true
+            
+            // Case-insensitive alias matching for English names
+            if (/^[a-zA-Z\s]+$/.test(alias) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+              if (alias.toLowerCase() === trimmedName.toLowerCase()) return true
+            }
+          }
+        }
+        
+        return false
+      })
+      
+      // Determine the best match
+      let bestMatch = null
+      let multipleMatches: MasterDataItem[] = []
+      
+      if (potentialMatches.length === 1) {
+        bestMatch = potentialMatches[0]
+      } else if (potentialMatches.length > 1) {
+        // Multiple matches found - let user choose
+        multipleMatches = potentialMatches
+        // Set the first match as default, but mark as needing confirmation
+        bestMatch = potentialMatches[0]
+      }
+      
+      matched.labels.push({
+        name: labelName,
+        matched: bestMatch,
+        multipleMatches: multipleMatches,
+        needsConfirmation: multipleMatches.length > 1, // Need confirmation for multiple matches
+        isIgnored: false // Don't auto-ignore, let user choose
+      })
     })
   }
 

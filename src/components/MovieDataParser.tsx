@@ -1091,10 +1091,33 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             // Merge new alias with existing alias if it exists
             if (item.matched.alias) {
               const { mergeAlias } = await import('../utils/aliasMerger')
-              updateData.alias = mergeAlias(item.matched.alias, newAlias)
-              console.log(`Merged alias for ${category}[${i}]: existing="${item.matched.alias}", new="${newAlias}", result="${updateData.alias}"`)
+              const mergedAlias = mergeAlias(item.matched.alias, newAlias)
+              
+              // Apply fixing alias logic to the merged alias
+              const { formatAliasWithFixingLogic } = await import('../utils/japaneseNameNormalizer')
+              const fixedAlias = formatAliasWithFixingLogic({
+                existingAlias: mergedAlias,
+                name: updateData.name || item.matched.name,
+                jpname: updateData.jpname || item.matched.jpname,
+                kanjiName: updateData.kanjiName || item.matched.kanjiName,
+                kanaName: updateData.kanaName || item.matched.kanaName
+              })
+              
+              updateData.alias = fixedAlias
+              console.log(`Fixed and merged alias for ${category}[${i}]: existing="${item.matched.alias}", new="${newAlias}", merged="${mergedAlias}", fixed="${updateData.alias}"`)
             } else {
-              updateData.alias = newAlias
+              // Apply fixing alias logic to the new alias
+              const { formatAliasWithFixingLogic } = await import('../utils/japaneseNameNormalizer')
+              const fixedAlias = formatAliasWithFixingLogic({
+                existingAlias: newAlias,
+                name: updateData.name || item.matched.name,
+                jpname: updateData.jpname || item.matched.jpname,
+                kanjiName: updateData.kanjiName || item.matched.kanjiName,
+                kanaName: updateData.kanaName || item.matched.kanaName
+              })
+              
+              updateData.alias = fixedAlias
+              console.log(`Fixed alias for ${category}[${i}]: new="${newAlias}", fixed="${updateData.alias}"`)
             }
           }
           
