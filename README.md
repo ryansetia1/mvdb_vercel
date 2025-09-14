@@ -43,6 +43,21 @@ A comprehensive movie database management system with advanced parsing capabilit
 - ✅ **Optimized Queries**: Efficient database queries
 - ✅ **Error Handling**: Comprehensive error handling and recovery
 
+## 📚 Documentation
+
+### **🔧 Recent Fixes & Updates**
+- ✅ **[Endpoint Duplication Fix](./docs/ENDPOINT_DUPLICATION_FIX.md)** - Fixed photobooks and favorites not displaying
+- ✅ **[Troubleshooting Guide](./docs/TROUBLESHOOTING_GUIDE.md)** - Common issues and solutions
+- ✅ **[Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)** - Best practices for endpoint management
+- ✅ **[Quick Reference](./docs/QUICK_REFERENCE.md)** - Emergency fixes and common commands
+
+### **📖 Complete Documentation**
+- [Comprehensive Documentation](./src/COMPREHENSIVE_DOCUMENTATION.md)
+- [API Guidelines](./src/docs/api-guidelines.md)
+- [Data Merge Feature](./src/docs/data-merge-feature.md)
+- [Gallery Filtering System](./src/docs/gallery-filtering-system.md)
+- [Template Placeholders](./src/docs/template-placeholders.md)
+
 ## 🚀 Quick Start
 
 ### Prerequisites

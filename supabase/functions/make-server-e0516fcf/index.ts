@@ -2393,7 +2393,7 @@ app.get('/make-server-e0516fcf/template-counts', async (c) => {
 })
 
 // Get favorites for stats
-app.get('/make-server-e0516fcf/favorites', async (c) => {
+app.get('/make-server-e0516fcf/stats/favorites', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)

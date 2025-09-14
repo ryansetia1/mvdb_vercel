@@ -14,18 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advanced Japanese name normalization
 - Client-side caching for improved performance
 - Comprehensive error handling and recovery
+- **NEW**: Comprehensive documentation for endpoint management
+- **NEW**: Troubleshooting guide for common issues
+- **NEW**: Development guidelines for preventing endpoint duplication
 
 ### Changed
 - Improved data parsing accuracy
 - Enhanced UI/UX with modern design
 - Optimized database queries
 - Better security for API key management
+- **IMPROVED**: Endpoint organization and naming conventions
+- **IMPROVED**: Authentication strategy consistency
 
 ### Fixed
 - Critical bug where aliases wouldn't merge with existing data
 - Case-insensitive duplicate detection
 - Data preservation during updates
 - Performance issues with large datasets
+- **CRITICAL**: Fixed photobooks not displaying due to endpoint duplication
+- **CRITICAL**: Fixed favorites not displaying due to endpoint duplication
+- **FIXED**: Endpoint URL inconsistencies between frontend and backend
+- **FIXED**: Authentication issues with public endpoints
 
 ## [1.0.0] - 2024-09-14
 

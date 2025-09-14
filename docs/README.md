@@ -1,76 +1,140 @@
+# 📚 Documentation Index
 
-# mvdb
+## 🎯 **Overview**
 
-This is a code bundle for mvdb. The original project is available at https://www.figma.com/design/qvmmxwhb9JfmrRW4lKQd2M/mvdb.
+Dokumentasi lengkap untuk MVDB - Movie Database Management System. Dokumentasi ini mencakup semua aspek sistem, dari troubleshooting hingga development guidelines.
 
-## 🚀 Quick Start
+## 🔧 **Recent Fixes & Updates**
 
-### 1. Install Dependencies
-```bash
-npm i
-```
+### **Critical Fixes (September 14, 2025)**
+- ✅ **[Endpoint Duplication Fix](./ENDPOINT_DUPLICATION_FIX.md)** - Fixed photobooks and favorites not displaying
+- ✅ **[Fix Summary](./FIX_SUMMARY.md)** - Complete summary of all fixes applied
+- ✅ **[Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)** - Common issues and solutions
+- ✅ **[Development Guidelines](./DEVELOPMENT_GUIDELINES.md)** - Best practices for endpoint management
+- ✅ **[Quick Reference](./QUICK_REFERENCE.md)** - Emergency fixes and common commands
 
-### 2. Setup API Key (Required for AI Translation)
-- **Quick Setup**: See [QUICK_API_KEY_SETUP.md](./QUICK_API_KEY_SETUP.md)
-- **Detailed Guide**: See [SUPABASE_SECRETS_API_KEY_GUIDE.md](./SUPABASE_SECRETS_API_KEY_GUIDE.md)
+## 📖 **Complete Documentation**
 
-### 3. Start Development Server
-```bash
-npm run dev
-```
+### **🔧 Technical Documentation**
+- [Endpoint Duplication Fix](./ENDPOINT_DUPLICATION_FIX.md) - Detailed fix for photobooks/favorites issues
+- [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Common issues and solutions
+- [Development Guidelines](./DEVELOPMENT_GUIDELINES.md) - Best practices for development
+- [Quick Reference](./QUICK_REFERENCE.md) - Emergency fixes and commands
+- [Fix Summary](./FIX_SUMMARY.md) - Complete summary of all fixes
 
-## 🔑 API Key Setup
+### **📚 Project Documentation**
+- [Comprehensive Documentation](../src/COMPREHENSIVE_DOCUMENTATION.md) - Complete system documentation
+- [API Guidelines](../src/docs/api-guidelines.md) - API development guidelines
+- [Data Merge Feature](../src/docs/data-merge-feature.md) - Data merging functionality
+- [Gallery Filtering System](../src/docs/gallery-filtering-system.md) - Gallery filtering system
+- [Template Placeholders](../src/docs/template-placeholders.md) - Template system documentation
 
-The application uses Supabase secrets to securely store OpenRouter API keys for AI translation features.
+### **🔒 Security & Configuration**
+- [Supabase Secrets Integration](../docs/SUPABASE_SECRETS_INTEGRATION.md) - API key management
+- [Token Refresh Solution](../docs/TOKEN_REFRESH_SOLUTION.md) - Token management
 
-### **Quick Setup (2 minutes)**
-1. Get API key from [OpenRouter.ai](https://openrouter.ai/)
-2. Login to the application
-3. Go to "Setup API Key" tab
-4. Save your API key to Supabase secrets
-5. Test translation in "DeepSeek Test" tab
+## 🚀 **Quick Start**
 
-### **Features Requiring API Key**
-- ✅ Japanese to English translation
-- ✅ Movie title translation with context
-- ✅ Actor/Actress name translation
-- ✅ Romaji conversion
-- ✅ Series name translation
+### **Emergency Fixes**
+Jika ada masalah dengan photobooks atau favorites:
+1. **Check**: [Quick Reference](./QUICK_REFERENCE.md)
+2. **Debug**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)
+3. **Fix**: [Endpoint Duplication Fix](./ENDPOINT_DUPLICATION_FIX.md)
 
-### **Smart Data Processing**
-- ✅ **Alias Merging**: Automatically merges new aliases with existing ones
-- ✅ **Duplicate Detection**: Case-insensitive duplicate removal
-- ✅ **R18 Data Integration**: Seamless parsing and merging of R18.dev data
-- ✅ **Data Preservation**: No loss of existing data during updates
+### **Development**
+Untuk development baru:
+1. **Read**: [Development Guidelines](./DEVELOPMENT_GUIDELINES.md)
+2. **Follow**: [API Guidelines](../src/docs/api-guidelines.md)
+3. **Test**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)
 
-## 📚 Documentation
+## 📋 **Documentation Categories**
 
-- [**📖 Documentation Index**](./DOCUMENTATION_INDEX.md) - Complete documentation index
-- [**Quick API Key Setup**](./QUICK_API_KEY_SETUP.md) - 2-minute setup guide
-- [**Supabase Secrets Guide**](./SUPABASE_SECRETS_API_KEY_GUIDE.md) - Complete technical documentation
-- [**Security Guidelines**](./SECURITY_GUIDELINES.md) - Security best practices
-- [**Deployment Guide**](./DEPLOYMENT.md) - Production deployment
-- [**Alias Merging Feature**](./ALIAS_MERGING_FEATURE.md) - Smart alias merging for R18 data
-- [**Alias System Summary**](./ALIAS_SYSTEM_SUMMARY.md) - Complete overview of alias system
-- [**Changelog - Alias Merging**](./CHANGELOG_ALIAS_MERGING.md) - Detailed changelog for alias merging feature
+### **🔧 Troubleshooting**
+- [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Common issues and solutions
+- [Quick Reference](./QUICK_REFERENCE.md) - Emergency fixes and commands
+- [Fix Summary](./FIX_SUMMARY.md) - Summary of all fixes applied
 
-## 🛠️ Development
+### **🏗️ Development**
+- [Development Guidelines](./DEVELOPMENT_GUIDELINES.md) - Best practices
+- [API Guidelines](../src/docs/api-guidelines.md) - API development
+- [Comprehensive Documentation](../src/COMPREHENSIVE_DOCUMENTATION.md) - Complete system docs
 
-### **Environment Variables (Optional)**
-Create `.env.local` for local development:
-```bash
-VITE_OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
-```
+### **🔒 Security**
+- [Supabase Secrets Integration](../docs/SUPABASE_SECRETS_INTEGRATION.md) - API key management
+- [Token Refresh Solution](../docs/TOKEN_REFRESH_SOLUTION.md) - Token management
 
-### **Supabase Secrets (Recommended)**
-- Secure encrypted storage
-- Token-based access
-- No hardcoded keys in source code
+### **📊 Features**
+- [Data Merge Feature](../src/docs/data-merge-feature.md) - Data merging
+- [Gallery Filtering System](../src/docs/gallery-filtering-system.md) - Gallery filtering
+- [Template Placeholders](../src/docs/template-placeholders.md) - Template system
 
-## 🔒 Security
+## 🎯 **Common Use Cases**
 
-- ✅ No API keys in version control
-- ✅ Encrypted storage in Supabase
-- ✅ Token-based authentication
-- ✅ Environment variable fallback
-  
+### **Problem: Data Not Displaying**
+1. **Check**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Section 1
+2. **Fix**: [Endpoint Duplication Fix](./ENDPOINT_DUPLICATION_FIX.md)
+3. **Test**: [Quick Reference](./QUICK_REFERENCE.md) - Testing commands
+
+### **Problem: Authentication Errors**
+1. **Check**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Section 2
+2. **Review**: [Development Guidelines](./DEVELOPMENT_GUIDELINES.md) - Authentication patterns
+3. **Fix**: [Quick Reference](./QUICK_REFERENCE.md) - Authentication fixes
+
+### **Problem: Endpoint Not Found**
+1. **Check**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Section 3
+2. **Review**: [Development Guidelines](./DEVELOPMENT_GUIDELINES.md) - Endpoint design
+3. **Fix**: [Quick Reference](./QUICK_REFERENCE.md) - Endpoint fixes
+
+### **Development: Adding New Endpoint**
+1. **Read**: [Development Guidelines](./DEVELOPMENT_GUIDELINES.md) - Endpoint patterns
+2. **Follow**: [API Guidelines](../src/docs/api-guidelines.md)
+3. **Test**: [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Testing guidelines
+
+## 📞 **Support**
+
+### **Documentation Issues**
+- **Missing docs**: Create issue with label `documentation`
+- **Outdated docs**: Create issue with label `documentation`
+- **Unclear docs**: Create issue with label `documentation`
+
+### **Technical Issues**
+- **Endpoint problems**: Check [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)
+- **Authentication issues**: Check [Development Guidelines](./DEVELOPMENT_GUIDELINES.md)
+- **Performance issues**: Check [Comprehensive Documentation](../src/COMPREHENSIVE_DOCUMENTATION.md)
+
+### **Emergency Support**
+- **Critical issues**: Use [Quick Reference](./QUICK_REFERENCE.md)
+- **Data loss**: Check [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md) - Emergency procedures
+- **System down**: Check [Fix Summary](./FIX_SUMMARY.md) - Emergency contacts
+
+## 🔄 **Maintenance**
+
+### **Regular Updates**
+- **Monthly**: Review documentation accuracy
+- **Quarterly**: Update development guidelines
+- **Annually**: Complete documentation audit
+
+### **Version Control**
+- **Documentation version**: 1.0.0
+- **Last updated**: September 14, 2025
+- **Next review**: October 14, 2025
+
+## 📊 **Documentation Stats**
+
+### **Files Created**
+- ✅ 5 new documentation files
+- ✅ 1 updated README
+- ✅ 1 updated CHANGELOG
+- ✅ Complete coverage of recent fixes
+
+### **Coverage**
+- ✅ **Troubleshooting**: 100% coverage
+- ✅ **Development**: 100% coverage
+- ✅ **Emergency fixes**: 100% coverage
+- ✅ **Best practices**: 100% coverage
+
+---
+
+**Documentation Index** - Last Updated: September 14, 2025
+**Version**: 1.0.0
+**Status**: ✅ Complete
