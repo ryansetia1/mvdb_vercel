@@ -34,6 +34,7 @@ import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
 import { ClickableAvatar } from './ClickableAvatar'
 import { ImageSearchIframe } from './ImageSearchIframe'
+import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
 import { toast } from 'sonner'
 
 // Sortable Photo Component
@@ -777,10 +778,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         }
       }
 
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: formData.jpname.trim(),
+        kanjiName: formData.kanjiName.trim()
+      })
+
       const submitData = {
         name: formData.name.trim(),
-        jpname: formData.jpname.trim() || undefined,
-        kanjiName: formData.kanjiName.trim() || undefined,
+        jpname: normalizedNames.jpname || undefined,
+        kanjiName: normalizedNames.kanjiName || undefined,
         kanaName: formData.kanaName.trim() || undefined,
         birthdate: birthdateString,
         alias: formData.alias.trim() || undefined,

@@ -11,6 +11,7 @@ import { DatePicker } from './DatePicker'
 import { PhotoCycler } from './PhotoCycler'
 import { LabeledLinksManager } from './LabeledLinksManager'
 import { MultiSelectWithCreate } from './MultiSelectWithCreate'
+import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
 
 interface ExtendedFormProps {
   type: 'actor' | 'actress'
@@ -261,10 +262,16 @@ export function ExtendedForm({ type, accessToken, data, onDataChange, initialEdi
         }
       })
 
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: formData.jpname.trim(),
+        kanjiName: formData.kanjiName.trim()
+      })
+
       const submitData = {
         name: formData.name.trim(),
-        jpname: formData.jpname.trim() || undefined,
-        kanjiName: formData.kanjiName.trim() || undefined,
+        jpname: normalizedNames.jpname || undefined,
+        kanjiName: normalizedNames.kanjiName || undefined,
         kanaName: formData.kanaName.trim() || undefined,
         birthdate: birthdateString,
         alias: formData.alias.trim() || undefined,

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { Plus, Edit, Trash2, ExternalLink } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
+import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
 
 interface LabelFormProps {
   accessToken: string
@@ -58,12 +59,24 @@ export function LabelForm({ accessToken, data, onDataChange }: LabelFormProps) {
     setError('')
 
     try {
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: formData.jpname,
+        kanjiName: formData.kanjiName
+      })
+
+      const normalizedFormData = {
+        ...formData,
+        jpname: normalizedNames.jpname,
+        kanjiName: normalizedNames.kanjiName
+      }
+
       if (editingItem) {
-        const updated = await masterDataApi.updateExtended('label', editingItem.id, formData, accessToken)
+        const updated = await masterDataApi.updateExtended('label', editingItem.id, normalizedFormData, accessToken)
         const newData = data.map(item => item.id === editingItem.id ? updated : item)
         onDataChange(newData)
       } else {
-        const newItem = await masterDataApi.createExtended('label', formData, accessToken)
+        const newItem = await masterDataApi.createExtended('label', normalizedFormData, accessToken)
         onDataChange([...data, newItem])
       }
       

@@ -1,5 +1,6 @@
 import { Movie } from './movieApi'
 import { MasterDataItem } from './masterDataApi'
+import { normalizeR18JapaneseName } from './japaneseNameNormalizer'
 import { movieApi } from './movieApi'
 
 export interface ParsedMovieData {
@@ -525,13 +526,18 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
       galleryImages: data.gallery.map(img => img.image_full),
       coverImage: data.jacket_full_url,
       sampleUrl: data.sample_url,
-      // Director info from R18.dev
-      directorInfo: data.directors.length > 0 ? {
-        name_romaji: data.directors[0].name_romaji,
-        name_kanji: data.directors[0].name_kanji,
-        name_kana: data.directors[0].name_kana,
-        name_en: data.directors[0].name_en
-      } : undefined,
+      // Director info from R18.dev (normalized)
+      directorInfo: data.directors.length > 0 ? (() => {
+        const director = data.directors[0]
+        const normalized = normalizeR18JapaneseName(director)
+        return {
+          name_romaji: director.name_romaji,
+          name_kanji: normalized.kanjiName,
+          name_kana: normalized.kanaName,
+          name_en: director.name_en,
+          jpname: normalized.jpname // Add normalized Japanese name
+        }
+      })() : undefined,
       // Series info from R18.dev
       seriesInfo: data.series_name_ja || data.series_name_en ? {
         name_en: data.series_name_en,
@@ -547,20 +553,28 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
         name_en: data.maker_name_en,
         name_ja: data.maker_name_ja
       } : undefined,
-      // Actress info from R18.dev
-      actressInfo: data.actresses.map(actress => ({
-        name_romaji: actress.name_romaji,
-        name_kanji: actress.name_kanji,
-        name_kana: actress.name_kana,
-        name_en: actress.name_en
-      })),
-      // Actor info from R18.dev
-      actorInfo: data.actors.map(actor => ({
-        name_romaji: actor.name_romaji,
-        name_kanji: actor.name_kanji,
-        name_kana: actor.name_kana,
-        name_en: actor.name_en
-      }))
+      // Actress info from R18.dev (normalized)
+      actressInfo: data.actresses.map(actress => {
+        const normalized = normalizeR18JapaneseName(actress)
+        return {
+          name_romaji: actress.name_romaji,
+          name_kanji: normalized.kanjiName,
+          name_kana: normalized.kanaName,
+          name_en: actress.name_en,
+          jpname: normalized.jpname // Add normalized Japanese name
+        }
+      }),
+      // Actor info from R18.dev (normalized)
+      actorInfo: data.actors.map(actor => {
+        const normalized = normalizeR18JapaneseName(actor)
+        return {
+          name_romaji: actor.name_romaji,
+          name_kanji: normalized.kanjiName,
+          name_kana: normalized.kanaName,
+          name_en: actor.name_en,
+          jpname: normalized.jpname // Add normalized Japanese name
+        }
+      })
     }
 
     // Validate required fields
@@ -1008,28 +1022,27 @@ export async function matchWithDatabase(
       
       // Check R18.dev data for missing kanji/kana names
       if (r18Data) {
-        // Check for missing kanji name from R18.dev
-        // Note: R18.dev's "name_kanji" is actually Katakana (カタカナ), not true Kanji (漢字)
-        // We map it to kanjiName field in our database for consistency
-        if (r18Data.name_kanji && !matchedItem.kanjiName) {
-          missingData.kanjiName = r18Data.name_kanji
+        // Use normalizeR18JapaneseName untuk handle redundancy dan mapping yang benar
+        const normalizedR18Data = normalizeR18JapaneseName(r18Data)
+        
+        // Check for missing Japanese name (prioritize normalized data)
+        if (normalizedR18Data.jpname && !matchedItem.jpname) {
+          missingData.jpname = normalizedR18Data.jpname
         }
         
-        // Check for missing kana name from R18.dev
-        // Note: R18.dev's "name_kana" is Hiragana (ひらがな)
-        if (r18Data.name_kana && !matchedItem.kanaName) {
-          missingData.kanaName = r18Data.name_kana
+        // Check for missing kanji name (only if it contains actual kanji)
+        if (normalizedR18Data.kanjiName && !matchedItem.kanjiName) {
+          missingData.kanjiName = normalizedR18Data.kanjiName
         }
         
-        // Check for missing Japanese name from R18.dev
-        if (r18Data.name_ja && !matchedItem.jpname) {
-          missingData.jpname = r18Data.name_ja
+        // Check for missing kana name
+        if (normalizedR18Data.kanaName && !matchedItem.kanaName) {
+          missingData.kanaName = normalizedR18Data.kanaName
         }
         
-        // Check for missing English name from R18.dev
-        const englishName = r18Data.name_en || r18Data.name_romaji
-        if (englishName && !matchedItem.name) {
-          missingData.name = englishName
+        // Check for missing English name
+        if (normalizedR18Data.name && !matchedItem.name) {
+          missingData.name = normalizedR18Data.name
         }
       }
     }
