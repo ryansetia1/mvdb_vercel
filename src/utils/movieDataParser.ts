@@ -535,7 +535,8 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
           name_kanji: normalized.kanjiName,
           name_kana: normalized.kanaName,
           name_en: director.name_en,
-          jpname: normalized.jpname // Add normalized Japanese name
+          jpname: normalized.jpname, // Add normalized Japanese name
+          alias: normalized.alias // Add extracted aliases
         }
       })() : undefined,
       // Series info from R18.dev
@@ -561,7 +562,8 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
           name_kanji: normalized.kanjiName,
           name_kana: normalized.kanaName,
           name_en: actress.name_en,
-          jpname: normalized.jpname // Add normalized Japanese name
+          jpname: normalized.jpname, // Add normalized Japanese name
+          alias: normalized.alias // Add extracted aliases
         }
       }),
       // Actor info from R18.dev (normalized)
@@ -572,7 +574,8 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
           name_kanji: normalized.kanjiName,
           name_kana: normalized.kanaName,
           name_en: actor.name_en,
-          jpname: normalized.jpname // Add normalized Japanese name
+          jpname: normalized.jpname, // Add normalized Japanese name
+          alias: normalized.alias // Add extracted aliases
         }
       })
     }
@@ -1044,6 +1047,11 @@ export async function matchWithDatabase(
         if (normalizedR18Data.name && !matchedItem.name) {
           missingData.name = normalizedR18Data.name
         }
+        
+        // Check for missing alias (prioritize R18 aliases)
+        if (normalizedR18Data.alias && !matchedItem.alias) {
+          missingData.alias = normalizedR18Data.alias
+        }
       }
     }
     
@@ -1294,14 +1302,20 @@ export async function matchWithDatabase(
     if (!matchResult.matched && r18ActressData) {
       console.log('No match found with primary name, trying R18 names...')
       
+      // Use normalized data for better matching
+      const normalizedR18Data = normalizeR18JapaneseName(r18ActressData)
+      
       const nameVariations = [
-        r18ActressData.name_kanji,
-        r18ActressData.name_kana,
-        r18ActressData.name_romaji,
-        r18ActressData.name_en
+        normalizedR18Data.jpname,      // Normalized Japanese name
+        normalizedR18Data.kanjiName,    // Normalized kanji name
+        normalizedR18Data.kanaName,     // Normalized kana name
+        normalizedR18Data.name,        // Normalized English name
+        r18ActressData.name_romaji,    // Original romaji
+        r18ActressData.name_en         // Original English
       ].filter(Boolean) // Remove null/undefined values
       
       console.log('Trying name variations:', nameVariations)
+      console.log('Normalized R18 data:', normalizedR18Data)
       
       for (const variation of nameVariations) {
         if (variation && variation !== actressName) {
@@ -1397,43 +1411,30 @@ export async function matchWithDatabase(
     if (!matchResult.matched && r18ActorData) {
       console.log('No match found with primary name, trying R18 names...')
       
-      // Try with name_romaji
-      if (r18ActorData.name_romaji && r18ActorData.name_romaji !== actorName) {
-        console.log('Trying with name_romaji:', r18ActorData.name_romaji)
-        const romajiMatch = findMatches(r18ActorData.name_romaji, 'actor')
-        if (romajiMatch.matched) {
-          matchResult = romajiMatch
-          console.log('Found match with name_romaji:', romajiMatch.matched.name)
-        }
-      }
+      // Use normalized data for better matching
+      const normalizedR18Data = normalizeR18JapaneseName(r18ActorData)
       
-      // Try with name_kanji if still no match
-      if (!matchResult.matched && r18ActorData.name_kanji && r18ActorData.name_kanji !== actorName) {
-        console.log('Trying with name_kanji:', r18ActorData.name_kanji)
-        const kanjiMatch = findMatches(r18ActorData.name_kanji, 'actor')
-        if (kanjiMatch.matched) {
-          matchResult = kanjiMatch
-          console.log('Found match with name_kanji:', kanjiMatch.matched.name)
-        }
-      }
+      const nameVariations = [
+        normalizedR18Data.jpname,      // Normalized Japanese name
+        normalizedR18Data.kanjiName,    // Normalized kanji name
+        normalizedR18Data.kanaName,     // Normalized kana name
+        normalizedR18Data.name,        // Normalized English name
+        r18ActorData.name_romaji,      // Original romaji
+        r18ActorData.name_en           // Original English
+      ].filter(Boolean) // Remove null/undefined values
       
-      // Try with name_kana if still no match
-      if (!matchResult.matched && r18ActorData.name_kana && r18ActorData.name_kana !== actorName) {
-        console.log('Trying with name_kana:', r18ActorData.name_kana)
-        const kanaMatch = findMatches(r18ActorData.name_kana, 'actor')
-        if (kanaMatch.matched) {
-          matchResult = kanaMatch
-          console.log('Found match with name_kana:', kanaMatch.matched.name)
-        }
-      }
+      console.log('Trying name variations:', nameVariations)
+      console.log('Normalized R18 data:', normalizedR18Data)
       
-      // Try with name_en if still no match
-      if (!matchResult.matched && r18ActorData.name_en && r18ActorData.name_en !== actorName) {
-        console.log('Trying with name_en:', r18ActorData.name_en)
-        const enMatch = findMatches(r18ActorData.name_en, 'actor')
-        if (enMatch.matched) {
-          matchResult = enMatch
-          console.log('Found match with name_en:', enMatch.matched.name)
+      for (const variation of nameVariations) {
+        if (variation && variation !== actorName) {
+          console.log('Trying variation:', variation)
+          const variationResult = findMatches(variation, 'actor')
+          if (variationResult.matched) {
+            console.log('Found match with variation:', variation)
+            matchResult = variationResult
+            break
+          }
         }
       }
     }
@@ -1516,23 +1517,30 @@ export async function matchWithDatabase(
     if (!matchResult.matched && parsedData.directorInfo) {
       console.log('No match found with primary name, trying other variations...')
       
-      // Try with romaji name
-      if (parsedData.directorInfo.name_romaji && parsedData.directorInfo.name_romaji !== parsedData.director) {
-        console.log('Trying with romaji name:', parsedData.directorInfo.name_romaji)
-        const romajiMatch = findMatches(parsedData.directorInfo.name_romaji, 'director')
-        if (romajiMatch.matched) {
-          matchResult = romajiMatch
-          console.log('Found match with romaji name!')
-        }
-      }
+      // Use normalized data for better matching
+      const normalizedR18Data = normalizeR18JapaneseName(parsedData.directorInfo)
       
-      // Try with kana name
-      if (!matchResult.matched && parsedData.directorInfo.name_kana && parsedData.directorInfo.name_kana !== parsedData.director) {
-        console.log('Trying with kana name:', parsedData.directorInfo.name_kana)
-        const kanaMatch = findMatches(parsedData.directorInfo.name_kana, 'director')
-        if (kanaMatch.matched) {
-          matchResult = kanaMatch
-          console.log('Found match with kana name!')
+      const nameVariations = [
+        normalizedR18Data.jpname,      // Normalized Japanese name
+        normalizedR18Data.kanjiName,    // Normalized kanji name
+        normalizedR18Data.kanaName,     // Normalized kana name
+        normalizedR18Data.name,        // Normalized English name
+        parsedData.directorInfo.name_romaji,  // Original romaji
+        parsedData.directorInfo.name_en       // Original English
+      ].filter(Boolean) // Remove null/undefined values
+      
+      console.log('Trying name variations:', nameVariations)
+      console.log('Normalized R18 data:', normalizedR18Data)
+      
+      for (const variation of nameVariations) {
+        if (variation && variation !== parsedData.director) {
+          console.log('Trying variation:', variation)
+          const variationResult = findMatches(variation, 'director')
+          if (variationResult.matched) {
+            console.log('Found match with variation:', variation)
+            matchResult = variationResult
+            break
+          }
         }
       }
     }
