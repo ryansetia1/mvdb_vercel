@@ -34,7 +34,7 @@ import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
 import { ClickableAvatar } from './ClickableAvatar'
 import { ImageSearchIframe } from './ImageSearchIframe'
-import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
+import { normalizeJapaneseNames, parseNameWithAliases, detectCharacterType } from '../utils/japaneseNameNormalizer'
 import { toast } from 'sonner'
 
 // Sortable Photo Component
@@ -143,6 +143,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
   const [autoSearchTakuLinks, setAutoSearchTakuLinks] = useState(false) // Control auto search for Taku Links
   const [activeTab, setActiveTab] = useState('basic') // Tab state
+  const [isFixingAlias, setIsFixingAlias] = useState(false) // Loading state for fix alias
 
   // DnD Kit sensors
   const sensors = useSensors(
@@ -869,6 +870,277 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }
 
+  const handleFixAlias = async () => {
+    setIsFixingAlias(true)
+    
+    try {
+      console.log('Fix Alias clicked, current alias:', formData.alias)
+      console.log('Available names:', { 
+        name: formData.name, 
+        jpname: formData.jpname, 
+        kanjiName: formData.kanjiName, 
+        kanaName: formData.kanaName 
+      })
+      
+      // Fungsi untuk memisahkan nama dari kurung
+      const extractNamesFromBrackets = (text: string) => {
+        const bracketMatch = text.match(/^(.+?)\s*\((.+?)\)$/)
+        if (bracketMatch) {
+          return {
+            mainName: bracketMatch[1].trim(),
+            bracketName: bracketMatch[2].trim()
+          }
+        }
+        return {
+          mainName: text.trim(),
+          bracketName: null
+        }
+      }
+      
+      // Kumpulkan semua nama dari kurung untuk dipindah ke alias
+      const namesToMoveToAlias: string[] = []
+      
+      // Proses field nama
+      const nameExtracted = extractNamesFromBrackets(formData.name)
+      if (nameExtracted.bracketName) {
+        namesToMoveToAlias.push(nameExtracted.bracketName)
+      }
+      
+      // Proses field kanji name
+      const kanjiExtracted = extractNamesFromBrackets(formData.kanjiName)
+      if (kanjiExtracted.bracketName) {
+        namesToMoveToAlias.push(kanjiExtracted.bracketName)
+      }
+      
+      // Proses field kana name
+      const kanaExtracted = extractNamesFromBrackets(formData.kanaName)
+      if (kanaExtracted.bracketName) {
+        namesToMoveToAlias.push(kanaExtracted.bracketName)
+      }
+      
+      // Proses field jpname
+      const jpnameExtracted = extractNamesFromBrackets(formData.jpname)
+      if (jpnameExtracted.bracketName) {
+        namesToMoveToAlias.push(jpnameExtracted.bracketName)
+      }
+      
+      // Hapus duplikasi dari nama yang akan dipindah ke alias
+      const uniqueNamesToMove = [...new Set(namesToMoveToAlias)]
+      
+      console.log('Names to move to alias:', uniqueNamesToMove)
+      
+      // Bersihkan field-field nama dari kurung
+      const cleanedFormData = {
+        name: nameExtracted.mainName,
+        kanjiName: kanjiExtracted.mainName,
+        kanaName: kanaExtracted.mainName,
+        jpname: jpnameExtracted.mainName
+      }
+      
+      console.log('Cleaned form data:', cleanedFormData)
+      
+      // Jika alias kosong, coba generate dari nama yang ada
+      if (!formData.alias.trim()) {
+        console.log('Alias field is empty, attempting to generate from available names')
+        
+        const availableNames = []
+        if (cleanedFormData.name) availableNames.push(cleanedFormData.name)
+        if (cleanedFormData.jpname) availableNames.push(cleanedFormData.jpname)
+        if (cleanedFormData.kanjiName) availableNames.push(cleanedFormData.kanjiName)
+        if (cleanedFormData.kanaName) availableNames.push(cleanedFormData.kanaName)
+        
+        if (availableNames.length === 0) {
+          toast.info('Tidak ada nama yang tersedia untuk membuat alias')
+          return
+        }
+        
+        // Generate alias dari nama yang tersedia
+        let generatedAlias = ''
+        
+        // Prioritaskan English name sebagai alias utama
+        const englishName = cleanedFormData.name
+        const kanjiName = cleanedFormData.kanjiName || cleanedFormData.jpname
+        const kanaName = cleanedFormData.kanaName
+        
+        if (englishName) {
+          generatedAlias = englishName
+          
+          if (kanjiName && kanjiName !== englishName) {
+            generatedAlias += ` - ${kanjiName}`
+          }
+          
+          if (kanaName && kanaName !== englishName && kanaName !== kanjiName) {
+            generatedAlias += ` (${kanaName})`
+          }
+        } else if (kanjiName) {
+          generatedAlias = kanjiName
+          
+          if (kanaName && kanaName !== kanjiName) {
+            generatedAlias += ` (${kanaName})`
+          }
+        } else if (kanaName) {
+          generatedAlias = kanaName
+        }
+        
+        // Tambahkan nama dari kurung jika ada
+        if (uniqueNamesToMove.length > 0) {
+          const additionalAliases = uniqueNamesToMove.map(name => {
+            // Deteksi jenis karakter
+            const characterType = detectCharacterType(name)
+            if (characterType === 'english' || characterType === 'latin' || characterType === 'romaji') {
+              return name
+            } else if (characterType === 'kanji') {
+              return name
+            } else if (characterType === 'kana') {
+              return name
+            }
+            return name
+          })
+          
+          if (generatedAlias) {
+            generatedAlias += ', ' + additionalAliases.join(', ')
+          } else {
+            generatedAlias = additionalAliases.join(', ')
+          }
+        }
+        
+        if (generatedAlias) {
+          setFormData(prev => ({ 
+            ...prev, 
+            alias: generatedAlias,
+            name: cleanedFormData.name,
+            kanjiName: cleanedFormData.kanjiName,
+            kanaName: cleanedFormData.kanaName,
+            jpname: cleanedFormData.jpname
+          }))
+          toast.success(`Alias berhasil dibuat dari nama yang tersedia: ${generatedAlias}`)
+        } else {
+          toast.info('Tidak dapat membuat alias dari nama yang tersedia')
+        }
+        
+        return
+      }
+
+      // Parse alias dari field alias yang ada (baik dengan kurung maupun tanpa kurung)
+      const parsedAlias = parseNameWithAliases(formData.alias)
+      console.log('Parsed alias:', parsedAlias)
+      
+      // Jika tidak ada alias dalam kurung, coba parse dari format yang sudah ada
+      let aliasesToFormat: string[] = []
+      
+      if (parsedAlias.aliases.length > 0) {
+        // Ada alias dalam kurung
+        aliasesToFormat = parsedAlias.aliases
+        console.log('Found aliases in brackets:', aliasesToFormat)
+      } else {
+        // Tidak ada kurung, coba split berdasarkan koma dan format yang ada
+        const aliasParts = formData.alias.split(',').map(part => part.trim()).filter(part => part.length > 0)
+        console.log('Split aliases by comma:', aliasParts)
+        
+        // Coba parse setiap bagian untuk mencari format "English - Kanji (Kana)"
+        aliasesToFormat = aliasParts.map(part => {
+          // Jika sudah dalam format yang benar, biarkan saja
+          if (part.includes(' - ') || part.includes('(')) {
+            return part
+          }
+          // Jika tidak, anggap sebagai alias tunggal
+          return part
+        })
+      }
+      
+      // Tambahkan nama dari kurung ke daftar alias
+      aliasesToFormat.push(...uniqueNamesToMove)
+      
+      if (aliasesToFormat.length === 0) {
+        toast.info('Tidak ada alias yang dapat diformat ulang')
+        return
+      }
+
+      // Hapus duplikasi dan bersihkan alias
+      const uniqueAliases = [...new Set(aliasesToFormat.map(alias => alias.trim()).filter(alias => alias.length > 0))]
+      console.log('Unique aliases after deduplication:', uniqueAliases)
+
+      // Format ulang alias dengan struktur yang benar
+      const formattedAliases: string[] = []
+      
+      // Cek apakah ada kanji dan kana name yang bisa digunakan
+      const hasKanjiName = cleanedFormData.kanjiName
+      const hasKanaName = cleanedFormData.kanaName
+      const hasJpName = cleanedFormData.jpname
+      
+      console.log('Available names:', { hasKanjiName, hasKanaName, hasJpName })
+      
+      uniqueAliases.forEach((alias, index) => {
+        console.log(`Processing alias ${index}:`, alias)
+        
+        // Jika alias sudah dalam format yang benar (English - Kanji (Kana)), biarkan saja
+        if (alias.includes(' - ') && alias.includes('(') && alias.includes(')')) {
+          formattedAliases.push(alias)
+          return
+        }
+        
+        // Jika alias sudah dalam format English - Kanji (tanpa kana), biarkan saja
+        if (alias.includes(' - ') && !alias.includes('(')) {
+          formattedAliases.push(alias)
+          return
+        }
+        
+        // Deteksi jenis karakter untuk alias yang belum diformat
+        const characterType = detectCharacterType(alias)
+        console.log(`Character type for "${alias}":`, characterType)
+        
+        if (characterType === 'english' || characterType === 'latin' || characterType === 'romaji') {
+          // English alias sebagai prioritas utama
+          let formattedAlias = alias
+          
+          // Tambahkan kanji name jika tersedia dan belum ada
+          if (hasKanjiName && !alias.includes(hasKanjiName)) {
+            formattedAlias += ` - ${hasKanjiName}`
+          } else if (hasJpName && !alias.includes(hasJpName)) {
+            formattedAlias += ` - ${hasJpName}`
+          }
+          
+          // Tambahkan kana name jika tersedia dan belum ada
+          if (hasKanaName && !alias.includes(hasKanaName)) {
+            formattedAlias += ` (${hasKanaName})`
+          }
+          
+          formattedAliases.push(formattedAlias)
+        } else if (characterType === 'kanji') {
+          // Kanji alias - tambahkan sebagai alias terpisah
+          formattedAliases.push(alias)
+        } else if (characterType === 'kana') {
+          // Kana alias - tambahkan sebagai alias terpisah
+          formattedAliases.push(alias)
+        } else {
+          // Mixed atau unknown, tambahkan sebagai string biasa
+          formattedAliases.push(alias)
+        }
+      })
+      
+      const newFormattedAlias = formattedAliases.join(', ')
+      console.log('New formatted alias:', newFormattedAlias)
+      
+      // Update form data dengan alias yang sudah diformat dan field yang sudah dibersihkan
+      setFormData(prev => ({ 
+        ...prev, 
+        alias: newFormattedAlias,
+        name: cleanedFormData.name,
+        kanjiName: cleanedFormData.kanjiName,
+        kanaName: cleanedFormData.kanaName,
+        jpname: cleanedFormData.jpname
+      }))
+      
+      toast.success(`Alias berhasil diformat: ${newFormattedAlias}`)
+      
+    } catch (error) {
+      console.error('Error fixing alias:', error)
+      toast.error('Gagal memformat alias')
+    } finally {
+      setIsFixingAlias(false)
+    }
+  }
+
   return (
     <Card className="w-full max-w-4xl mx-auto flex flex-col h-[90vh]">
       <CardHeader className="flex-shrink-0">
@@ -977,13 +1249,55 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="alias">Alias / Nama Panggung</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="alias">Alias / Nama Panggung</Label>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="outline"
+                    onClick={handleFixAlias}
+                    disabled={isFixingAlias || (!formData.alias.trim() && !formData.name.trim() && !formData.jpname.trim() && !formData.kanjiName.trim() && !formData.kanaName.trim())}
+                    className="text-xs"
+                  >
+                    {isFixingAlias ? (
+                      <>
+                        <RotateCcw className="h-3 w-3 mr-1 animate-spin" />
+                        Memformat...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Fix Alias
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <Input
                   id="alias"
                   value={formData.alias}
                   onChange={(e) => handleInputChange('alias', e.target.value)}
                   placeholder="Masukkan alias atau nama panggung"
                 />
+                <div className="text-xs text-muted-foreground">
+                  💡 <strong>Tip:</strong> 
+                  {!formData.alias.trim() ? (
+                    <>
+                      Tombol "Fix Alias" akan membuat alias dari nama yang tersedia dengan format: English - Kanji (Kana).
+                      {formData.name.trim() || formData.jpname.trim() || formData.kanjiName.trim() || formData.kanaName.trim() ? 
+                        ' Akan menggunakan nama yang sudah ada di form.' : 
+                        ' Pastikan minimal ada satu nama yang diisi.'
+                      }
+                    </>
+                  ) : (
+                    <>
+                      Tombol "Fix Alias" akan memformat ulang alias yang ada dengan struktur yang benar (English - Kanji (Kana)). 
+                      {formData.kanjiName.trim() || formData.kanaName.trim() ? 
+                        ' Akan menggunakan Kanji/Kana Name yang sudah ada.' : 
+                        ' Jika Kanji/Kana Name kosong, akan memformat berdasarkan jenis karakter yang terdeteksi.'
+                      }
+                    </>
+                  )}
+                </div>
               </div>
               
               {/* Group selection for actresses only */}
