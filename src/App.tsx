@@ -56,9 +56,18 @@ function App() {
           setUser(null)
           setIsAuthenticated(false)
         } else if (session?.access_token) {
-          setAccessToken(session.access_token)
-          setUser(session.user as User)
-          setIsAuthenticated(true)
+          // Only update state if token actually changed to prevent unnecessary reloads
+          const currentToken = accessToken
+          const newToken = session.access_token
+          
+          if (currentToken !== newToken) {
+            console.log('Token changed, updating state')
+            setAccessToken(newToken)
+            setUser(session.user as User)
+            setIsAuthenticated(true)
+          } else {
+            console.log('Token unchanged, skipping state update')
+          }
           
           if (event === 'TOKEN_REFRESHED') {
             console.log('Token refreshed successfully')
@@ -70,7 +79,7 @@ function App() {
     return () => {
       subscription?.unsubscribe()
     }
-  }, [])
+  }, [accessToken]) // Add accessToken as dependency to compare tokens
 
   // Global error handler for authentication issues
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React from 'react'
 import { useState, useEffect, useCallback } from 'react'
+import { useTokenAwareDataLoad } from '../hooks/useTokenAwareEffect'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Button } from './ui/button'
@@ -465,35 +466,30 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       }
     }
 
-  useEffect(() => {
-    loadData()
-  }, [accessToken])
+  // Use token-aware data loading to prevent unnecessary reloads on token refresh
+  useTokenAwareDataLoad(loadData, accessToken)
 
   // Load custom navigation items from database after component mounts
-  useEffect(() => {
-    const loadCustomNavItems = async () => {
-      if (!accessToken) return
+  useTokenAwareDataLoad(async () => {
+    if (!accessToken) return
+    
+    try {
+      setCustomNavLoading(true)
+      const customItems = await loadCustomNavItemsFromDatabase(accessToken)
       
-      try {
-        setCustomNavLoading(true)
-        const customItems = await loadCustomNavItemsFromDatabase(accessToken)
-        
-        if (customItems.length > 0) {
-          setNavItems(prev => {
-            const defaultItems = prev.filter(item => item.type !== 'custom')
-            return [...defaultItems, ...customItems]
-          })
-        }
-      } catch (error) {
-        console.error('Failed to load custom nav items:', error)
-        // Continue without custom items if loading fails
-      } finally {
-        setCustomNavLoading(false)
+      if (customItems.length > 0) {
+        setNavItems(prev => {
+          const defaultItems = prev.filter(item => item.type !== 'custom')
+          return [...defaultItems, ...customItems]
+        })
       }
+    } catch (error) {
+      console.error('Failed to load custom nav items:', error)
+      // Continue without custom items if loading fails
+    } finally {
+      setCustomNavLoading(false)
     }
-
-    loadCustomNavItems()
-  }, [accessToken])
+  }, accessToken)
 
   // Custom nav filters management
   const getCustomNavFilters = (navItemId: string) => {

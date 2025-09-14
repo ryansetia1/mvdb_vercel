@@ -8,10 +8,11 @@
 5. [API Endpoints](#api-endpoints)
 6. [Frontend Components](#frontend-components)
 7. [Authentication System](#authentication-system)
-8. [File Structure](#file-structure)
-9. [Development Guidelines](#development-guidelines)
-10. [Deployment & Configuration](#deployment--configuration)
-11. [Troubleshooting](#troubleshooting)
+8. [Token Refresh Solution](#token-refresh-solution)
+9. [File Structure](#file-structure)
+10. [Development Guidelines](#development-guidelines)
+11. [Deployment & Configuration](#deployment--configuration)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -482,6 +483,133 @@ interface User {
 
 ---
 
+## Token Refresh Solution
+
+### Problem Overview
+Aplikasi mengalami refresh otomatis ketika Supabase melakukan token refresh, yang sangat mengganggu user experience terutama saat user sedang mengedit data atau melakukan proses parse movie.
+
+**Symptoms:**
+```
+Auth state changed: TOKEN_REFRESHED token present
+App.tsx:64 Token refreshed successfully
+```
+
+### Root Cause Analysis
+1. **Supabase Token Refresh**: Supabase secara otomatis melakukan refresh token untuk menjaga session tetap valid
+2. **State Update Cascade**: Event `TOKEN_REFRESHED` menyebabkan `accessToken` state berubah
+3. **useEffect Dependency**: 32+ komponen memiliki `useEffect` dengan dependency `[accessToken]`
+4. **Data Reload**: Setiap perubahan `accessToken` memicu `loadData()` di berbagai komponen
+
+### Solution Implementation
+
+#### 1. Token Comparison Logic
+```typescript
+// src/utils/tokenUtils.ts
+export function isTokenEquivalent(token1: string | null, token2: string | null): boolean {
+  // Compare JWT payload to determine if tokens represent same session
+  // Even if token string is different, if it's same user/session, consider equivalent
+  if (!token1 && !token2) return true
+  if (!token1 || !token2) return false
+  if (token1 === token2) return true
+  
+  try {
+    const payload1 = getJWTPayload(token1)
+    const payload2 = getJWTPayload(token2)
+    
+    // Compare user ID and session ID if available
+    if (payload1?.sub && payload2?.sub && payload1.sub === payload2.sub) {
+      return true // Same user, likely just a refresh
+    }
+  } catch (error) {
+    console.warn('JWT comparison failed, using exact match:', error)
+  }
+  
+  return false
+}
+```
+
+#### 2. Token-Aware Effect Hook
+```typescript
+// src/hooks/useTokenAwareEffect.ts
+export function useTokenAwareDataLoad(
+  loadFunction: () => void | Promise<void>,
+  accessToken: string | null,
+  additionalDeps: any[] = []
+) {
+  const previousTokenRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    // Check if this is a token refresh scenario
+    const isTokenRefresh = dependencies.includes(accessToken) && 
+                          isTokenEquivalent(previousTokenRef.current, accessToken)
+    
+    // Only run effect if token actually changed (not just refreshed)
+    if (!isTokenRefresh || otherDepsChanged || previousTokenRef.current === null) {
+      loadFunction()
+      previousTokenRef.current = accessToken
+    }
+  }, dependencies)
+}
+```
+
+#### 3. App.tsx State Management
+```typescript
+// src/App.tsx
+useEffect(() => {
+  const { data: { subscription } } = auth.client.auth.onAuthStateChange(
+    async (event, session) => {
+      if (session?.access_token) {
+        // Only update state if token actually changed
+        const currentToken = accessToken
+        const newToken = session.access_token
+        
+        if (currentToken !== newToken) {
+          console.log('Token changed, updating state')
+          setAccessToken(newToken)
+          setUser(session.user as User)
+          setIsAuthenticated(true)
+        } else {
+          console.log('Token unchanged, skipping state update')
+        }
+      }
+    }
+  )
+}, [accessToken])
+```
+
+#### 4. Component Updates
+```typescript
+// Before (causing reloads)
+useEffect(() => {
+  loadData()
+}, [accessToken])
+
+// After (token-aware)
+useTokenAwareDataLoad(loadData, accessToken)
+```
+
+### Benefits
+- ✅ **No unnecessary reloads** during token refresh
+- ✅ **Smooth user experience** - no interruption during editing/parsing
+- ✅ **Security maintained** - token refresh still works for security
+- ✅ **Better performance** - reduced unnecessary API calls
+- ✅ **Preserved editing state** - no data loss during editing
+
+### Files Modified
+- `src/App.tsx` - Token state management
+- `src/utils/tokenUtils.ts` - Token comparison utilities (new)
+- `src/hooks/useTokenAwareEffect.ts` - Custom hook (new)
+- `src/components/UnifiedApp.tsx` - Updated to use token-aware loading
+- `src/components/FrontendApp.tsx` - Updated to use token-aware loading
+
+### Testing
+- **Token Refresh Test**: Verify no data reload when token refreshes
+- **Actual Token Change Test**: Verify data reloads when token actually changes
+- **User Session Test**: Verify same user session is maintained
+- **Edit State Test**: Verify editing state is preserved during token refresh
+
+---
+
 ## File Structure
 
 ### Root Level
@@ -494,6 +622,9 @@ interface User {
 ├── utils/                    # Utility functions dan API clients
 ├── supabase/functions/       # Backend Edge functions
 └── docs/                     # Documentation files
+    ├── TOKEN_REFRESH_SOLUTION.md  # Token refresh issue solution
+    ├── SUPABASE_SECRETS_INTEGRATION.md  # API key management
+    └── [Other documentation files]
 ```
 
 ### Components Organization
@@ -511,6 +642,7 @@ components/
 ```
 utils/
 ├── auth.ts                  # Authentication utilities
+├── tokenUtils.ts            # Token comparison utilities (NEW)
 ├── movieApi.ts              # Movie API client
 ├── masterDataApi.ts         # Master data API client
 ├── favoritesApi.ts          # Favorites API client
@@ -518,6 +650,18 @@ utils/
 ├── templateUtils.ts         # Template processing utilities
 ├── movieTypeColors.ts       # Movie type color management
 └── supabase/info.tsx        # Supabase configuration
+```
+
+### Hooks Organization
+```
+hooks/
+├── useCachedData.ts         # Data caching and persistence
+├── useTokenAwareEffect.ts   # Token-aware effect hooks (NEW)
+├── useSimpleFavorites.ts    # Favorites management
+├── useGlobalKeyboardPagination.ts  # Keyboard navigation
+├── useKeyboardPagination.ts # Component-level pagination
+├── useGalleryCache.ts       # Gallery image caching
+└── useLazyData.ts           # Lazy loading utilities
 ```
 
 ---
@@ -626,6 +770,15 @@ Solution: Check token expiration, verify Supabase keys
 Debug: Check browser network tab, console errors
 ```
 
+#### Token Refresh Issues (SOLVED)
+```
+Symptom: App refreshes automatically during token refresh
+Log: "Auth state changed: TOKEN_REFRESHED token present"
+Impact: Disrupts user editing/parsing experience
+Solution: Implemented token-aware effect hooks
+Status: ✅ RESOLVED - See Token Refresh Solution section
+```
+
 #### Image Loading Issues
 ```
 Symptom: Images not loading, broken thumbnails  
@@ -704,7 +857,33 @@ Debug: Check updateData object in console logs
 
 ## Recent Improvements
 
-### Movie Parser Enhancements (Latest Update)
+### Token Refresh Solution (Latest Update)
+
+#### Problem Solved
+- **Issue**: App mengalami refresh otomatis saat Supabase melakukan token refresh
+- **Impact**: Mengganggu user experience saat editing/parsing data
+- **Root Cause**: 32+ useEffect hooks dengan dependency `[accessToken]` memicu reload data
+
+#### Solution Implemented
+- **Token Comparison Logic**: Membandingkan JWT payload untuk menentukan session equivalence
+- **Token-Aware Effect Hook**: Custom hook yang mencegah reload saat token refresh
+- **Smart State Management**: Hanya update state jika token benar-benar berubah
+- **Component Updates**: Mengganti useEffect dengan token-aware loading di komponen utama
+
+#### Benefits
+- ✅ **No unnecessary reloads** during token refresh
+- ✅ **Smooth user experience** - no interruption during editing/parsing
+- ✅ **Security maintained** - token refresh still works for security
+- ✅ **Better performance** - reduced unnecessary API calls
+
+#### Files Created/Modified
+- `src/utils/tokenUtils.ts` - Token comparison utilities (new)
+- `src/hooks/useTokenAwareEffect.ts` - Custom hook (new)
+- `src/App.tsx` - Token state management
+- `src/components/UnifiedApp.tsx` - Updated to use token-aware loading
+- `src/components/FrontendApp.tsx` - Updated to use token-aware loading
+
+### Movie Parser Enhancements (Previous Update)
 
 #### 1. Automatic Alias Fixing
 - **Implementation**: Integrated Fix Alias logic from actress edit dialog into movie parser

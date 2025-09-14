@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTokenAwareDataLoad } from '../hooks/useTokenAwareEffect'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Input } from './ui/input'
@@ -109,8 +110,7 @@ export function FrontendApp({ accessToken, user, onLogout, onSwitchToAdmin }: Fr
   const customNavItems = navItems.filter(item => item.type === 'custom')
 
   // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
+  const loadData = async () => {
       try {
         setIsLoading(true)
         console.log('Loading movies with access token:', accessToken?.substring(0, 10) + '...')
@@ -229,10 +229,10 @@ export function FrontendApp({ accessToken, user, onLogout, onSwitchToAdmin }: Fr
       } finally {
         setIsLoading(false)
       }
-    }
+  }
 
-    loadData()
-  }, [accessToken])
+  // Use token-aware data loading to prevent unnecessary reloads on token refresh
+  useTokenAwareDataLoad(loadData, accessToken)
 
   // Filter content based on search and active navigation
   useEffect(() => {
