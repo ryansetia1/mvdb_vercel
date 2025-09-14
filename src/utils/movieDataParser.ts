@@ -1150,7 +1150,8 @@ export async function matchWithDatabase(
         }
         
         // Check for missing alias (prioritize R18 aliases)
-        if (normalizedR18Data.alias && !matchedItem.alias) {
+        // Always include alias from R18 data if available, regardless of existing alias
+        if (normalizedR18Data.alias) {
           missingData.alias = normalizedR18Data.alias
         }
       }

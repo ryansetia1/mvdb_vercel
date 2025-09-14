@@ -1055,8 +1055,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           if (item.missingData?.titleJp) updateData.titleJp = item.missingData.titleJp
           if (item.missingData?.name) updateData.name = item.missingData.name
           
-          // Special handling for alias: normalize alias from R18 data if available
+          // Special handling for alias: normalize alias from R18 data if available and merge with existing
           if (item.missingData?.alias) {
+            let newAlias = item.missingData.alias
+            
             // Check if we have R18 data for this item to normalize the alias
             if (parsedData && isR18JsonFormat(parsedData.rawData)) {
               try {
@@ -1078,17 +1080,21 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                   const normalizedR18Data = normalizeR18JapaneseName(r18ItemData)
                   
                   // Use normalized alias if available, otherwise use original
-                  updateData.alias = normalizedR18Data.alias || item.missingData.alias
+                  newAlias = normalizedR18Data.alias || item.missingData.alias
                   console.log(`Normalized alias for ${category}[${i}]:`, normalizedR18Data.alias)
-                } else {
-                  updateData.alias = item.missingData.alias
                 }
               } catch (error) {
                 console.error('Error normalizing alias:', error)
-                updateData.alias = item.missingData.alias
               }
+            }
+            
+            // Merge new alias with existing alias if it exists
+            if (item.matched.alias) {
+              const { mergeAlias } = await import('../utils/aliasMerger')
+              updateData.alias = mergeAlias(item.matched.alias, newAlias)
+              console.log(`Merged alias for ${category}[${i}]: existing="${item.matched.alias}", new="${newAlias}", result="${updateData.alias}"`)
             } else {
-              updateData.alias = item.missingData.alias
+              updateData.alias = newAlias
             }
           }
           
@@ -1099,8 +1105,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             // Preserve existing kanji/kana names if they exist and no new ones are being added
             if (!item.missingData?.kanjiName && item.matched.kanjiName) updateData.kanjiName = item.matched.kanjiName
             if (!item.missingData?.kanaName && item.matched.kanaName) updateData.kanaName = item.matched.kanaName
-            // Preserve existing alias if no new one is being added
-            if (!item.missingData?.alias && item.matched.alias) updateData.alias = item.matched.alias
+            // Preserve existing alias if no new one is being added (alias merging is handled above)
+            if (!item.missingData?.alias && item.matched.alias && !updateData.alias) updateData.alias = item.matched.alias
             // Preserve existing birthdate if no new one is being added
             if (!item.missingData?.birthdate && item.matched.birthdate) updateData.birthdate = item.matched.birthdate
             // Preserve existing tags if no new ones are being added
