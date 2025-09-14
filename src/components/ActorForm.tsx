@@ -28,7 +28,7 @@ import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, GripVertical } from 'lucide-react'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
@@ -68,20 +68,31 @@ function SortablePhoto({ photo, index, name, onRemove }: SortablePhotoProps) {
         isDragging ? 'scale-105 shadow-lg z-50' : ''
       }`}
       {...attributes}
-      {...listeners}
     >
+      {/* Drag handle - only this area is draggable */}
+      <div
+        className="absolute top-1 left-1 h-5 w-5 rounded-full bg-muted hover:bg-muted/80 shadow-md hover:shadow-lg z-50 cursor-grab hover:cursor-grabbing flex items-center justify-center"
+        {...listeners}
+        title={`Drag untuk mengubah urutan`}
+      >
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
+      </div>
+      
       <ClickableAvatar
         src={photo}
         alt={`${name} foto ${index + 1}`}
         fallback={(name || 'A').charAt(0)}
         size="xl"
       />
+      
+      {/* Remove button - separate from drag functionality */}
       <Button
         type="button"
         variant="destructive"
         size="sm"
-        className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 shadow-md hover:shadow-lg z-10"
+        className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 shadow-md hover:shadow-lg z-50"
         onClick={(e) => {
+          e.preventDefault()
           e.stopPropagation()
           onRemove(index)
         }}
@@ -447,17 +458,24 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   }
 
   const handleAddPhotoWithPaste = async () => {
-    // 1. Tambah field foto baru
-    addProfilePictureField()
-    
-    // 2. Paste URL dari clipboard
     try {
       const text = await navigator.clipboard.readText()
       if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
-        // Set the new field (last one) with the pasted URL
-        const newProfilePictures = [...formData.profilePictures, text]
-        handleInputChange('profilePictures', newProfilePictures)
-        toast.success('Field foto baru ditambahkan dan URL gambar berhasil dipaste dari clipboard')
+        // Cari field kosong pertama atau tambah field baru jika semua terisi
+        const emptyIndex = formData.profilePictures.findIndex(pic => !pic.trim())
+        
+        if (emptyIndex !== -1) {
+          // Isi field kosong pertama
+          const newProfilePictures = [...formData.profilePictures]
+          newProfilePictures[emptyIndex] = text
+          handleInputChange('profilePictures', newProfilePictures)
+          toast.success('URL gambar berhasil dipaste ke field foto')
+        } else {
+          // Semua field terisi, tambah field baru
+          const newProfilePictures = [...formData.profilePictures, text]
+          handleInputChange('profilePictures', newProfilePictures)
+          toast.success('Field foto baru ditambahkan dan URL gambar berhasil dipaste dari clipboard')
+        }
       } else {
         toast.error('Clipboard tidak berisi URL gambar yang valid')
       }
