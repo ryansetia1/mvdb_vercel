@@ -10,6 +10,7 @@ import { Movie, movieApi } from '../utils/movieApi'
 import { SCMovie, scMovieApi } from '../utils/scMovieApi'
 import { Photobook, photobookApi } from '../utils/photobookApi'
 import { MasterDataItem, masterDataApi, calculateAge } from '../utils/masterDataApi'
+import { toast } from 'sonner'
 import { 
   Search, 
   Film, 
@@ -64,6 +65,8 @@ import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
 import { SCMovieForm } from './SCMovieForm'
+import { MovieForm } from './MovieForm'
+import { MovieDataParser } from './MovieDataParser'
 import { FilteredCustomNavContent } from './content/FilteredCustomNavContent'
 import { customNavApi, CustomNavItem } from '../utils/customNavApi'
 import { ThemeToggle } from './ThemeToggle'
@@ -107,6 +110,8 @@ type ContentMode =
   | 'filteredActresses'
   | 'admin'
   | 'advancedSearch'
+  | 'addMovie'
+  | 'parseMovie'
 
 interface ContentState {
   mode: ContentMode
@@ -302,6 +307,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [showEditSCMovie, setShowEditSCMovie] = useState<SCMovie | null>(null)
   const [showEditProfile, setShowEditProfile] = useState<{ type: 'actor' | 'actress' | 'director', name: string } | null>(null)
   const [showParseMovie, setShowParseMovie] = useState<Movie | null>(null)
+  
+  // Frontend form states
+  const [showAddMovieForm, setShowAddMovieForm] = useState(false)
+  const [showParseMovieForm, setShowParseMovieForm] = useState(false)
   
   // Navigation items - start with default items only
   const [navItems, setNavItems] = useState<NavItem[]>([
@@ -833,25 +842,71 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   const handleAddMovie = () => {
-    // Switch to admin mode with movies tab active for adding new movie
-    setContentState({ mode: 'admin', title: 'Admin Panel - Add Movie' })
-    setActiveNavItem('admin')
-    // Clear any existing editing states
-    setShowEditMovie(null)
-    setShowEditSCMovie(null)
-    setShowEditProfile(null)
-    setShowParseMovie(null)
+    // Show add movie form directly in frontend
+    setShowAddMovieForm(true)
+    setContentState({ mode: 'addMovie', title: 'Add New Movie' })
+    setActiveNavItem('movies')
   }
 
   const handleParseMovieFromMovies = () => {
-    // Switch to admin mode with parser tab active for parsing new movie
-    setContentState({ mode: 'admin', title: 'Admin Panel - Parse Movie' })
-    setActiveNavItem('admin')
-    // Clear any existing editing states
-    setShowEditMovie(null)
-    setShowEditSCMovie(null)
-    setShowEditProfile(null)
-    setShowParseMovie(null)
+    // Show parser directly in frontend
+    setShowParseMovieForm(true)
+    setContentState({ mode: 'parseMovie', title: 'Parse Movie Data' })
+    setActiveNavItem('movies')
+  }
+
+  const handleAddMovieSave = async (movie: Movie) => {
+    try {
+      const savedMovie = await movieApi.createMovie(movie, accessToken)
+      toast.success('Movie berhasil ditambahkan!')
+      
+      // Reload movies data
+      await loadMovies()
+      
+      // Go back to movies list
+      setShowAddMovieForm(false)
+      setContentState({ mode: 'movies', title: 'Movies' })
+      setActiveNavItem('movies')
+      
+      // Navigate to the new movie detail
+      handleMovieSelect(savedMovie)
+    } catch (error) {
+      console.error('Failed to save movie:', error)
+      toast.error('Gagal menyimpan movie')
+    }
+  }
+
+  const handleAddMovieCancel = () => {
+    setShowAddMovieForm(false)
+    setContentState({ mode: 'movies', title: 'Movies' })
+    setActiveNavItem('movies')
+  }
+
+  const handleParseMovieSave = async (movie: Movie) => {
+    try {
+      const savedMovie = await movieApi.createMovie(movie, accessToken)
+      toast.success('Movie berhasil diparse dan disimpan!')
+      
+      // Reload movies data
+      await loadMovies()
+      
+      // Go back to movies list
+      setShowParseMovieForm(false)
+      setContentState({ mode: 'movies', title: 'Movies' })
+      setActiveNavItem('movies')
+      
+      // Navigate to the new movie detail
+      handleMovieSelect(savedMovie)
+    } catch (error) {
+      console.error('Failed to save parsed movie:', error)
+      toast.error('Gagal menyimpan movie yang diparse')
+    }
+  }
+
+  const handleParseMovieCancel = () => {
+    setShowParseMovieForm(false)
+    setContentState({ mode: 'movies', title: 'Movies' })
+    setActiveNavItem('movies')
   }
 
   const handleEditSCMovie = (scMovie: SCMovie) => {
@@ -1362,6 +1417,49 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onAddMovie={handleAddMovie}
                 onParseMovie={handleParseMovieFromMovies}
               />
+            )}
+
+            {contentState.mode === 'addMovie' && showAddMovieForm && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAddMovieCancel}
+                    className="flex items-center gap-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Movies
+                  </Button>
+                  <h1 className="text-2xl font-bold">Add New Movie</h1>
+                </div>
+                <MovieForm
+                  movie={undefined}
+                  onSave={handleAddMovieSave}
+                  onCancel={handleAddMovieCancel}
+                  accessToken={accessToken}
+                />
+              </div>
+            )}
+
+            {contentState.mode === 'parseMovie' && showParseMovieForm && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleParseMovieCancel}
+                    className="flex items-center gap-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Movies
+                  </Button>
+                  <h1 className="text-2xl font-bold">Parse Movie Data</h1>
+                </div>
+                <MovieDataParser
+                  accessToken={accessToken}
+                  onSave={handleParseMovieSave}
+                  onCancel={handleParseMovieCancel}
+                />
+              </div>
             )}
 
             {contentState.mode === 'soft' && (
