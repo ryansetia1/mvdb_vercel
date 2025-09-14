@@ -1074,14 +1074,14 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           })
           console.log('Aliases from brackets:', uniqueAliasesFromBrackets)
           
-          // Apply fixing alias logic with cleaned names
+          // Apply fixing alias logic with original names (that still contain brackets)
           const { formatAliasWithFixingLogic } = await import('../utils/japaneseNameNormalizer')
           const fixedAlias = formatAliasWithFixingLogic({
             existingAlias: item.matched.alias,
-            name: nameParsed.mainName,
-            jpname: jpnameParsed.mainName,
-            kanjiName: kanjiNameParsed.mainName,
-            kanaName: kanaNameParsed.mainName
+            name: currentName,
+            jpname: currentJpname,
+            kanjiName: currentKanjiName,
+            kanaName: currentKanaName
           })
           
           console.log(`Fixed alias: "${item.matched.alias}" -> "${fixedAlias}"`)
@@ -1142,6 +1142,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
               alias: `${item.matched.alias} -> ${fixedAlias}`
             })
             console.log('Update data:', updateData)
+            console.log('Final kanaName value:', updateData.kanaName)
             
             // Update the matchedData with cleaned names so the final save uses the correct data
             updatedMatchedData[category][i] = {
@@ -1217,8 +1218,32 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         console.log(`Custom English name: ${item.customEnglishName}`)
         console.log(`Matched name: ${item.matched?.name}`)
         
-        if (item.matched && item.shouldUpdateData && item.missingData) {
-          console.log(`✅ Will update master data for ${category}[${i}]`)
+        // ROBUST UPDATE LOGIC - Separate concerns clearly
+        // Case 1: User explicitly chose R18 data (shouldUpdateData = true)
+        // Case 2: Missing data update (when names already match)
+        // Case 3: No update (when user explicitly chose database name)
+        
+        const hasMatched = !!item.matched
+        const shouldUpdate = !!item.shouldUpdateData
+        const hasMissingData = !!(item.missingData && Object.keys(item.missingData).length > 0)
+        const hasCustomEnglishName = !!item.customEnglishName
+        const hasEnglishNameSelection = !!(item.needsEnglishNameSelection || item.availableEnglishNames)
+        
+        // Determine update type
+        let updateType = 'none'
+        if (hasMatched && shouldUpdate) {
+          updateType = 'full_r18_update'
+        } else if (hasMatched && hasMissingData && (!hasCustomEnglishName || !hasEnglishNameSelection)) {
+          // Allow missing data update if:
+          // 1. No custom English name, OR
+          // 2. Custom English name exists but no English name selection was needed (Case 3)
+          updateType = 'missing_data_only'
+        }
+        
+        console.log(`ROBUST DEBUG: hasMatched=${hasMatched}, shouldUpdate=${shouldUpdate}, hasMissingData=${hasMissingData}, hasCustomEnglishName=${hasCustomEnglishName}, hasEnglishNameSelection=${hasEnglishNameSelection}, updateType=${updateType}`)
+        
+        if (updateType !== 'none') {
+          console.log(`✅ Will update master data for ${category}[${i}] - Update type: ${updateType}`)
           
           // Determine the type for API call first
           let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
@@ -1272,10 +1297,48 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                 const { normalizeR18JapaneseName } = await import('../utils/japaneseNameNormalizer')
                 const normalizedR18Data = normalizeR18JapaneseName(r18ItemData)
                 
-                // Use normalized English name if available (clean without aliases)
-                if (normalizedR18Data.name) {
-                  nameToUse = normalizedR18Data.name
-                  console.log(`Normalized English name for ${category}[${i}]:`, normalizedR18Data.name)
+                // Different logic based on update type
+                if (updateType === 'full_r18_update') {
+                  // Case 1: User chose R18 data - use all R18 data
+                  if (normalizedR18Data.name) {
+                    nameToUse = normalizedR18Data.name
+                    console.log(`[FULL R18] Using English name:`, normalizedR18Data.name)
+                  }
+                  if (normalizedR18Data.kanjiName) {
+                    updateData.kanjiName = normalizedR18Data.kanjiName
+                    console.log(`[FULL R18] Using kanji name:`, normalizedR18Data.kanjiName)
+                  }
+                  if (normalizedR18Data.kanaName) {
+                    updateData.kanaName = normalizedR18Data.kanaName
+                    console.log(`[FULL R18] Using kana name:`, normalizedR18Data.kanaName)
+                  }
+                } else if (updateType === 'missing_data_only') {
+                  // Case 2: Missing data only - use R18 data only for missing fields
+                  console.log(`[MISSING DATA] Debug - normalizedR18Data:`, normalizedR18Data)
+                  console.log(`[MISSING DATA] Debug - item.matched.kanaName:`, item.matched.kanaName)
+                  console.log(`[MISSING DATA] Debug - item.missingData:`, item.missingData)
+                  
+                  // Use the same condition as missing data detection
+                  if (normalizedR18Data.kanaName && (!item.matched.kanaName || item.matched.kanaName.trim() === '')) {
+                    updateData.kanaName = normalizedR18Data.kanaName
+                    console.log(`[MISSING DATA] Using R18 kana name:`, normalizedR18Data.kanaName)
+                    console.log(`[MISSING DATA] Matched kanaName:`, item.matched.kanaName)
+                  } else {
+                    console.log(`[MISSING DATA] NOT using R18 kana name - condition not met`)
+                  }
+                  if (normalizedR18Data.kanjiName && (!item.matched.kanjiName || item.matched.kanjiName.trim() === '')) {
+                    updateData.kanjiName = normalizedR18Data.kanjiName
+                    console.log(`[MISSING DATA] Using R18 kanji name:`, normalizedR18Data.kanjiName)
+                    console.log(`[MISSING DATA] Matched kanjiName:`, item.matched.kanjiName)
+                  } else {
+                    console.log(`[MISSING DATA] NOT using R18 kanji name - condition not met`)
+                  }
+                }
+                
+                // Use normalized Japanese name if available
+                if (normalizedR18Data.jpname) {
+                  updateData.jpname = normalizedR18Data.jpname
+                  console.log(`Using R18 jpname for ${category}[${i}]:`, normalizedR18Data.jpname)
                 }
               }
             } catch (error) {
@@ -1304,12 +1367,26 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           }
           
           // Add missing data fields (only if they exist in missingData)
-          if (item.missingData?.kanjiName) updateData.kanjiName = item.missingData.kanjiName
-          if (item.missingData?.kanaName) updateData.kanaName = item.missingData.kanaName
-          if (item.missingData?.birthdate) updateData.birthdate = item.missingData.birthdate
-          if (item.missingData?.tags) updateData.tags = item.missingData.tags
-          if (item.missingData?.titleJp) updateData.titleJp = item.missingData.titleJp
-          if (item.missingData?.name) updateData.name = item.missingData.name
+          if (item.missingData && 'kanjiName' in item.missingData && item.missingData.kanjiName) {
+            updateData.kanjiName = item.missingData.kanjiName
+            console.log(`Setting kanjiName from missingData:`, item.missingData.kanjiName)
+          }
+          if (item.missingData && 'kanaName' in item.missingData && item.missingData.kanaName) {
+            updateData.kanaName = item.missingData.kanaName
+            console.log(`Setting kanaName from missingData:`, item.missingData.kanaName)
+          }
+          if (item.missingData && 'birthdate' in item.missingData && item.missingData.birthdate) {
+            updateData.birthdate = item.missingData.birthdate
+          }
+          if (item.missingData && 'tags' in item.missingData && item.missingData.tags) {
+            updateData.tags = item.missingData.tags
+          }
+          if (item.missingData && 'titleJp' in item.missingData && item.missingData.titleJp) {
+            updateData.titleJp = item.missingData.titleJp
+          }
+          if (item.missingData && 'name' in item.missingData && item.missingData.name) {
+            updateData.name = item.missingData.name
+          }
           
           // Special handling for alias: normalize alias from R18 data if available and merge with existing
           if (item.missingData?.alias) {
@@ -1393,6 +1470,9 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           }
 
           // Add update promise
+          console.log(`Final master data update for ${category}[${i}]:`, updateData)
+          console.log(`Final kanaName in master data update:`, updateData.kanaName)
+          
           updatePromises.push(
             masterDataApi.updateExtendedWithSync(
               masterDataType,

@@ -389,6 +389,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
   }
 
+  // Load movies only
+  const loadMovies = async () => {
+    try {
+      const moviesData = await movieApi.getMovies(accessToken)
+      setMovies(moviesData || [])
+    } catch (error) {
+      console.error('Failed to load movies:', error)
+    }
+  }
+
   // Load initial data
   const loadData = async () => {
     try {
@@ -922,6 +932,23 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   const handleParseMovieSave = async (movie: Movie) => {
     try {
+      // Check if movie has ID (means it's from merge mode, already saved)
+      if (movie.id) {
+        console.log('Movie has ID, this is from merge mode - no need to save again')
+        
+        // Reload movies data
+        await loadMovies()
+        
+        // Go back to movies list
+        setShowParseMovieForm(false)
+        setContentState({ mode: 'movies', title: 'Movies' })
+        setActiveNavItem('movies')
+        
+        // Navigate to the movie detail
+        handleMovieSelect(movie)
+        return
+      }
+      
       const savedMovie = await movieApi.createMovie(movie, accessToken)
       toast.success('Movie berhasil diparse dan disimpan!')
       

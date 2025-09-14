@@ -344,6 +344,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
                         <TableHead>Release</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>HC Code</TableHead>
+                        <TableHead>Date Added</TableHead>
                         <TableHead className="w-[100px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -385,6 +386,15 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
                           <TableCell>
                             <div className="text-sm">
                               {movie.hcCode || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-gray-600">
+                              {movie.createdAt ? new Date(movie.createdAt).toLocaleDateString('id-ID', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : '-'}
                             </div>
                           </TableCell>
                           <TableCell>
