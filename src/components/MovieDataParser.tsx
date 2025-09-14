@@ -995,7 +995,38 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           
           // Always include the name field (required by API)
           // Use customEnglishName if user selected one, otherwise use matched name
-          const nameToUse = item.customEnglishName || item.matched.name || item.matched.jpname || item.parsedName
+          let nameToUse = item.customEnglishName || item.matched.name || item.matched.jpname || item.parsedName
+          
+          // Clean English name from aliases in parentheses for R18 data
+          if (parsedData && isR18JsonFormat(parsedData.rawData)) {
+            try {
+              const r18JsonData = JSON.parse(parsedData.rawData)
+              let r18ItemData = null
+              
+              // Find corresponding R18 data for this item
+              if (category === 'actresses' && r18JsonData.actresses) {
+                r18ItemData = r18JsonData.actresses[i]
+              } else if (category === 'actors' && r18JsonData.actors) {
+                r18ItemData = r18JsonData.actors[i]
+              } else if (category === 'directors' && r18JsonData.directors) {
+                r18ItemData = r18JsonData.directors[0]
+              }
+              
+              if (r18ItemData) {
+                const { normalizeR18JapaneseName } = await import('../utils/japaneseNameNormalizer')
+                const normalizedR18Data = normalizeR18JapaneseName(r18ItemData)
+                
+                // Use normalized English name if available (clean without aliases)
+                if (normalizedR18Data.name) {
+                  nameToUse = normalizedR18Data.name
+                  console.log(`Normalized English name for ${category}[${i}]:`, normalizedR18Data.name)
+                }
+              }
+            } catch (error) {
+              console.error('Error normalizing English name:', error)
+            }
+          }
+          
           updateData.name = nameToUse
           
           // For series, include titleEn and titleJp
@@ -1019,11 +1050,47 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           // Add missing data fields (only if they exist in missingData)
           if (item.missingData?.kanjiName) updateData.kanjiName = item.missingData.kanjiName
           if (item.missingData?.kanaName) updateData.kanaName = item.missingData.kanaName
-          if (item.missingData?.alias) updateData.alias = item.missingData.alias
           if (item.missingData?.birthdate) updateData.birthdate = item.missingData.birthdate
           if (item.missingData?.tags) updateData.tags = item.missingData.tags
           if (item.missingData?.titleJp) updateData.titleJp = item.missingData.titleJp
           if (item.missingData?.name) updateData.name = item.missingData.name
+          
+          // Special handling for alias: normalize alias from R18 data if available
+          if (item.missingData?.alias) {
+            // Check if we have R18 data for this item to normalize the alias
+            if (parsedData && isR18JsonFormat(parsedData.rawData)) {
+              try {
+                const r18JsonData = JSON.parse(parsedData.rawData)
+                let r18ItemData = null
+                
+                // Find corresponding R18 data for this item
+                if (category === 'actresses' && r18JsonData.actresses) {
+                  r18ItemData = r18JsonData.actresses[i]
+                } else if (category === 'actors' && r18JsonData.actors) {
+                  r18ItemData = r18JsonData.actors[i]
+                } else if (category === 'directors' && r18JsonData.directors) {
+                  r18ItemData = r18JsonData.directors[0] // Directors usually only have one
+                }
+                
+                if (r18ItemData) {
+                  // Import normalizeR18JapaneseName function
+                  const { normalizeR18JapaneseName } = await import('../utils/japaneseNameNormalizer')
+                  const normalizedR18Data = normalizeR18JapaneseName(r18ItemData)
+                  
+                  // Use normalized alias if available, otherwise use original
+                  updateData.alias = normalizedR18Data.alias || item.missingData.alias
+                  console.log(`Normalized alias for ${category}[${i}]:`, normalizedR18Data.alias)
+                } else {
+                  updateData.alias = item.missingData.alias
+                }
+              } catch (error) {
+                console.error('Error normalizing alias:', error)
+                updateData.alias = item.missingData.alias
+              }
+            } else {
+              updateData.alias = item.missingData.alias
+            }
+          }
           
           // Ensure critical fields are preserved for actresses/actors/directors
           if (masterDataType === 'actress' || masterDataType === 'actor' || masterDataType === 'director') {

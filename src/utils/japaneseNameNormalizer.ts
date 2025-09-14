@@ -92,9 +92,9 @@ export const parseNameWithAliases = (name: string): {
 } => {
   if (!name.trim()) return { mainName: '', aliases: [] }
   
-  // Regex untuk menangkap semua alias dalam kurung
-  // Menangani multiple kurung seperti "nama (alias1)(alias2)"
-  const aliasRegex = /\(([^)]+)\)/g
+  // Regex untuk menangkap semua alias dalam kurung (baik kurung Latin maupun Jepang)
+  // Menangani multiple kurung seperti "nama (alias1)(alias2)" atau "nama（alias1）（alias2）"
+  const aliasRegex = /[（(]([^）)]+)[）)]/g
   const aliases: string[] = []
   let match
   
@@ -103,8 +103,8 @@ export const parseNameWithAliases = (name: string): {
     aliases.push(match[1].trim())
   }
   
-  // Remove semua alias dari nama utama
-  const mainName = name.replace(/\([^)]+\)/g, '').trim()
+  // Remove semua alias dari nama utama (baik kurung Latin maupun Jepang)
+  const mainName = name.replace(/[（(][^）)]*[）)]/g, '').trim()
   
   return {
     mainName,
@@ -271,12 +271,36 @@ export const normalizeR18JapaneseName = (r18Data: {
   const parsedEn = parseNameWithAliases(name_en)
   
   // Format aliases dengan struktur yang benar berdasarkan urutan
-  const aliasString = formatAliasesWithStructure({
-    kanji: parsedKanji,
-    kana: parsedKana,
-    romaji: parsedRomaji,
-    en: parsedEn
-  })
+  // Format: "English Alias - Kanji Alias (Kana Alias)"
+  const aliasParts: string[] = []
+  
+  // English alias (dari name_romaji atau name_en)
+  const englishAlias = parsedRomaji.aliases[0] || parsedEn.aliases[0]
+  if (englishAlias) {
+    aliasParts.push(englishAlias)
+  }
+  
+  // Kanji alias (dari name_kanji)
+  const kanjiAlias = parsedKanji.aliases[0]
+  if (kanjiAlias) {
+    if (aliasParts.length > 0) {
+      aliasParts.push(`- ${kanjiAlias}`)
+    } else {
+      aliasParts.push(kanjiAlias)
+    }
+  }
+  
+  // Kana alias (dari name_kana)
+  const kanaAlias = parsedKana.aliases[0]
+  if (kanaAlias) {
+    if (aliasParts.length > 0) {
+      aliasParts.push(`(${kanaAlias})`)
+    } else {
+      aliasParts.push(kanaAlias)
+    }
+  }
+  
+  const aliasString = aliasParts.join(' ')
   
   // Step 2: Gunakan data JSON langsung jika tersedia (tanpa alias)
   let kanjiName = ''
@@ -330,7 +354,7 @@ export const normalizeR18JapaneseName = (r18Data: {
   }
   
   // Step 4: Tentukan jpname (Japanese name) dengan prioritas
-  // Prioritas: kanji > kana > romaji
+  // Prioritas: kanji > kana > romaji (gunakan nama yang sudah dibersihkan)
   const jpname = kanjiName || kanaName || parsedRomaji.mainName || parsedEn.mainName || ''
   
   // Debug logging untuk development
@@ -349,6 +373,11 @@ export const normalizeR18JapaneseName = (r18Data: {
           kana: parsedKana.aliases,
           romaji: parsedRomaji.aliases,
           en: parsedEn.aliases
+        },
+        aliasParts: {
+          english: parsedRomaji.aliases[0] || parsedEn.aliases[0],
+          kanji: parsedKanji.aliases[0],
+          kana: parsedKana.aliases[0]
         },
         formattedAlias: aliasString
       },
