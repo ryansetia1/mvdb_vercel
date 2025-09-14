@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { ExternalLink, Search, Loader2, Plus } from 'lucide-react'
+import { detectCharacterType } from '../utils/japaneseNameNormalizer'
 
 interface TakuLinksIframeProps {
   onTakuLinkSelect: (url: string) => void
   jpname?: string
   alias?: string
   name?: string
+  kanjiName?: string
+  kanaName?: string
   className?: string
   autoSearch?: boolean // New prop for auto-search trigger
 }
@@ -17,6 +20,8 @@ export function TakuLinksIframe({
   jpname = '',
   alias = '',
   name = '',
+  kanjiName = '',
+  kanaName = '',
   className = '',
   autoSearch = false
 }: TakuLinksIframeProps) {
@@ -28,7 +33,7 @@ export function TakuLinksIframe({
   const [isExpanded, setIsExpanded] = useState(false)
   const [userSelectedName, setUserSelectedName] = useState('') // Track user selection separately
 
-  // Extract Japanese names from jpname and alias
+  // Extract Japanese names from text using improved detection
   const extractJapaneseNames = (text: string): string[] => {
     if (!text || !text.trim()) return []
     
@@ -39,9 +44,13 @@ export function TakuLinksIframe({
     if (parenthesesMatches) {
       parenthesesMatches.forEach(match => {
         const name = match.replace(/[（()）]/g, '').trim()
-        // Only add if it contains Japanese characters and is not just tags/descriptions
-        if (name && /[ひらがなカタカナ一-龯]/.test(name) && !isTagOrDescription(name)) {
-          names.push(name)
+        // Use detectCharacterType for better Japanese character detection
+        if (name && !isTagOrDescription(name)) {
+          const charType = detectCharacterType(name)
+          // Only accept kanji, kana, or mixed Japanese names - exclude pure romaji/latin
+          if (charType === 'kanji' || charType === 'kana' || charType === 'mixed') {
+            names.push(name)
+          }
         }
       })
     }
@@ -55,10 +64,11 @@ export function TakuLinksIframe({
         .map(name => name.trim())
         .filter(name => name.length > 0)
         .filter(name => {
-          // Accept names that contain Japanese characters OR are valid romanized names
-          const hasJapaneseChars = /[ひらがなカタカナ一-龯]/.test(name)
-          const isRomanizedName = /^[A-Za-z\s]+$/.test(name) && name.length >= 2 && !isTagOrDescription(name)
-          return (hasJapaneseChars || isRomanizedName) && !isTagOrDescription(name)
+          if (isTagOrDescription(name)) return false
+          
+          const charType = detectCharacterType(name)
+          // Only accept Japanese names (kanji, kana, mixed) - exclude pure romaji/latin names
+          return (charType === 'kanji' || charType === 'kana' || charType === 'mixed')
         })
       
       names.push(...mainNames)
@@ -92,7 +102,9 @@ export function TakuLinksIframe({
 
   const japaneseNames = [
     ...extractJapaneseNames(jpname),
-    ...extractJapaneseNames(alias)
+    ...extractJapaneseNames(alias),
+    ...extractJapaneseNames(kanjiName),
+    ...extractJapaneseNames(kanaName)
   ].filter((name, index, array) => array.indexOf(name) === index) // Remove duplicates
 
   // Fallback to regular name if no Japanese names found

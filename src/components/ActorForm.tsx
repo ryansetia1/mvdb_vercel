@@ -1762,6 +1762,8 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                     jpname={formData.jpname}
                     alias={formData.alias}
                     name={formData.name}
+                    kanjiName={formData.kanjiName}
+                    kanaName={formData.kanaName}
                     autoSearch={autoSearchTakuLinks}
                   />
                 </div>
