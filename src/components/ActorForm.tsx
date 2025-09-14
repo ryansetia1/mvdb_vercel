@@ -974,6 +974,82 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       
       console.log('Cleaned form data:', cleanedFormData)
       
+      // PERBAIKAN: Cek apakah kita perlu menggunakan nama dalam kurung sebagai alias utama
+      // Kasus khusus: jika ada nama dalam kurung di kedua field (English dan Japanese),
+      // gunakan nama dalam kurung sebagai alias utama, bukan nama utama
+      const hasEnglishBrackets = formData.name.includes('(') && formData.name.includes(')')
+      const hasJapaneseBrackets = formData.jpname.includes('(') && formData.jpname.includes(')')
+      
+      console.log('=== BRACKET DETECTION DEBUG ===')
+      console.log('formData.name:', formData.name)
+      console.log('formData.jpname:', formData.jpname)
+      console.log('hasEnglishBrackets:', hasEnglishBrackets)
+      console.log('hasJapaneseBrackets:', hasJapaneseBrackets)
+      console.log('nameExtracted:', nameExtracted)
+      console.log('jpnameExtracted:', jpnameExtracted)
+      
+      let newAliasToAdd = ''
+      
+      if (hasEnglishBrackets && hasJapaneseBrackets) {
+        console.log('✅ Detected brackets in both English and Japanese fields - using bracket names as primary aliases')
+        
+        // Ambil nama dari kurung English dan Japanese
+        const englishBracketNames = nameExtracted.bracketName ? nameExtracted.bracketName.split(',').map(n => n.trim()) : []
+        const japaneseBracketNames = jpnameExtracted.bracketName ? jpnameExtracted.bracketName.split(',').map(n => n.trim()) : []
+        
+        console.log('English bracket names:', englishBracketNames)
+        console.log('Japanese bracket names:', japaneseBracketNames)
+        
+        // Coba pasangkan berdasarkan urutan atau kesesuaian
+        const pairedAliases: string[] = []
+        
+        // Pasangkan berdasarkan urutan (index yang sama)
+        const maxLength = Math.max(englishBracketNames.length, japaneseBracketNames.length)
+        for (let i = 0; i < maxLength; i++) {
+          const englishName = englishBracketNames[i]
+          const japaneseName = japaneseBracketNames[i]
+          
+          if (englishName && japaneseName) {
+            pairedAliases.push(`${englishName} - ${japaneseName}`)
+          } else if (englishName) {
+            pairedAliases.push(englishName)
+          } else if (japaneseName) {
+            pairedAliases.push(japaneseName)
+          }
+        }
+        
+        console.log('Paired aliases created:', pairedAliases)
+        
+        if (pairedAliases.length > 0) {
+          newAliasToAdd = pairedAliases.join(', ')
+          console.log('Created paired aliases from brackets:', newAliasToAdd)
+        }
+        
+        // Untuk bracket matching, tambahkan alias baru di belakang alias yang sudah ada
+        const existingAlias = formData.alias.trim()
+        const finalAlias = existingAlias 
+          ? `${existingAlias}, ${newAliasToAdd}`
+          : newAliasToAdd
+        
+        console.log('=== BRACKET MATCHING ALIAS UPDATE ===')
+        console.log('existingAlias:', existingAlias)
+        console.log('newAliasToAdd:', newAliasToAdd)
+        console.log('finalAlias:', finalAlias)
+        
+        // Update form data dengan alias yang sudah diformat dan field yang sudah dibersihkan
+        setFormData(prev => ({ 
+          ...prev, 
+          alias: finalAlias,
+          name: cleanedFormData.name,
+          kanjiName: cleanedFormData.kanjiName,
+          kanaName: cleanedFormData.kanaName,
+          jpname: cleanedFormData.jpname
+        }))
+        
+        toast.success(`Alias berhasil diformat: ${finalAlias}`)
+        return
+      }
+      
       // Jika alias kosong, coba generate dari nama yang ada
       if (!formData.alias.trim()) {
         console.log('Alias field is empty, attempting to generate from available names')
@@ -1056,9 +1132,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         return
       }
 
-      // Logika sederhana: jika alias sudah ada, tambahkan alias baru di belakang
-      let newAliasToAdd = ''
-      
+      // Logika lama: jika alias sudah ada, tambahkan alias baru di belakang
       // Format nama dari kurung menjadi alias baru
       if (uniqueNamesToMove.length > 0) {
         const englishNames: string[] = []
@@ -1118,7 +1192,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           // Tambahkan Japanese names yang tersedia
           kanjiNames.push(...availableJapaneseNames)
         }
-        
+      
         // Buat pasangan English - Kanji berdasarkan data yang ada
         if (englishNames.length > 0 && kanjiNames.length > 0) {
           // Coba pasangkan yang sesuai berdasarkan urutan atau kesesuaian
