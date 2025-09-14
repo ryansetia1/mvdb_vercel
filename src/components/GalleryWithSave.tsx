@@ -9,8 +9,9 @@ import { EnhancedGallery } from './EnhancedGallery'
 import { ModernLightbox } from './ModernLightbox'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { savedGalleryApi, type SavedGalleryData } from '../utils/savedGalleryApi'
+import { parsedGalleryApi, type ParsedGalleryData } from '../utils/parsedGalleryApi'
 import { favoritesApi } from '../utils/favoritesApi'
-import { RefreshCw, Database, Clock, Eye, Loader2 } from 'lucide-react'
+import { RefreshCw, Database, Clock, Eye, Loader2, FileText } from 'lucide-react'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
 import { toast } from 'sonner'
 
@@ -39,6 +40,8 @@ export function GalleryWithSave({
   movieData
 }: GalleryWithSaveProps) {
   const [savedData, setSavedData] = useState<SavedGalleryData | null>(null)
+  const [parsedData, setParsedData] = useState<ParsedGalleryData | null>(null)
+  const [gallerySource, setGallerySource] = useState<'cached' | 'user_saved' | 'parsed' | 'fresh' | null>(null)
   const [isLoadingSaved, setIsLoadingSaved] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -51,9 +54,10 @@ export function GalleryWithSave({
   // Check favorite status for current image when lightbox opens
   useEffect(() => {
     const checkCurrentImageFavorite = async () => {
-      if (!lightboxOpen || !accessToken || !savedData?.urls.length) return
+      const urls = savedData?.urls || parsedData?.urls || []
+      if (!lightboxOpen || !accessToken || !urls.length) return
       
-      const currentImageUrl = savedData.urls[lightboxIndex]
+      const currentImageUrl = urls[lightboxIndex]
       if (!currentImageUrl) return
 
       try {
@@ -72,39 +76,61 @@ export function GalleryWithSave({
     }
 
     checkCurrentImageFavorite()
-  }, [lightboxOpen, lightboxIndex, savedData?.urls, accessToken, movieData?.id])
+  }, [lightboxOpen, lightboxIndex, savedData?.urls, parsedData?.urls, accessToken, movieData?.id])
 
-  // Check for saved gallery on mount
+  // Load gallery with priority: cached → user saved → parsed → fresh
   useEffect(() => {
-    const checkSavedGallery = async () => {
+    const loadGalleryWithPriority = async () => {
       if (!movieData?.id || !accessToken) {
         setIsLoadingSaved(false)
+        setGallerySource('fresh')
         return
       }
 
       try {
-        const saved = await savedGalleryApi.getSavedGallery(movieData.id, accessToken)
+        // Priority 1: Check cached gallery (handled by EnhancedGallery component)
+        // Priority 2: Check user saved gallery
+        const userSaved = await savedGalleryApi.getSavedGallery(movieData.id, accessToken)
         
-        if (saved) {
+        if (userSaved) {
           // Check if template has changed
-          const templateChanged = savedGalleryApi.hasTemplateChanged(saved, galleryTemplate)
+          const templateChanged = savedGalleryApi.hasTemplateChanged(userSaved, galleryTemplate)
           
           if (!templateChanged) {
-            setSavedData(saved)
+            setSavedData(userSaved)
             setUseSavedGallery(true)
-            console.log(`Loaded saved gallery: ${saved.urls.length} images`)
+            setGallerySource('user_saved')
+            console.log(`Loaded saved gallery: ${userSaved.urls.length} images`)
+            return
           } else {
-            console.log('Template changed, will use fresh gallery')
+            // Template changed, check parsed gallery
+            console.log('Template changed, checking parsed gallery...')
           }
         }
+
+        // Priority 3: Check parsed gallery from R18 JSON
+        const parsed = await parsedGalleryApi.getParsedGallery(movieData.id, accessToken)
+        
+        if (parsed) {
+          setParsedData(parsed)
+          setUseSavedGallery(true)
+          setGallerySource('parsed')
+          console.log(`Loaded parsed gallery: ${parsed.urls.length} images`)
+          return
+        }
+
+        // Priority 4: Use enhanced gallery (fresh generation)
+        setGallerySource('fresh')
+        
       } catch (error) {
-        console.error('Error loading saved gallery:', error)
+        console.error('Error loading gallery:', error)
+        setGallerySource('fresh')
       } finally {
         setIsLoadingSaved(false)
       }
     }
 
-    checkSavedGallery()
+    loadGalleryWithPriority()
   }, [movieData?.id, galleryTemplate, accessToken])
 
   // Handle save gallery
@@ -134,6 +160,7 @@ export function GalleryWithSave({
         
         setSavedData(newSavedData)
         setUseSavedGallery(true)
+        setGallerySource('user_saved')
         
         toast.success(`Gallery saved! ${urls.length} images will load instantly next time`)
       } else {
@@ -158,7 +185,9 @@ export function GalleryWithSave({
       }
       
       setSavedData(null)
+      setParsedData(null)
       setUseSavedGallery(false)
+      setGallerySource('fresh')
       
       toast.success('Gallery refreshed')
     } catch (error) {
@@ -171,7 +200,7 @@ export function GalleryWithSave({
 
   // Handle toggle favorite for current image in lightbox
   const handleToggleFavorite = async () => {
-    const currentImageUrl = savedData?.urls[lightboxIndex]
+    const currentImageUrl = (savedData?.urls || parsedData?.urls || [])[lightboxIndex]
     if (!currentImageUrl || !accessToken) return
 
     try {
@@ -215,26 +244,43 @@ export function GalleryWithSave({
     )
   }
 
-  // Render saved gallery
-  if (useSavedGallery && savedData) {
+  // Render saved gallery (user saved or parsed)
+  if (useSavedGallery && (savedData || parsedData)) {
     return (
       <div className="space-y-4">
         {/* Status bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="default" className="bg-green-600 flex items-center gap-1">
-              <Database className="h-3 w-3" />
-              Saved Gallery
-            </Badge>
+            {/* Gallery Source Indicator */}
+            {gallerySource === 'user_saved' && savedData && (
+              <Badge variant="default" className="bg-green-600 flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                Saved by User
+              </Badge>
+            )}
+            {gallerySource === 'parsed' && parsedData && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                From R18 Data
+              </Badge>
+            )}
             
             <span className="text-sm text-muted-foreground">
-              {savedData.urls.length} images
+              {(savedData?.urls.length || parsedData?.urls.length || 0)} images
             </span>
             
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {savedGalleryApi.getSaveAgeMinutes(savedData.savedAt)}m ago
-            </Badge>
+            {savedData && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {savedGalleryApi.getSaveAgeMinutes(savedData.savedAt)}m ago
+              </Badge>
+            )}
+            {parsedData && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {parsedGalleryApi.getParsedAgeMinutes(parsedData.parsedAt)}m ago
+              </Badge>
+            )}
           </div>
 
           <Button
@@ -251,7 +297,7 @@ export function GalleryWithSave({
 
         {/* Saved images grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {savedData.urls.map((url, index) => (
+          {(savedData?.urls || parsedData?.urls || []).map((url, index) => (
             <div
               key={index}
               className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative cursor-pointer"
@@ -311,22 +357,31 @@ export function GalleryWithSave({
         </div>
 
         {/* Info footer */}
-        <div className="text-xs text-muted-foreground pt-2 border-t">
-          <p>Saved: {savedGalleryApi.formatSaveTime(savedData.savedAt)}</p>
-          <p>Template: <code className="bg-muted px-1 rounded">{savedData.template}</code></p>
-        </div>
+        {savedData && (
+          <div className="text-xs text-muted-foreground pt-2 border-t">
+            <p>Saved: {savedGalleryApi.formatSaveTime(savedData.savedAt)}</p>
+            <p>Template: <code className="bg-muted px-1 rounded">{savedData.template}</code></p>
+          </div>
+        )}
+        {parsedData && (
+          <div className="text-xs text-muted-foreground pt-2 border-t">
+            <p>Parsed: {new Date(parsedData.parsedAt).toLocaleString()}</p>
+            <p>Source: R18 JSON Data</p>
+          </div>
+        )}
 
         {/* Lightbox */}
-        {savedData.urls.length > 0 && (
+        {((savedData?.urls.length || parsedData?.urls.length || 0) > 0) && (
           <ModernLightbox
-            src={savedData.urls[lightboxIndex] || ''}
+            src={(savedData?.urls || parsedData?.urls || [])[lightboxIndex] || ''}
             alt={`Gallery image ${lightboxIndex + 1}`}
             isOpen={lightboxOpen}
             onClose={() => setLightboxOpen(false)}
             currentIndex={lightboxIndex}
-            totalImages={savedData.urls.length}
+            totalImages={(savedData?.urls.length || parsedData?.urls.length || 0)}
             onNext={() => {
-              if (lightboxIndex < savedData.urls.length - 1) {
+              const totalImages = (savedData?.urls.length || parsedData?.urls.length || 0)
+              if (lightboxIndex < totalImages - 1) {
                 setLightboxIndex(lightboxIndex + 1)
               }
             }}
@@ -335,7 +390,7 @@ export function GalleryWithSave({
                 setLightboxIndex(lightboxIndex - 1)
               }
             }}
-            showNavigation={savedData.urls.length > 1}
+            showNavigation={(savedData?.urls.length || parsedData?.urls.length || 0) > 1}
             isFavorite={currentImageFavorite}
             onToggleFavorite={handleToggleFavorite}
             accessToken={accessToken}

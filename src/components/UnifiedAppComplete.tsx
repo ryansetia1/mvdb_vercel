@@ -457,14 +457,29 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
 
     // Handle regular movie selection
     if (typeof movie === 'object') {
-      // Save current state to history before navigating to movie detail
-      setNavigationHistory(prev => [...prev, contentState])
+      console.log('=== UNIFIED APP COMPLETE HANDLE MOVIE SELECT ===')
+      console.log('Movie received:', movie)
+      console.log('Current contentState:', contentState)
       
-      setContentState({
-        mode: 'movieDetail',
+      // Save current state to history before navigating to movie detail
+      // Don't save admin mode to history - always go back to movies
+      const stateToSave = contentState.mode === 'admin' 
+        ? { mode: 'movies' as ContentMode, title: 'Movies' }
+        : contentState
+      
+      setNavigationHistory(prev => [...prev, stateToSave])
+      
+      console.log('State saved to history:', stateToSave)
+      
+      const newContentState = {
+        mode: 'movieDetail' as const,
         title: movie.titleEn || movie.titleJp || 'Movie Details',
         data: movie
-      })
+      }
+      
+      console.log('Setting new contentState:', newContentState)
+      setContentState(newContentState)
+      console.log('ContentState updated successfully')
     }
   }
 
@@ -616,10 +631,19 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
             title: currentNav.label 
           })
         }
-      } else {
+      } else if (currentNav.type === 'admin') {
+        // If current nav is admin but no history, go back to movies instead
         setContentState({ mode: 'movies', title: 'Movies' })
         setActiveNavItem('movies')
+      } else {
+        setContentState({ 
+          mode: currentNav.type as ContentMode, 
+          title: currentNav.label 
+        })
       }
+    } else {
+      setContentState({ mode: 'movies', title: 'Movies' })
+      setActiveNavItem('movies')
     }
   }
 
