@@ -214,16 +214,16 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     // Create updated movie with merged data
     const updatedMovie = { ...existingMovie }
     
-    // Update selected fields with parsed data
-    if (selectedFields.includes('titleEn') && parsedData.titleEn) {
+    // Update selected fields with parsed data (only if values exist and are not empty)
+    if (selectedFields.includes('titleEn') && parsedData.titleEn && parsedData.titleEn.trim()) {
       updatedMovie.titleEn = parsedData.titleEn
     }
 
-    if (selectedFields.includes('releaseDate') && parsedData.releaseDate) {
+    if (selectedFields.includes('releaseDate') && parsedData.releaseDate && parsedData.releaseDate.trim()) {
       updatedMovie.releaseDate = parsedData.releaseDate
     }
 
-    if (selectedFields.includes('duration') && parsedData.duration) {
+    if (selectedFields.includes('duration') && parsedData.duration && parsedData.duration.trim()) {
       updatedMovie.duration = parsedData.duration
     }
 
@@ -231,7 +231,7 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       const matchedDirector = matchedData.directors[0]
       if (matchedDirector.matched && !ignoredItems?.includes('directors-0')) {
         // Use customEnglishName if user selected one, otherwise use matched name from database
-        const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.name
+        const directorName = matchedDirector.customEnglishName || matchedDirector.matched.name || matchedDirector.matched.jpname || matchedDirector.original
         if (directorName && directorName.trim()) {
           updatedMovie.director = directorName
         }
@@ -242,7 +242,7 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       const matchedStudio = matchedData.studios[0]
       if (matchedStudio.matched && !ignoredItems?.includes('studios-0')) {
         // Use customEnglishName if user selected one, otherwise use matched name from database
-        const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.name
+        const studioName = matchedStudio.customEnglishName || matchedStudio.matched.name || matchedStudio.matched.jpname || matchedStudio.original
         if (studioName && studioName.trim()) {
           updatedMovie.studio = studioName
         }
@@ -253,47 +253,89 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       const matchedSeries = matchedData.series[0]
       if (matchedSeries.matched && !ignoredItems?.includes('series-0')) {
         // Use customEnglishName if user selected one, otherwise use matched name from database
-        const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.name || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.name
+        const seriesName = matchedSeries.customEnglishName || matchedSeries.matched.titleEn || matchedSeries.matched.titleJp || matchedSeries.original
         if (seriesName && seriesName.trim()) {
           updatedMovie.series = seriesName
         }
       }
     }
 
+    if (selectedFields.includes('label') && matchedData?.labels && matchedData.labels.length > 0) {
+      const matchedLabel = matchedData.labels[0]
+      if (matchedLabel.matched && !ignoredItems?.includes('labels-0')) {
+        // Use customEnglishName if user selected one, otherwise use matched name from database
+        const labelName = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.original
+        if (labelName && labelName.trim()) {
+          updatedMovie.label = labelName
+        }
+      }
+    }
+
     if (selectedFields.includes('actress') && matchedData?.actresses && matchedData.actresses.length > 0) {
-      // Merge actresses - only add new ones, don't duplicate
+      // Merge actresses using matched data - only add new ones, don't duplicate
       const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
+      
+      console.log('Server existing actresses:', existingActresses)
       
       // Get matched actress names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActressNames = matchedData.actresses
         .map((item, index) => ({ item, index }))
         .filter(({ item, index }) => item.matched && !ignoredItems?.includes(`actresses-${index}`))
-        .map(({ item }) => item.customEnglishName || item.matched.name || item.matched.jpname || item.name)
+        .map(({ item }) => {
+          const finalName = item.customEnglishName || item.matched.name || item.matched.jpname || item.original
+          console.log(`Server merge actress: customEnglishName=${item.customEnglishName}, matched.name=${item.matched.name}, final=${finalName}`)
+          return finalName
+        })
         .filter(name => name && name.trim())
       
-      // Only add actresses that don't already exist
-      const uniqueNewActresses = matchedActressNames.filter(actress => 
-        !existingActresses.some(existing => 
-          existing.toLowerCase() === actress.toLowerCase() ||
-          existing.includes(actress) ||
-          actress.includes(existing)
-        )
-      )
+      console.log('Server matched actress names:', matchedActressNames)
       
-      if (uniqueNewActresses.length > 0) {
+      // Only add actresses that don't already exist
+      const uniqueNewActresses = matchedActressNames.filter(actress => {
+        const isDuplicate = existingActresses.some(existing => {
+          const lowerExisting = existing.toLowerCase()
+          const lowerActress = actress.toLowerCase()
+          const includesCheck = existing.includes(actress) || actress.includes(existing)
+          const exactMatch = lowerExisting === lowerActress
+          
+          console.log(`Server checking duplicate: "${existing}" vs "${actress}"`)
+          console.log(`  Exact match: ${exactMatch}`)
+          console.log(`  Includes check: ${includesCheck}`)
+          console.log(`  Is duplicate: ${exactMatch || includesCheck}`)
+          
+          return exactMatch || includesCheck
+        })
+        
+        console.log(`Server actress "${actress}" is duplicate: ${isDuplicate}`)
+        return !isDuplicate
+      })
+      
+      console.log('Server unique new actresses:', uniqueNewActresses)
+      
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (matchedActressNames.length > 0) {
+        updatedMovie.actress = matchedActressNames.join(', ')
+        console.log('Server using user-selected actress names:', matchedActressNames)
+      } else if (uniqueNewActresses.length > 0) {
         updatedMovie.actress = [...existingActresses, ...uniqueNewActresses].join(', ')
+        console.log('Server adding new actresses:', uniqueNewActresses)
       }
     }
 
     if (selectedFields.includes('actors') && matchedData?.actors && matchedData.actors.length > 0) {
-      // Merge actors - only add new ones, don't duplicate
+      // Merge actors using matched data - only add new ones, don't duplicate
       const existingActors = existingMovie.actors ? existingMovie.actors.split(',').map(a => a.trim()).filter(a => a) : []
       
       // Get matched actor names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActorNames = matchedData.actors
         .map((item, index) => ({ item, index }))
         .filter(({ item, index }) => item.matched && !ignoredItems?.includes(`actors-${index}`))
-        .map(({ item }) => item.customEnglishName || item.matched.name || item.matched.jpname || item.name)
+        .map(({ item }) => {
+          const finalName = item.customEnglishName || item.matched.name || item.matched.jpname || item.original
+          console.log(`Server merge actor: customEnglishName=${item.customEnglishName}, matched.name=${item.matched.name}, final=${finalName}`)
+          return finalName
+        })
         .filter(name => name && name.trim())
       
       // Only add actors that don't already exist
@@ -305,65 +347,34 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
         )
       )
       
-      if (uniqueNewActors.length > 0) {
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (matchedActorNames.length > 0) {
+        updatedMovie.actors = matchedActorNames.join(', ')
+        console.log('Server using user-selected actor names:', matchedActorNames)
+      } else if (uniqueNewActors.length > 0) {
         updatedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
+        console.log('Server adding new actors:', uniqueNewActors)
       }
     }
 
-    // Handle additional R18 fields
+    // Update additional fields only if they have values
     if (selectedFields.includes('dmcode') && parsedData.dmcode && parsedData.dmcode.trim()) {
       updatedMovie.dmcode = parsedData.dmcode
     }
-
     if (selectedFields.includes('type') && parsedData.type && parsedData.type.trim()) {
       updatedMovie.type = parsedData.type
     }
-
     if (selectedFields.includes('cover') && parsedData.cover && parsedData.cover.trim()) {
       updatedMovie.cover = parsedData.cover
     }
-
     if (selectedFields.includes('gallery') && parsedData.gallery && parsedData.gallery.trim()) {
       updatedMovie.gallery = parsedData.gallery
     }
-
-    // Handle cropCover - preserve existing value if not in selected fields
-    if (selectedFields.includes('cropCover')) {
-      // Only update cropCover if it's explicitly selected
-      updatedMovie.cropCover = parsedData.cropCover !== undefined ? parsedData.cropCover : existingMovie.cropCover
-    } else {
-      // Preserve existing cropCover value if not selected for update
-      updatedMovie.cropCover = existingMovie.cropCover
-    }
-
-    if (selectedFields.includes('label') && matchedData?.labels && matchedData.labels.length > 0) {
-      const matchedLabel = matchedData.labels[0]
-      if (matchedLabel.matched && !ignoredItems?.includes('labels-0')) {
-        // Use customEnglishName if user selected one, otherwise use matched name from database
-        const labelName = matchedLabel.customEnglishName || matchedLabel.matched.name || matchedLabel.matched.jpname || matchedLabel.name
-        if (labelName && labelName.trim()) {
-          updatedMovie.label = labelName
-        }
-      }
-    }
-
-    // Handle tags merging
-    if (selectedFields.includes('tags') && parsedData.tags && parsedData.tags.length > 0) {
-      const existingTags = existingMovie.tags ? existingMovie.tags.split(',').map(t => t.trim()).filter(t => t) : []
-      const newTags = parsedData.tags.filter(t => t && t.trim())
-      
-      // Only add tags that don't already exist
-      const uniqueNewTags = newTags.filter(tag => 
-        !existingTags.some(existing => 
-          existing.toLowerCase() === tag.toLowerCase() ||
-          existing.includes(tag) ||
-          tag.includes(existing)
-        )
-      )
-      
-      if (uniqueNewTags.length > 0) {
-        updatedMovie.tags = [...existingTags, ...uniqueNewTags].join(', ')
-      }
+    // Always update cropCover if it's provided in parsedData
+    if (parsedData.cropCover !== undefined) {
+      updatedMovie.cropCover = parsedData.cropCover
+      console.log('Server updating cropCover:', parsedData.cropCover)
     }
 
     // Update timestamp
@@ -2358,6 +2369,83 @@ app.get('/make-server-e0516fcf/movie-studios', async (c) => {
   }
 })
 
+// Get template counts for stats
+app.get('/make-server-e0516fcf/template-counts', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    // Get group templates - cover templates are now part of group templates
+    const groupTemplatesResults = await kv.getByPrefix('template_group:')
+    const groupTemplates = groupTemplatesResults.map(item => item.value)
+    
+    return c.json({ 
+      groupTemplates: groupTemplates.length
+    })
+  } catch (error) {
+    console.log('Get template counts error:', error)
+    return c.json({ error: `Get template counts error: ${error}` }, 500)
+  }
+})
+
+// Get favorites for stats
+app.get('/make-server-e0516fcf/stats/favorites', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const favorites = await kv.getByPrefix('favorite_')
+    const parsedFavorites = favorites.map(item => {
+      try {
+        return JSON.parse(item.value)
+      } catch (error) {
+        console.error('Error parsing favorite:', error)
+        return null
+      }
+    }).filter(item => item !== null)
+    
+    return c.json(parsedFavorites)
+  } catch (error) {
+    console.log('Get favorites error:', error)
+    return c.json({ error: `Get favorites error: ${error}` }, 500)
+  }
+})
+
+// Get photobooks for stats
+app.get('/make-server-e0516fcf/stats/photobooks', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const parsedPhotobooks = photobooks.map(item => {
+      try {
+        return JSON.parse(item.value)
+      } catch (error) {
+        console.error('Error parsing photobook:', error)
+        return null
+      }
+    }).filter(item => item !== null)
+    
+    return c.json(parsedPhotobooks)
+  } catch (error) {
+    console.log('Get photobooks error:', error)
+    return c.json({ error: `Get photobooks error: ${error}` }, 500)
+  }
+})
+
 // BULK ASSIGNMENT ROUTES
 // ==================================================================================
 
@@ -3328,74 +3416,6 @@ app.post('/make-server-e0516fcf/favorites/check', async (c) => {
   }
 })
 
-// Get template counts for stats
-app.get('/make-server-e0516fcf/template-counts', async (c) => {
-  try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1]
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
-    
-    if (!user?.id || authError) {
-      return c.json({ error: 'Unauthorized - admin access required' }, 401)
-    }
-
-    // Get group templates - cover templates are now part of group templates
-    const groupTemplatesResults = await kv.getByPrefix('template_group:')
-    const groupTemplates = groupTemplatesResults.map(item => item.value)
-    
-    return c.json({ 
-      groupTemplates: groupTemplates.length
-    })
-  } catch (error) {
-    console.log('Get template counts error:', error)
-    return c.json({ error: `Get template counts error: ${error}` }, 500)
-  }
-})
-
-// Master data routes with e0516fcf prefix
-app.get('/make-server-e0516fcf/master/:type', async (c) => {
-  try {
-    const type = c.req.param('type')
-    console.log(`Server: Getting master data for type: "${type}" (length: ${type?.length})`)
-    console.log(`Server: Type check - raw type:`, JSON.stringify(type))
-    
-    // List of valid types
-    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group']
-    console.log(`Server: Valid types:`, validTypes)
-    console.log(`Server: Type validation - includes check:`, validTypes.includes(type))
-    
-    if (!type) {
-      console.log(`Server: Type parameter is missing or empty`)
-      return c.json({ error: 'Type parameter is required' }, 400)
-    }
-    
-    if (!validTypes.includes(type)) {
-      console.log(`Server: Invalid type parameter: "${type}" - not in valid types list`)
-      return c.json({ error: `Invalid type parameter: ${type}. Valid types are: ${validTypes.join(', ')}` }, 400)
-    }
-
-    console.log(`Server: Fetching data with prefix: master_${type}_`)
-    const data = await kv.getByPrefix(`master_${type}_`)
-    console.log(`Server: Raw data from KV store:`, data)
-    
-    const items = data.map(item => {
-      try {
-        const parsed = JSON.parse(item.value)
-        console.log(`Server: Parsed item:`, parsed)
-        return parsed
-      } catch (parseError) {
-        console.error(`Server: Error parsing item:`, parseError, 'Raw item:', item)
-        return null
-      }
-    }).filter(item => item !== null)
-    
-    console.log(`Server: Returning ${items.length} items for type ${type}`)
-    return c.json({ data: items })
-  } catch (error) {
-    console.error('Server: Get master data error:', error)
-    return c.json({ error: `Failed to get master data: ${error.message}` }, 500)
-  }
-})
-
 // Start the server
 // ==================================================================================
 // MASTER DATA ROUTES (f3064b20 prefix)
@@ -3806,6 +3826,47 @@ app.get('/make-server-e0516fcf/debug/kv-keys', async (c) => {
   } catch (error) {
     console.log('Debug KV keys error:', error)
     return c.json({ error: `Debug KV keys error: ${error}` }, 500)
+  }
+})
+
+// Get all keys from KV store for backup/restore functionality
+app.get('/make-server-e0516fcf/kv-store/all-keys', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      return c.json({ error: 'Unauthorized - authentication required' }, 401)
+    }
+
+    console.log('Server: Getting all keys from KV store for user:', user.id)
+    
+    // Get all keys by selecting all records
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    
+    const { data: allKeys, error } = await supabase
+      .from("kv_store_cd38bf14")
+      .select("key")
+    
+    if (error) {
+      throw new Error(error.message)
+    }
+    
+    console.log(`Server: Found ${allKeys?.length || 0} total keys in KV store`)
+    
+    const keys = allKeys?.map(item => item.key) || []
+    
+    return c.json({ 
+      keys,
+      totalKeys: keys.length,
+      user: user.id
+    })
+  } catch (error) {
+    console.log('Get all KV keys error:', error)
+    return c.json({ error: `Get all KV keys error: ${error}` }, 500)
   }
 })
 

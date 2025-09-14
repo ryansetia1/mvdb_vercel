@@ -28,6 +28,11 @@ export function EnglishNameSelector({
   const handleSelect = () => {
     const selectedOption = englishNameOptions[selectedIndex]
     if (selectedOption) {
+      console.log('=== EnglishNameSelector handleSelect ===')
+      console.log('Selected option:', selectedOption)
+      console.log('Selected index:', selectedIndex)
+      console.log('Available options:', englishNameOptions)
+      
       if (selectedOption.isParsed) {
         // Create a temporary match object with the parsed English name
         const tempMatch = {
@@ -35,10 +40,20 @@ export function EnglishNameSelector({
           name: selectedOption.name,
           titleEn: selectedOption.name
         }
+        console.log('Using parsed name, temp match:', tempMatch)
         onSelect(tempMatch)
       } else {
-        onSelect(selectedOption.match!)
+        // Ensure the selected name is used, even for database matches
+        const matchWithSelectedName = {
+          ...selectedOption.match!,
+          name: selectedOption.name,
+          titleEn: selectedOption.name
+        }
+        console.log('Using database name, match with selected name:', matchWithSelectedName)
+        onSelect(matchWithSelectedName)
       }
+      
+      console.log('=== End EnglishNameSelector handleSelect ===')
     }
   }
 
@@ -75,27 +90,30 @@ export function EnglishNameSelector({
   // Create options for English name selection
   const englishNameOptions = []
   
-  // Option 1: Parsed English name (if available)
-  if (parsedEnglishName) {
-    englishNameOptions.push({
-      name: parsedEnglishName,
-      source: 'Parsed Data',
-      description: 'From JAVDB or source data',
-      isParsed: true
-    })
-  }
-  
-  // Option 2: Database English name
+  // Option 1: Database English name (prioritize this as first option)
   if (matches.length > 0) {
     const dbMatch = matches[0]
     const dbEnglishName = dbMatch.name || dbMatch.titleEn
-    if (dbEnglishName && dbEnglishName !== parsedEnglishName) {
+    if (dbEnglishName) {
       englishNameOptions.push({
         name: dbEnglishName,
         source: 'Database',
         description: 'From MVDB database',
         isParsed: false,
         match: dbMatch
+      })
+    }
+  }
+  
+  // Option 2: Parsed English name (if different from database)
+  if (parsedEnglishName) {
+    const dbEnglishName = matches.length > 0 ? (matches[0].name || matches[0].titleEn) : ''
+    if (parsedEnglishName !== dbEnglishName) {
+      englishNameOptions.push({
+        name: parsedEnglishName,
+        source: 'Parsed Data',
+        description: 'From JAVDB or source data',
+        isParsed: true
       })
     }
   }

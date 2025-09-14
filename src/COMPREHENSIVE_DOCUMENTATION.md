@@ -8,10 +8,11 @@
 5. [API Endpoints](#api-endpoints)
 6. [Frontend Components](#frontend-components)
 7. [Authentication System](#authentication-system)
-8. [File Structure](#file-structure)
-9. [Development Guidelines](#development-guidelines)
-10. [Deployment & Configuration](#deployment--configuration)
-11. [Troubleshooting](#troubleshooting)
+8. [Token Refresh Solution](#token-refresh-solution)
+9. [File Structure](#file-structure)
+10. [Development Guidelines](#development-guidelines)
+11. [Deployment & Configuration](#deployment--configuration)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -90,6 +91,16 @@ Aplikasi Movie Database adalah sistem manajemen database film yang komprehensif 
 - **HC (Hard Core)**: Full-featured movies with complete metadata
 - **SC (Soft Core)**: Simplified movies with basic information
 - **Un (Uncensored)**: Special category with 16:9 aspect ratio covers
+
+#### Movie Parser System
+- **R18 Data Integration**: Automatic parsing of movie data from R18 sources
+- **Smart Name Matching**: Intelligent matching of actress/actor names between database and R18 data
+- **Database vs R18 Comparison**: User-friendly interface to choose between database names and R18 parsed names
+- **Automatic Alias Fixing**: Clean and format aliases automatically during save process
+- **Name Cleaning**: Remove parentheses and brackets from names, moving aliases to proper alias field
+- **Master Data Updates**: Selective updating of existing master data with cleaned information
+- **Data Integrity Protection**: Prevents data loss during alias fixing by preserving all existing fields
+- **Real-time Validation**: Ensures series always have at least one title (EN or JP) to prevent API errors
 
 ### 2. Master Data Management
 #### Actresses
@@ -406,7 +417,19 @@ POST   /restore/{type}          # Import data from CSV
 - **DateDurationInputs.tsx**: Date picker dan duration input
 - **MovieTypeColorSettings.tsx**: Type color customization
 
-#### 7. UI Components (`/components/ui/`)
+#### 7. Movie Parser Components (`/components/`)
+- **MovieDataParser.tsx**: Main parser component untuk R18 data integration
+  - **Smart Name Matching**: Matches actress/actor names between database and R18 data
+  - **Database vs R18 Comparison**: User interface untuk memilih antara nama database atau R18
+  - **Automatic Alias Fixing**: Membersihkan dan memformat alias secara otomatis
+  - **Name Cleaning**: Menghapus kurung dari nama dan memindahkan alias ke field yang tepat
+  - **Master Data Updates**: Update selektif master data dengan informasi yang sudah dibersihkan
+  - **Data Integrity Protection**: Mencegah kehilangan data selama proses alias fixing
+- **JapaneseNameMatcher.tsx**: Component untuk matching nama Jepang dengan database
+- **EnglishNameSelector.tsx**: Selector untuk memilih nama English yang tepat
+- **DatabaseVsR18Comparison.tsx**: Interface perbandingan antara nama database dan R18
+
+#### 8. UI Components (`/components/ui/`)
 Custom ShadCN/UI components:
 - Form controls (input, select, button, etc.)
 - Layout components (card, tabs, dialog, etc.)
@@ -460,6 +483,133 @@ interface User {
 
 ---
 
+## Token Refresh Solution
+
+### Problem Overview
+Aplikasi mengalami refresh otomatis ketika Supabase melakukan token refresh, yang sangat mengganggu user experience terutama saat user sedang mengedit data atau melakukan proses parse movie.
+
+**Symptoms:**
+```
+Auth state changed: TOKEN_REFRESHED token present
+App.tsx:64 Token refreshed successfully
+```
+
+### Root Cause Analysis
+1. **Supabase Token Refresh**: Supabase secara otomatis melakukan refresh token untuk menjaga session tetap valid
+2. **State Update Cascade**: Event `TOKEN_REFRESHED` menyebabkan `accessToken` state berubah
+3. **useEffect Dependency**: 32+ komponen memiliki `useEffect` dengan dependency `[accessToken]`
+4. **Data Reload**: Setiap perubahan `accessToken` memicu `loadData()` di berbagai komponen
+
+### Solution Implementation
+
+#### 1. Token Comparison Logic
+```typescript
+// src/utils/tokenUtils.ts
+export function isTokenEquivalent(token1: string | null, token2: string | null): boolean {
+  // Compare JWT payload to determine if tokens represent same session
+  // Even if token string is different, if it's same user/session, consider equivalent
+  if (!token1 && !token2) return true
+  if (!token1 || !token2) return false
+  if (token1 === token2) return true
+  
+  try {
+    const payload1 = getJWTPayload(token1)
+    const payload2 = getJWTPayload(token2)
+    
+    // Compare user ID and session ID if available
+    if (payload1?.sub && payload2?.sub && payload1.sub === payload2.sub) {
+      return true // Same user, likely just a refresh
+    }
+  } catch (error) {
+    console.warn('JWT comparison failed, using exact match:', error)
+  }
+  
+  return false
+}
+```
+
+#### 2. Token-Aware Effect Hook
+```typescript
+// src/hooks/useTokenAwareEffect.ts
+export function useTokenAwareDataLoad(
+  loadFunction: () => void | Promise<void>,
+  accessToken: string | null,
+  additionalDeps: any[] = []
+) {
+  const previousTokenRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    // Check if this is a token refresh scenario
+    const isTokenRefresh = dependencies.includes(accessToken) && 
+                          isTokenEquivalent(previousTokenRef.current, accessToken)
+    
+    // Only run effect if token actually changed (not just refreshed)
+    if (!isTokenRefresh || otherDepsChanged || previousTokenRef.current === null) {
+      loadFunction()
+      previousTokenRef.current = accessToken
+    }
+  }, dependencies)
+}
+```
+
+#### 3. App.tsx State Management
+```typescript
+// src/App.tsx
+useEffect(() => {
+  const { data: { subscription } } = auth.client.auth.onAuthStateChange(
+    async (event, session) => {
+      if (session?.access_token) {
+        // Only update state if token actually changed
+        const currentToken = accessToken
+        const newToken = session.access_token
+        
+        if (currentToken !== newToken) {
+          console.log('Token changed, updating state')
+          setAccessToken(newToken)
+          setUser(session.user as User)
+          setIsAuthenticated(true)
+        } else {
+          console.log('Token unchanged, skipping state update')
+        }
+      }
+    }
+  )
+}, [accessToken])
+```
+
+#### 4. Component Updates
+```typescript
+// Before (causing reloads)
+useEffect(() => {
+  loadData()
+}, [accessToken])
+
+// After (token-aware)
+useTokenAwareDataLoad(loadData, accessToken)
+```
+
+### Benefits
+- ✅ **No unnecessary reloads** during token refresh
+- ✅ **Smooth user experience** - no interruption during editing/parsing
+- ✅ **Security maintained** - token refresh still works for security
+- ✅ **Better performance** - reduced unnecessary API calls
+- ✅ **Preserved editing state** - no data loss during editing
+
+### Files Modified
+- `src/App.tsx` - Token state management
+- `src/utils/tokenUtils.ts` - Token comparison utilities (new)
+- `src/hooks/useTokenAwareEffect.ts` - Custom hook (new)
+- `src/components/UnifiedApp.tsx` - Updated to use token-aware loading
+- `src/components/FrontendApp.tsx` - Updated to use token-aware loading
+
+### Testing
+- **Token Refresh Test**: Verify no data reload when token refreshes
+- **Actual Token Change Test**: Verify data reloads when token actually changes
+- **User Session Test**: Verify same user session is maintained
+- **Edit State Test**: Verify editing state is preserved during token refresh
+
+---
+
 ## File Structure
 
 ### Root Level
@@ -472,6 +622,9 @@ interface User {
 ├── utils/                    # Utility functions dan API clients
 ├── supabase/functions/       # Backend Edge functions
 └── docs/                     # Documentation files
+    ├── TOKEN_REFRESH_SOLUTION.md  # Token refresh issue solution
+    ├── SUPABASE_SECRETS_INTEGRATION.md  # API key management
+    └── [Other documentation files]
 ```
 
 ### Components Organization
@@ -489,6 +642,7 @@ components/
 ```
 utils/
 ├── auth.ts                  # Authentication utilities
+├── tokenUtils.ts            # Token comparison utilities (NEW)
 ├── movieApi.ts              # Movie API client
 ├── masterDataApi.ts         # Master data API client
 ├── favoritesApi.ts          # Favorites API client
@@ -496,6 +650,18 @@ utils/
 ├── templateUtils.ts         # Template processing utilities
 ├── movieTypeColors.ts       # Movie type color management
 └── supabase/info.tsx        # Supabase configuration
+```
+
+### Hooks Organization
+```
+hooks/
+├── useCachedData.ts         # Data caching and persistence
+├── useTokenAwareEffect.ts   # Token-aware effect hooks (NEW)
+├── useSimpleFavorites.ts    # Favorites management
+├── useGlobalKeyboardPagination.ts  # Keyboard navigation
+├── useKeyboardPagination.ts # Component-level pagination
+├── useGalleryCache.ts       # Gallery image caching
+└── useLazyData.ts           # Lazy loading utilities
 ```
 
 ---
@@ -604,6 +770,15 @@ Solution: Check token expiration, verify Supabase keys
 Debug: Check browser network tab, console errors
 ```
 
+#### Token Refresh Issues (SOLVED)
+```
+Symptom: App refreshes automatically during token refresh
+Log: "Auth state changed: TOKEN_REFRESHED token present"
+Impact: Disrupts user editing/parsing experience
+Solution: Implemented token-aware effect hooks
+Status: ✅ RESOLVED - See Token Refresh Solution section
+```
+
 #### Image Loading Issues
 ```
 Symptom: Images not loading, broken thumbnails  
@@ -623,6 +798,25 @@ Debug: Check Supabase dashboard, function logs
 Symptom: Slow loading, UI freezing
 Common causes: Large image galleries, complex searches
 Solutions: Implement pagination, image optimization, debounced search
+```
+
+#### Movie Parser Issues
+```
+Symptom: "At least one title (EN or JP) is required" error for series
+Solution: Movie parser automatically handles empty titles by preserving original names
+Debug: Check console logs for "Special handling for series" messages
+
+Symptom: Movie creates new actress data instead of updating existing
+Solution: Movie parser now updates matchedData state with cleaned names
+Debug: Check console logs for "Updating matchedData state with cleaned names"
+
+Symptom: Names not cleaned (still contain parentheses)
+Solution: Automatic alias fixing runs during save process
+Debug: Check console logs for "Cleaned names" and "Changes" messages
+
+Symptom: Data loss during alias fixing (profile picture, birthdate lost)
+Solution: All existing fields are preserved during updates
+Debug: Check updateData object in console logs
 ```
 
 ### Debug Tools
@@ -658,6 +852,92 @@ Solutions: Implement pagination, image optimization, debounced search
 - **Validate user inputs** sebelum API calls
 - **Handle authentication errors** gracefully
 - **Use HTTPS** untuk all external communications
+
+---
+
+## Recent Improvements
+
+### Token Refresh Solution (Latest Update)
+
+#### Problem Solved
+- **Issue**: App mengalami refresh otomatis saat Supabase melakukan token refresh
+- **Impact**: Mengganggu user experience saat editing/parsing data
+- **Root Cause**: 32+ useEffect hooks dengan dependency `[accessToken]` memicu reload data
+
+#### Solution Implemented
+- **Token Comparison Logic**: Membandingkan JWT payload untuk menentukan session equivalence
+- **Token-Aware Effect Hook**: Custom hook yang mencegah reload saat token refresh
+- **Smart State Management**: Hanya update state jika token benar-benar berubah
+- **Component Updates**: Mengganti useEffect dengan token-aware loading di komponen utama
+
+#### Benefits
+- ✅ **No unnecessary reloads** during token refresh
+- ✅ **Smooth user experience** - no interruption during editing/parsing
+- ✅ **Security maintained** - token refresh still works for security
+- ✅ **Better performance** - reduced unnecessary API calls
+
+#### Files Created/Modified
+- `src/utils/tokenUtils.ts` - Token comparison utilities (new)
+- `src/hooks/useTokenAwareEffect.ts` - Custom hook (new)
+- `src/App.tsx` - Token state management
+- `src/components/UnifiedApp.tsx` - Updated to use token-aware loading
+- `src/components/FrontendApp.tsx` - Updated to use token-aware loading
+
+### Movie Parser Enhancements (Previous Update)
+
+#### 1. Automatic Alias Fixing
+- **Implementation**: Integrated Fix Alias logic from actress edit dialog into movie parser
+- **Functionality**: Automatically cleans and formats aliases during movie save process
+- **Benefits**: Consistent alias formatting across all data entry points
+
+#### 2. Name Cleaning System
+- **English Names**: Removes parentheses and brackets, extracts main name
+- **Japanese Names**: Cleans Kanji and Kana names from bracket content
+- **Alias Migration**: Moves names from brackets to proper alias field
+- **Example**: "Aka Asuka (Shiose) (Nagi Hikaru)" → "Aka Asuka" + aliases
+
+#### 3. Database vs R18 Comparison UI
+- **New Component**: `DatabaseVsR18Comparison.tsx` for clear name selection
+- **User Experience**: Side-by-side comparison with explicit "Use DB" and "Use R18" buttons
+- **Integration**: Replaces old selection dialog with more intuitive interface
+
+#### 4. Data Integrity Protection
+- **Issue Fixed**: Prevented data loss during alias fixing (profile pictures, birthdates, etc.)
+- **Solution**: Preserve all existing fields in update payload
+- **Validation**: Ensure series always have at least one title (EN or JP)
+
+#### 5. State Management Improvements
+- **Problem**: Movie parser was creating new actress data instead of updating existing
+- **Solution**: Update `matchedData` state with cleaned names before final save
+- **Result**: Movies now correctly link to updated existing actress data
+
+#### 6. Error Handling Enhancements
+- **Series Title Validation**: Automatic fallback to original names if cleaning results in empty titles
+- **API Error Prevention**: Ensures all required fields are present before database updates
+- **Graceful Degradation**: Continues processing even if individual items fail
+
+### Technical Implementation Details
+
+#### Core Functions Added
+```typescript
+// Automatic alias fixing for all matched items
+fixAliasesForAllMatchedItems()
+
+// Name cleaning with alias extraction
+parseNameWithAliases(name)
+
+// Database vs R18 comparison UI
+DatabaseVsR18Comparison component
+
+// State synchronization with cleaned data
+setMatchedData(updatedMatchedData)
+```
+
+#### Console Logging for Debugging
+- **Cleaned Names**: Shows before/after name cleaning
+- **Changes Tracking**: Displays all field changes during processing
+- **State Updates**: Logs when matchedData is updated with cleaned names
+- **Error Handling**: Detailed error messages for troubleshooting
 
 ---
 

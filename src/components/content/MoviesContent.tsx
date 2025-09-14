@@ -12,7 +12,7 @@ import { SearchableFilterSelect } from '../ui/searchable-filter-select'
 import { VirtualizedFilterSelect } from '../ui/virtualized-filter-select'
 import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
-import { Search, Filter, X, SortAsc, SortDesc } from 'lucide-react'
+import { Search, Filter, X, SortAsc, SortDesc, Plus, FileText } from 'lucide-react'
 import { AdvancedSearchTest } from '../AdvancedSearchTest'
 
 interface MoviesContentProps {
@@ -43,6 +43,9 @@ interface MoviesContentProps {
     currentPage: number
     itemsPerPage: number
   }) => void
+  // Admin action handlers
+  onAddMovie?: () => void
+  onParseMovie?: () => void
 }
 
 interface SortOption {
@@ -70,7 +73,9 @@ export function MoviesContent({
   actors = [], 
   directors = [],
   externalFilters,
-  onFiltersChange
+  onFiltersChange,
+  onAddMovie,
+  onParseMovie
 }: MoviesContentProps) {
   // Use external filters if provided, otherwise use local state
   const [localCurrentPage, setLocalCurrentPage] = useState(1)
@@ -499,10 +504,26 @@ export function MoviesContent({
           )}
         </div>
 
-        <div className="text-center py-12">
+        <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">
             {searchQuery ? `No movies found for "${searchQuery}"` : 'No movies match the current filters'}
           </p>
+          
+          {/* Admin Action Buttons untuk empty state */}
+          <div className="flex justify-center gap-2">
+            {onAddMovie && (
+              <Button variant="outline" size="sm" onClick={onAddMovie}>
+                <Plus className="h-4 w-4 mr-2" />
+                Movie
+              </Button>
+            )}
+            {onParseMovie && (
+              <Button variant="outline" size="sm" onClick={onParseMovie}>
+                <FileText className="h-4 w-4 mr-2" />
+                Parse Movie
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -614,8 +635,23 @@ export function MoviesContent({
           </SelectContent>
         </Select>
 
-        {/* Tombol Randomize di pojok kanan */}
+        {/* Tombol Admin Actions dan Randomize di pojok kanan */}
         <div className="ml-auto flex gap-2">
+          {/* Admin Action Buttons */}
+          {onAddMovie && (
+            <Button variant="outline" size="sm" onClick={onAddMovie}>
+              <Plus className="h-4 w-4 mr-2" />
+              Movie
+            </Button>
+          )}
+          {onParseMovie && (
+            <Button variant="outline" size="sm" onClick={onParseMovie}>
+              <FileText className="h-4 w-4 mr-2" />
+              Parse Movie
+            </Button>
+          )}
+          
+          {/* Randomize Buttons */}
           {isRandomized && (
             <Button variant="outline" size="sm" onClick={handleResetRandom}>
               Reset

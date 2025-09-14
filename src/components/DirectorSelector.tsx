@@ -7,6 +7,7 @@ import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
 import { Badge } from './ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
 
 interface DirectorSelectorProps {
   accessToken: string
@@ -76,10 +77,16 @@ export function DirectorSelector({
 
     try {
       // Create a director entry using the selected person's data including all relevant fields
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: selectedPerson.jpname || '',
+        kanjiName: selectedPerson.kanjiName || ''
+      })
+
       const directorData: Partial<MasterDataItem> = {
         name: selectedPerson.name || '',
-        jpname: selectedPerson.jpname || undefined,
-        kanjiName: selectedPerson.kanjiName || undefined,
+        jpname: normalizedNames.jpname || undefined,
+        kanjiName: normalizedNames.kanjiName || undefined,
         kanaName: selectedPerson.kanaName || undefined,
         profilePicture: selectedPerson.profilePicture || undefined,
         birthdate: selectedPerson.birthdate || undefined,
@@ -103,11 +110,17 @@ export function DirectorSelector({
     if (!name) return
 
     try {
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: newDirectorJpName.trim(),
+        kanjiName: newDirectorKanjiName.trim()
+      })
+
       // Use createExtended to include jpname, kanjiName, and kanaName if provided
       const directorData: Partial<MasterDataItem> = {
         name,
-        jpname: newDirectorJpName.trim() || undefined,
-        kanjiName: newDirectorKanjiName.trim() || undefined,
+        jpname: normalizedNames.jpname || undefined,
+        kanjiName: normalizedNames.kanjiName || undefined,
         kanaName: newDirectorKanaName.trim() || undefined
       }
       
@@ -156,13 +169,19 @@ export function DirectorSelector({
     if (!name) return
 
     try {
+      // Normalize Japanese names to avoid redundancy
+      const normalizedNames = normalizeJapaneseNames({
+        jpname: editingJpName.trim(),
+        kanjiName: editingKanjiName.trim()
+      })
+
       const updatedDirector = await masterDataApi.updateExtended(
         'director', 
         id, 
         { 
           name, 
-          jpname: editingJpName.trim() || undefined,
-          kanjiName: editingKanjiName.trim() || undefined,
+          jpname: normalizedNames.jpname || undefined,
+          kanjiName: normalizedNames.kanjiName || undefined,
           kanaName: editingKanaName.trim() || undefined
         }, 
         accessToken

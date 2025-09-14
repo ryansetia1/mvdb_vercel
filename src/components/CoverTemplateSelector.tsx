@@ -49,13 +49,12 @@ export function CoverTemplateSelector({ movieType, onTemplateSelect, autoSelectD
     setSelectedTemplate('') // Clear selection when loading new templates
     
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-785baef1/kv/get`, {
-        method: 'POST',
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/kv-store/get/cover_template_${type}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ key: `cover_template_${type}` })
+        }
       })
 
       console.log('CoverTemplateSelector: Response status:', response.status)

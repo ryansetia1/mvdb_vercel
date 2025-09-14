@@ -12,18 +12,20 @@ interface MultipleTakuLinksProps {
   jpname?: string
   alias?: string
   name?: string
+  kanjiName?: string
+  kanaName?: string
   autoSearch?: boolean // New prop for auto-search trigger
 }
 
-export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', name = '', autoSearch = false }: MultipleTakuLinksProps) {
+export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', name = '', kanjiName = '', kanaName = '', autoSearch = false }: MultipleTakuLinksProps) {
   const [showTakuIframe, setShowTakuIframe] = useState(false)
 
   // Auto-search effect - show iframe and trigger search when autoSearch prop changes
   useEffect(() => {
-    if (autoSearch && (jpname || alias || name)) {
+    if (autoSearch && (jpname || alias || name || kanjiName || kanaName)) {
       setShowTakuIframe(true)
     }
-  }, [autoSearch, jpname, alias, name])
+  }, [autoSearch, jpname, alias, name, kanjiName, kanaName])
 
   const handleLinkChange = (index: number, value: string) => {
     const newLinks = [...links]
@@ -165,6 +167,8 @@ export function MultipleTakuLinks({ links, onChange, jpname = '', alias = '', na
           jpname={jpname}
           alias={alias}
           name={name}
+          kanjiName={kanjiName}
+          kanaName={kanaName}
           className="mt-4"
           autoSearch={autoSearch}
         />

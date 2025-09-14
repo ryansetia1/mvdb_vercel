@@ -6,6 +6,7 @@ import { AITranslationSpinner } from './AITranslationLoading'
 import { ShimmerInput } from './ShimmerInput'
 import { Languages, Type, Search, Brain, Sparkles } from 'lucide-react'
 import { ImageSearchIframe } from './ImageSearchIframe'
+import { normalizeJapaneseNames } from '../utils/japaneseNameNormalizer'
 import { toast } from 'sonner'
 
 interface MasterDataFormProps {
@@ -260,20 +261,30 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           )
           break
         case 'studio':
+          // Normalize Japanese names to avoid redundancy
+          const studioNormalizedNames = normalizeJapaneseNames({
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName
+          })
           newItem = await masterDataApi.createExtended('studio', {
             name: formData.name,
-            jpname: formData.jpname,
-            kanjiName: formData.kanjiName || undefined,
+            jpname: studioNormalizedNames.jpname || undefined,
+            kanjiName: studioNormalizedNames.kanjiName || undefined,
             kanaName: formData.kanaName || undefined,
             alias: formData.alias || undefined,
             studioLinks: formData.studioLinks || undefined
           }, accessToken)
           break
         case 'actress':
+          // Normalize Japanese names to avoid redundancy
+          const actressNormalizedNames = normalizeJapaneseNames({
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName
+          })
           newItem = await masterDataApi.createExtended('actress', {
             name: formData.name,
-            jpname: formData.jpname,
-            kanjiName: formData.kanjiName || undefined,
+            jpname: actressNormalizedNames.jpname || undefined,
+            kanjiName: actressNormalizedNames.kanjiName || undefined,
             kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
@@ -283,10 +294,15 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           }, accessToken)
           break
         case 'actor':
+          // Normalize Japanese names to avoid redundancy
+          const actorNormalizedNames = normalizeJapaneseNames({
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName
+          })
           newItem = await masterDataApi.createExtended('actor', {
             name: formData.name,
-            jpname: formData.jpname,
-            kanjiName: formData.kanjiName || undefined,
+            jpname: actorNormalizedNames.jpname || undefined,
+            kanjiName: actorNormalizedNames.kanjiName || undefined,
             kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
@@ -295,10 +311,15 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           }, accessToken)
           break
         case 'director':
+          // Normalize Japanese names to avoid redundancy
+          const directorNormalizedNames = normalizeJapaneseNames({
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName
+          })
           newItem = await masterDataApi.createExtended('director', {
             name: formData.name,
-            jpname: formData.jpname,
-            kanjiName: formData.kanjiName || undefined,
+            jpname: directorNormalizedNames.jpname || undefined,
+            kanjiName: directorNormalizedNames.kanjiName || undefined,
             kanaName: formData.kanaName || undefined,
             birthdate: formData.birthdate || undefined,
             alias: formData.alias || undefined,
@@ -307,10 +328,15 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           }, accessToken)
           break
         case 'label':
+          // Normalize Japanese names to avoid redundancy
+          const labelNormalizedNames = normalizeJapaneseNames({
+            jpname: formData.jpname,
+            kanjiName: formData.kanjiName
+          })
           newItem = await masterDataApi.createExtended('label', {
             name: formData.name,
-            jpname: formData.jpname,
-            kanjiName: formData.kanjiName || undefined,
+            jpname: labelNormalizedNames.jpname || undefined,
+            kanjiName: labelNormalizedNames.kanjiName || undefined,
             kanaName: formData.kanaName || undefined,
             labelLinks: formData.labelLinks || undefined
           }, accessToken)

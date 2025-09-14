@@ -126,8 +126,10 @@ export async function mergeMovieData(
         // Use matched data if available, otherwise use original name
         const matchedItem = request.matchedData?.actresses?.[index]
         if (matchedItem?.matched) {
-          // Use the matched name from database (prefer English name, fallback to Japanese)
-          return matchedItem.matched.name || matchedItem.matched.jpname || name
+          // Use customEnglishName if user selected one, otherwise use matched name from database
+          const finalName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
+          console.log(`MovieMergeApi actress ${index}: customEnglishName=${matchedItem.customEnglishName}, matched.name=${matchedItem.matched.name}, final=${finalName}`)
+          return finalName
         }
         return name
       }).filter(name => name !== null && name.trim()) // Remove ignored items and empty strings
@@ -141,8 +143,14 @@ export async function mergeMovieData(
         )
       )
       
-      if (uniqueNewActresses.length > 0) {
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (filteredActresses.length > 0) {
+        mergedMovie.actress = filteredActresses.join(', ')
+        console.log('MovieMergeApi using user-selected actress names:', filteredActresses)
+      } else if (uniqueNewActresses.length > 0) {
         mergedMovie.actress = [...existingActresses, ...uniqueNewActresses].join(', ')
+        console.log('MovieMergeApi adding new actresses:', uniqueNewActresses)
       }
     }
 
@@ -160,8 +168,10 @@ export async function mergeMovieData(
         // Use matched data if available, otherwise use original name
         const matchedItem = request.matchedData?.actors?.[index]
         if (matchedItem?.matched) {
-          // Use the matched name from database (prefer English name, fallback to Japanese)
-          return matchedItem.matched.name || matchedItem.matched.jpname || name
+          // Use customEnglishName if user selected one, otherwise use matched name from database
+          const finalName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
+          console.log(`MovieMergeApi actor ${index}: customEnglishName=${matchedItem.customEnglishName}, matched.name=${matchedItem.matched.name}, final=${finalName}`)
+          return finalName
         }
         return name
       }).filter(name => name !== null && name.trim()) // Remove ignored items and empty strings
@@ -175,8 +185,14 @@ export async function mergeMovieData(
         )
       )
       
-      if (uniqueNewActors.length > 0) {
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (filteredActors.length > 0) {
+        mergedMovie.actors = filteredActors.join(', ')
+        console.log('MovieMergeApi using user-selected actor names:', filteredActors)
+      } else if (uniqueNewActors.length > 0) {
         mergedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
+        console.log('MovieMergeApi adding new actors:', uniqueNewActors)
       }
     }
 

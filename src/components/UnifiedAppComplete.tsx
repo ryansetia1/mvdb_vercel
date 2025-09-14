@@ -638,6 +638,28 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     setShowParseMovie(movie)
   }
 
+  const handleAddMovie = () => {
+    // Switch to admin mode with movies tab active for adding new movie
+    setContentState({ mode: 'admin', title: 'Admin Panel - Add Movie' })
+    setActiveNavItem('admin')
+    // Clear any existing editing states
+    setShowEditMovie(null)
+    setShowEditSCMovie(null)
+    setShowEditProfile(null)
+    setShowParseMovie(null)
+  }
+
+  const handleParseMovieFromMovies = () => {
+    // Switch to admin mode with parser tab active for parsing new movie
+    setContentState({ mode: 'admin', title: 'Admin Panel - Parse Movie' })
+    setActiveNavItem('admin')
+    // Clear any existing editing states
+    setShowEditMovie(null)
+    setShowEditSCMovie(null)
+    setShowEditProfile(null)
+    setShowParseMovie(null)
+  }
+
   const handleEditSCMovie = (scMovie: SCMovie) => {
     setShowEditSCMovie(scMovie)
     // Switch to admin mode to show the edit form
@@ -941,6 +963,8 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               directors={directors}
               externalFilters={getCurrentFilters('movies')}
               onFiltersChange={(filters) => handleFiltersChange('movies', filters)}
+              onAddMovie={handleAddMovie}
+              onParseMovie={handleParseMovieFromMovies}
             />
           )}
 

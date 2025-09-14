@@ -41,8 +41,11 @@ export function CheckTakuLinksDialog({
       parenthesesMatches.forEach(match => {
         const name = match.replace(/[（()）]/g, '').trim()
         // Only add if it contains Japanese characters and is not just tags/descriptions
-        if (name && /[ひらがなカタカナ一-龯]/.test(name) && !isTagOrDescription(name)) {
-          names.push(name)
+        if (name && !isTagOrDescription(name)) {
+          const hasJapaneseChars = /[ひらがなカタカナ一-龯]/.test(name)
+          if (hasJapaneseChars) {
+            names.push(name)
+          }
         }
       })
     }
@@ -56,10 +59,11 @@ export function CheckTakuLinksDialog({
         .map(name => name.trim())
         .filter(name => name.length > 0)
         .filter(name => {
-          // Accept names that contain Japanese characters OR are valid romanized names
+          if (isTagOrDescription(name)) return false
+          
+          // Only accept names that contain Japanese characters - exclude pure latin names
           const hasJapaneseChars = /[ひらがなカタカナ一-龯]/.test(name)
-          const isRomanizedName = /^[A-Za-z\s]+$/.test(name) && name.length >= 2 && !isTagOrDescription(name)
-          return (hasJapaneseChars || isRomanizedName) && !isTagOrDescription(name)
+          return hasJapaneseChars
         })
       
       names.push(...mainNames)
