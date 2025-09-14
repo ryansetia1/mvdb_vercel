@@ -1833,7 +1833,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
+      shouldUpdateData: false // Don't auto-set, let user decide if they want to update master data
     })
   }
 
@@ -1946,7 +1946,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
+      shouldUpdateData: false // Don't auto-set, let user decide if they want to update master data
     })
   }
 
@@ -2068,7 +2068,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
+      shouldUpdateData: false // Don't auto-set, let user decide if they want to update master data
     })
   }
 
@@ -2149,7 +2149,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
+      shouldUpdateData: false // Don't auto-set, let user decide if they want to update master data
     })
   }
 
@@ -2367,7 +2367,7 @@ export async function matchWithDatabase(
       needsEnglishNameSelection,
       availableEnglishNames: availableEnglishNames.length > 0 ? availableEnglishNames : undefined,
       missingData,
-      shouldUpdateData: missingData !== null || needsEnglishNameSelection // Auto-set for missing data or conflicts
+      shouldUpdateData: false // Don't auto-set, let user decide if they want to update master data
     })
   }
 
@@ -2491,7 +2491,13 @@ export function convertToMovie(parsedData: ParsedMovieData, matchedData: Matched
     if (matchedItem?.matched) {
       // Use custom English name if user selected one, otherwise use matched name from database
       const matchedName = matchedItem.customEnglishName || matchedItem.matched.name || matchedItem.matched.jpname || name
-      console.log(`Actress ${name} matched to: ${matchedName}`)
+      console.log(`=== convertToMovie Actress ${index} ===`)
+      console.log(`Original name: ${name}`)
+      console.log(`Matched item:`, matchedItem)
+      console.log(`Custom English name: ${matchedItem.customEnglishName}`)
+      console.log(`Matched name: ${matchedItem.matched.name}`)
+      console.log(`Final matched name: ${matchedName}`)
+      console.log(`=== End convertToMovie Actress ${index} ===`)
       return matchedName
     }
     

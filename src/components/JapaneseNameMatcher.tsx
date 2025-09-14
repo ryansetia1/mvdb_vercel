@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { X, Check, User, Calendar, Film, Building, Tag, BookOpen } from 'lucide-react'
+import { DatabaseVsR18Comparison } from './DatabaseVsR18Comparison'
 
 interface JapaneseNameMatcherProps {
   isOpen: boolean
@@ -27,14 +28,30 @@ export function JapaneseNameMatcher({
 }: JapaneseNameMatcherProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [selectedEnglishName, setSelectedEnglishName] = useState<string>('')
+  const [showDatabaseVsR18, setShowDatabaseVsR18] = useState(false)
+  const [databaseName, setDatabaseName] = useState('')
+  const [r18Name, setR18Name] = useState('')
 
   useEffect(() => {
     if (matches.length > 0) {
       // Set default selection to first match
       setSelectedIndex(0)
       const firstMatch = matches[0]
-      // Prefer parsed English name if available, otherwise use database name
-      setSelectedEnglishName(parsedEnglishName || firstMatch.name || firstMatch.titleEn || '')
+      const dbName = firstMatch.name || firstMatch.titleEn || ''
+      
+      // Check if database name and R18 name are different
+      if (dbName && parsedEnglishName && dbName !== parsedEnglishName) {
+        console.log('Database vs R18 names differ, showing comparison dialog')
+        setDatabaseName(dbName)
+        setR18Name(parsedEnglishName)
+        setShowDatabaseVsR18(true)
+        // Don't set default name yet, wait for user choice
+      } else {
+        // Prefer database name as default, then parsed English name as fallback
+        const defaultName = dbName || parsedEnglishName || ''
+        console.log('JapaneseNameMatcher setting default name:', defaultName)
+        setSelectedEnglishName(defaultName)
+      }
     }
   }, [matches, parsedEnglishName])
 
@@ -51,6 +68,42 @@ export function JapaneseNameMatcher({
     e.preventDefault()
     e.stopPropagation()
     onClose()
+  }
+
+  const handleSelectDatabase = () => {
+    console.log('User selected database name:', databaseName)
+    setSelectedEnglishName(databaseName)
+    setShowDatabaseVsR18(false)
+    
+    // Immediately call onSelect with the selected name and close dialog
+    const selectedMatch = matches[selectedIndex]
+    if (selectedMatch) {
+      onSelect(selectedMatch, databaseName)
+    }
+  }
+
+  const handleSelectR18 = () => {
+    console.log('User selected R18 name:', r18Name)
+    setSelectedEnglishName(r18Name)
+    setShowDatabaseVsR18(false)
+    
+    // Immediately call onSelect with the selected name and close dialog
+    const selectedMatch = matches[selectedIndex]
+    if (selectedMatch) {
+      onSelect(selectedMatch, r18Name)
+    }
+  }
+
+  const handleCancelComparison = () => {
+    console.log('User cancelled comparison, using database name as default')
+    setSelectedEnglishName(databaseName)
+    setShowDatabaseVsR18(false)
+    
+    // Immediately call onSelect with the database name and close dialog
+    const selectedMatch = matches[selectedIndex]
+    if (selectedMatch) {
+      onSelect(selectedMatch, databaseName)
+    }
   }
 
   const getTypeIcon = (itemType: string) => {
@@ -143,6 +196,28 @@ export function JapaneseNameMatcher({
 
   const currentMatch = matches[selectedIndex]
   const englishNameOptions = currentMatch ? getEnglishNameOptions(currentMatch) : []
+
+  // Show database vs R18 comparison if names differ
+  if (showDatabaseVsR18 && isOpen) {
+    return (
+      <DatabaseVsR18Comparison
+        isOpen={true}
+        onClose={handleClose}
+        onSelectDatabase={handleSelectDatabase}
+        onSelectR18={handleSelectR18}
+        onCancel={handleCancelComparison}
+        databaseName={databaseName}
+        r18Name={r18Name}
+        type={type}
+        searchName={searchName}
+      />
+    )
+  }
+
+  // Don't show the old dialog if we're showing the database vs R18 comparison
+  if (showDatabaseVsR18) {
+    return null
+  }
 
   return (
     <div 

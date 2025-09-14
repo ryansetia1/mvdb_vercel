@@ -91,6 +91,16 @@ Aplikasi Movie Database adalah sistem manajemen database film yang komprehensif 
 - **SC (Soft Core)**: Simplified movies with basic information
 - **Un (Uncensored)**: Special category with 16:9 aspect ratio covers
 
+#### Movie Parser System
+- **R18 Data Integration**: Automatic parsing of movie data from R18 sources
+- **Smart Name Matching**: Intelligent matching of actress/actor names between database and R18 data
+- **Database vs R18 Comparison**: User-friendly interface to choose between database names and R18 parsed names
+- **Automatic Alias Fixing**: Clean and format aliases automatically during save process
+- **Name Cleaning**: Remove parentheses and brackets from names, moving aliases to proper alias field
+- **Master Data Updates**: Selective updating of existing master data with cleaned information
+- **Data Integrity Protection**: Prevents data loss during alias fixing by preserving all existing fields
+- **Real-time Validation**: Ensures series always have at least one title (EN or JP) to prevent API errors
+
 ### 2. Master Data Management
 #### Actresses
 - Profile information (name, birth date, measurements, etc.)
@@ -406,7 +416,19 @@ POST   /restore/{type}          # Import data from CSV
 - **DateDurationInputs.tsx**: Date picker dan duration input
 - **MovieTypeColorSettings.tsx**: Type color customization
 
-#### 7. UI Components (`/components/ui/`)
+#### 7. Movie Parser Components (`/components/`)
+- **MovieDataParser.tsx**: Main parser component untuk R18 data integration
+  - **Smart Name Matching**: Matches actress/actor names between database and R18 data
+  - **Database vs R18 Comparison**: User interface untuk memilih antara nama database atau R18
+  - **Automatic Alias Fixing**: Membersihkan dan memformat alias secara otomatis
+  - **Name Cleaning**: Menghapus kurung dari nama dan memindahkan alias ke field yang tepat
+  - **Master Data Updates**: Update selektif master data dengan informasi yang sudah dibersihkan
+  - **Data Integrity Protection**: Mencegah kehilangan data selama proses alias fixing
+- **JapaneseNameMatcher.tsx**: Component untuk matching nama Jepang dengan database
+- **EnglishNameSelector.tsx**: Selector untuk memilih nama English yang tepat
+- **DatabaseVsR18Comparison.tsx**: Interface perbandingan antara nama database dan R18
+
+#### 8. UI Components (`/components/ui/`)
 Custom ShadCN/UI components:
 - Form controls (input, select, button, etc.)
 - Layout components (card, tabs, dialog, etc.)
@@ -625,6 +647,25 @@ Common causes: Large image galleries, complex searches
 Solutions: Implement pagination, image optimization, debounced search
 ```
 
+#### Movie Parser Issues
+```
+Symptom: "At least one title (EN or JP) is required" error for series
+Solution: Movie parser automatically handles empty titles by preserving original names
+Debug: Check console logs for "Special handling for series" messages
+
+Symptom: Movie creates new actress data instead of updating existing
+Solution: Movie parser now updates matchedData state with cleaned names
+Debug: Check console logs for "Updating matchedData state with cleaned names"
+
+Symptom: Names not cleaned (still contain parentheses)
+Solution: Automatic alias fixing runs during save process
+Debug: Check console logs for "Cleaned names" and "Changes" messages
+
+Symptom: Data loss during alias fixing (profile picture, birthdate lost)
+Solution: All existing fields are preserved during updates
+Debug: Check updateData object in console logs
+```
+
 ### Debug Tools
 - **Browser DevTools** untuk network dan console debugging
 - **React DevTools** untuk component state inspection  
@@ -658,6 +699,66 @@ Solutions: Implement pagination, image optimization, debounced search
 - **Validate user inputs** sebelum API calls
 - **Handle authentication errors** gracefully
 - **Use HTTPS** untuk all external communications
+
+---
+
+## Recent Improvements
+
+### Movie Parser Enhancements (Latest Update)
+
+#### 1. Automatic Alias Fixing
+- **Implementation**: Integrated Fix Alias logic from actress edit dialog into movie parser
+- **Functionality**: Automatically cleans and formats aliases during movie save process
+- **Benefits**: Consistent alias formatting across all data entry points
+
+#### 2. Name Cleaning System
+- **English Names**: Removes parentheses and brackets, extracts main name
+- **Japanese Names**: Cleans Kanji and Kana names from bracket content
+- **Alias Migration**: Moves names from brackets to proper alias field
+- **Example**: "Aka Asuka (Shiose) (Nagi Hikaru)" → "Aka Asuka" + aliases
+
+#### 3. Database vs R18 Comparison UI
+- **New Component**: `DatabaseVsR18Comparison.tsx` for clear name selection
+- **User Experience**: Side-by-side comparison with explicit "Use DB" and "Use R18" buttons
+- **Integration**: Replaces old selection dialog with more intuitive interface
+
+#### 4. Data Integrity Protection
+- **Issue Fixed**: Prevented data loss during alias fixing (profile pictures, birthdates, etc.)
+- **Solution**: Preserve all existing fields in update payload
+- **Validation**: Ensure series always have at least one title (EN or JP)
+
+#### 5. State Management Improvements
+- **Problem**: Movie parser was creating new actress data instead of updating existing
+- **Solution**: Update `matchedData` state with cleaned names before final save
+- **Result**: Movies now correctly link to updated existing actress data
+
+#### 6. Error Handling Enhancements
+- **Series Title Validation**: Automatic fallback to original names if cleaning results in empty titles
+- **API Error Prevention**: Ensures all required fields are present before database updates
+- **Graceful Degradation**: Continues processing even if individual items fail
+
+### Technical Implementation Details
+
+#### Core Functions Added
+```typescript
+// Automatic alias fixing for all matched items
+fixAliasesForAllMatchedItems()
+
+// Name cleaning with alias extraction
+parseNameWithAliases(name)
+
+// Database vs R18 comparison UI
+DatabaseVsR18Comparison component
+
+// State synchronization with cleaned data
+setMatchedData(updatedMatchedData)
+```
+
+#### Console Logging for Debugging
+- **Cleaned Names**: Shows before/after name cleaning
+- **Changes Tracking**: Displays all field changes during processing
+- **State Updates**: Logs when matchedData is updated with cleaned names
+- **Error Handling**: Detailed error messages for troubleshooting
 
 ---
 

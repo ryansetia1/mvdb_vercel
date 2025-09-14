@@ -516,7 +516,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       try {
         setLoading(true)
         
-        // Update master data with conflicts first
+        // Fix aliases for all matched items first (always run)
+        await fixAliasesForAllMatchedItems()
+        
+        // Update master data with conflicts (only if user chose to update)
         await updateMasterDataWithConflicts()
         
         // Create updated parsed data with dmcode, titleEn, and movieType
@@ -569,26 +572,58 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         
         // Merge actresses and actors using matched data (only add new ones, don't duplicate)
         if (matchedData.actresses && matchedData.actresses.length > 0) {
+          console.log('=== MERGE MODE ACTRESSES ===')
+          console.log('Matched data actresses:', matchedData.actresses)
+          console.log('Ignored items:', ignoredItems)
+          
           const existingActresses = mergedMovie.actress ? mergedMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
+          
+          console.log('Existing actresses:', existingActresses)
           
           // Get matched actress names (prefer customEnglishName, then English name, fallback to Japanese)
           const matchedActressNames = matchedData.actresses
             .map((item, index) => ({ item, index }))
             .filter(({ item, index }) => item.matched && !ignoredItems.has(`actresses-${index}`))
-            .map(({ item }) => item.customEnglishName || item.matched!.name || item.matched!.jpname || item.name)
+            .map(({ item }) => {
+              const finalName = item.customEnglishName || item.matched!.name || item.matched!.jpname || item.name
+              console.log(`Actress merge: customEnglishName=${item.customEnglishName}, matched.name=${item.matched!.name}, final=${finalName}`)
+              return finalName
+            })
             .filter(name => name && name.trim())
           
-          // Only add actresses that don't already exist
-          const uniqueNewActresses = matchedActressNames.filter(actress => 
-            !existingActresses.some(existing => 
-              existing.toLowerCase() === actress.toLowerCase() ||
-              existing.includes(actress) ||
-              actress.includes(existing)
-            )
-          )
+          console.log('Matched actress names:', matchedActressNames)
           
-          if (uniqueNewActresses.length > 0) {
+          // Only add actresses that don't already exist
+          const uniqueNewActresses = matchedActressNames.filter(actress => {
+            const isDuplicate = existingActresses.some(existing => {
+              const lowerExisting = existing.toLowerCase()
+              const lowerActress = actress.toLowerCase()
+              const includesCheck = existing.includes(actress) || actress.includes(existing)
+              const exactMatch = lowerExisting === lowerActress
+              
+              console.log(`Checking duplicate: "${existing}" vs "${actress}"`)
+              console.log(`  Exact match: ${exactMatch}`)
+              console.log(`  Includes check: ${includesCheck}`)
+              console.log(`  Is duplicate: ${exactMatch || includesCheck}`)
+              
+              return exactMatch || includesCheck
+            })
+            
+            console.log(`Actress "${actress}" is duplicate: ${isDuplicate}`)
+            return !isDuplicate
+          })
+          
+          console.log('Unique new actresses:', uniqueNewActresses)
+          console.log('=== END MERGE MODE ACTRESSES ===')
+          
+          // Always use the names selected by user, even if they already exist
+          // This respects user's choice to keep database names or use parsed names
+          if (matchedActressNames.length > 0) {
+            mergedMovie.actress = matchedActressNames.join(', ')
+            console.log('Using user-selected actress names:', matchedActressNames)
+          } else if (uniqueNewActresses.length > 0) {
             mergedMovie.actress = [...existingActresses, ...uniqueNewActresses].join(', ')
+            console.log('Adding new actresses:', uniqueNewActresses)
           }
         }
         
@@ -611,8 +646,14 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             )
           )
           
-          if (uniqueNewActors.length > 0) {
+          // Always use the names selected by user, even if they already exist
+          // This respects user's choice to keep database names or use parsed names
+          if (matchedActorNames.length > 0) {
+            mergedMovie.actors = matchedActorNames.join(', ')
+            console.log('Using user-selected actor names:', matchedActorNames)
+          } else if (uniqueNewActors.length > 0) {
             mergedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
+            console.log('Adding new actors:', uniqueNewActors)
           }
         }
 
@@ -703,7 +744,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       try {
         setLoading(true)
         
-        // Update master data with conflicts first
+        // Fix aliases for all matched items first (always run)
+        await fixAliasesForAllMatchedItems()
+        
+        // Update master data with conflicts (only if user chose to update)
         await updateMasterDataWithConflicts()
         
         const updatedParsedData = {
@@ -951,6 +995,205 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setMatchedData(newMatchedData)
   }
 
+  const fixAliasesForAllMatchedItems = async () => {
+    if (!matchedData) return
+
+    console.log('=== FIXING ALIASES FOR ALL MATCHED ITEMS ===')
+    const updatePromises: Promise<any>[] = []
+    const updatedMatchedData = { ...matchedData }
+
+    // Import the cleaning function
+    const { parseNameWithAliases } = await import('../utils/japaneseNameNormalizer')
+
+    // Process all categories
+    const categories: (keyof MatchedData)[] = ['actresses', 'actors', 'directors', 'studios', 'series', 'labels']
+    
+    for (const category of categories) {
+      const items = matchedData[category]
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        
+        // Only process if there's a matched item
+        if (item.matched) {
+          console.log(`=== Fixing alias for ${category}[${i}] ===`)
+          console.log(`Matched item:`, item.matched)
+          console.log(`Current alias:`, item.matched.alias)
+          
+          // Determine the type for API call
+          let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
+          switch (category) {
+            case 'actresses':
+              masterDataType = 'actress'
+              break
+            case 'actors':
+              masterDataType = 'actor'
+              break
+            case 'directors':
+              masterDataType = 'director'
+              break
+            case 'studios':
+              masterDataType = 'studio'
+              break
+            case 'series':
+              masterDataType = 'series'
+              break
+            case 'labels':
+              masterDataType = 'label'
+              break
+            default:
+              continue
+          }
+
+          // Clean all name fields from brackets (like Fix Alias button)
+          const currentName = item.customEnglishName || item.matched.name || ''
+          const currentJpname = item.matched.jpname || ''
+          const currentKanjiName = item.matched.kanjiName || ''
+          const currentKanaName = item.matched.kanaName || ''
+          
+          // Parse each field to extract main name and aliases
+          const nameParsed = parseNameWithAliases(currentName)
+          const jpnameParsed = parseNameWithAliases(currentJpname)
+          const kanjiNameParsed = parseNameWithAliases(currentKanjiName)
+          const kanaNameParsed = parseNameWithAliases(currentKanaName)
+          
+          // Collect all aliases from brackets to add to alias field
+          const aliasesFromBrackets: string[] = []
+          if (nameParsed.aliases.length > 0) aliasesFromBrackets.push(...nameParsed.aliases)
+          if (jpnameParsed.aliases.length > 0) aliasesFromBrackets.push(...jpnameParsed.aliases)
+          if (kanjiNameParsed.aliases.length > 0) aliasesFromBrackets.push(...kanjiNameParsed.aliases)
+          if (kanaNameParsed.aliases.length > 0) aliasesFromBrackets.push(...kanaNameParsed.aliases)
+          
+          // Remove duplicates
+          const uniqueAliasesFromBrackets = [...new Set(aliasesFromBrackets)]
+          
+          console.log('Cleaned names:', {
+            name: nameParsed.mainName,
+            jpname: jpnameParsed.mainName,
+            kanjiName: kanjiNameParsed.mainName,
+            kanaName: kanaNameParsed.mainName
+          })
+          console.log('Aliases from brackets:', uniqueAliasesFromBrackets)
+          
+          // Apply fixing alias logic with cleaned names
+          const { formatAliasWithFixingLogic } = await import('../utils/japaneseNameNormalizer')
+          const fixedAlias = formatAliasWithFixingLogic({
+            existingAlias: item.matched.alias,
+            name: nameParsed.mainName,
+            jpname: jpnameParsed.mainName,
+            kanjiName: kanjiNameParsed.mainName,
+            kanaName: kanaNameParsed.mainName
+          })
+          
+          console.log(`Fixed alias: "${item.matched.alias}" -> "${fixedAlias}"`)
+          
+          // Check if any field needs updating (cleaned names or fixed alias)
+          const needsUpdate = (
+            nameParsed.mainName !== currentName ||
+            jpnameParsed.mainName !== currentJpname ||
+            kanjiNameParsed.mainName !== currentKanjiName ||
+            kanaNameParsed.mainName !== currentKanaName ||
+            fixedAlias !== item.matched.alias
+          )
+          
+          if (needsUpdate) {
+            // For series, ensure we have at least one title (EN or JP)
+            let cleanedName = nameParsed.mainName || item.matched.name
+            let cleanedJpname = jpnameParsed.mainName || item.matched.jpname
+            
+            // Special handling for series - ensure at least one title exists
+            if (masterDataType === 'series') {
+              // If both cleaned names are empty, keep original names
+              if (!cleanedName && !cleanedJpname) {
+                cleanedName = item.matched.name || item.matched.titleEn || ''
+                cleanedJpname = item.matched.jpname || item.matched.titleJp || ''
+              }
+              // If only one is empty, use the other
+              else if (!cleanedName && cleanedJpname) {
+                cleanedName = item.matched.name || item.matched.titleEn || ''
+              }
+              else if (cleanedName && !cleanedJpname) {
+                cleanedJpname = item.matched.jpname || item.matched.titleJp || ''
+              }
+            }
+            
+            const updateData = {
+              name: cleanedName,
+              jpname: cleanedJpname,
+              kanjiName: kanjiNameParsed.mainName || item.matched.kanjiName || undefined,
+              kanaName: kanaNameParsed.mainName || item.matched.kanaName || undefined,
+              birthdate: item.matched.birthdate || undefined,
+              alias: fixedAlias,
+              links: item.matched.links || undefined,
+              tags: item.matched.tags || undefined,
+              photo: item.matched.photo || undefined,
+              profilePicture: item.matched.profilePicture || undefined,
+              takulinks: item.matched.takulinks || undefined,
+              groupId: item.matched.groupId || undefined,
+              selectedGroups: item.matched.selectedGroups || undefined,
+              groupData: item.matched.groupData || undefined
+            }
+            
+            console.log(`Updating ${masterDataType} ${item.matched.id} with cleaned names and fixed alias`)
+            console.log('Changes:', {
+              name: `${currentName} -> ${cleanedName}`,
+              jpname: `${currentJpname} -> ${cleanedJpname}`,
+              kanjiName: `${currentKanjiName} -> ${kanjiNameParsed.mainName}`,
+              kanaName: `${currentKanaName} -> ${kanaNameParsed.mainName}`,
+              alias: `${item.matched.alias} -> ${fixedAlias}`
+            })
+            console.log('Update data:', updateData)
+            
+            // Update the matchedData with cleaned names so the final save uses the correct data
+            updatedMatchedData[category][i] = {
+              ...item,
+              customEnglishName: cleanedName,
+              matched: {
+                ...item.matched,
+                name: cleanedName,
+                jpname: cleanedJpname,
+                kanjiName: kanjiNameParsed.mainName || item.matched.kanjiName,
+                kanaName: kanaNameParsed.mainName || item.matched.kanaName,
+                alias: fixedAlias
+              }
+            }
+            
+            // Add update promise
+            updatePromises.push(
+              masterDataApi.updateExtendedWithSync(
+                masterDataType,
+                item.matched.id,
+                updateData,
+                accessToken
+              ).catch(error => {
+                console.error(`Failed to fix alias for ${masterDataType} ${item.matched!.id}:`, error)
+                // Don't throw error to prevent stopping the entire process
+              })
+            )
+          } else {
+            console.log(`Names and alias for ${category}[${i}] are already properly formatted`)
+          }
+        }
+      }
+    }
+
+    // Execute all name and alias fixes
+    if (updatePromises.length > 0) {
+      console.log(`Fixing names and aliases for ${updatePromises.length} items...`)
+      await Promise.all(updatePromises)
+      console.log('Name and alias fixes completed')
+      
+      // Update the component state with cleaned matchedData
+      console.log('Updating matchedData state with cleaned names...')
+      setMatchedData(updatedMatchedData)
+      
+      // Clear cache to ensure fresh data is loaded
+      console.log('Clearing cache after name and alias fixes...')
+      invalidateCache()
+    } else {
+      console.log('No names or aliases need fixing')
+    }
+  }
+
   const updateMasterDataWithConflicts = async () => {
     if (!matchedData) return
 
@@ -963,7 +1206,20 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       const items = matchedData[category]
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.matched && (item.missingData || item.shouldUpdateData)) {
+        // Only update master data if:
+        // 1. User explicitly chose to update data (shouldUpdateData = true)
+        // 2. AND there's actually missing data to update
+        // Don't update if user just selected an existing name without wanting to change master data
+        console.log(`=== Checking ${category}[${i}] for master data update ===`)
+        console.log(`Matched: ${!!item.matched}`)
+        console.log(`Should update data: ${item.shouldUpdateData}`)
+        console.log(`Missing data:`, item.missingData)
+        console.log(`Custom English name: ${item.customEnglishName}`)
+        console.log(`Matched name: ${item.matched?.name}`)
+        
+        if (item.matched && item.shouldUpdateData && item.missingData) {
+          console.log(`✅ Will update master data for ${category}[${i}]`)
+          
           // Determine the type for API call first
           let masterDataType: 'actor' | 'actress' | 'director' | 'studio' | 'series' | 'label'
           switch (category) {
@@ -1148,6 +1404,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
               // Don't throw error to prevent stopping the entire process
             })
           )
+        } else {
+          console.log(`❌ Will NOT update master data for ${category}[${i}]`)
         }
       }
     }
@@ -1322,8 +1580,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     setShowMultipleMatchSelector(null)
   }
 
-  const handleEnglishNameSelect = (selectedItem: MasterDataItem) => {
+  const handleEnglishNameSelect = async (selectedItem: MasterDataItem) => {
     if (!showEnglishNameSelector || !matchedData) return
+
+    console.log('=== MovieDataParser handleEnglishNameSelect ===')
+    console.log('Selected item:', selectedItem)
+    console.log('Show English name selector:', showEnglishNameSelector)
 
     const { type, index } = showEnglishNameSelector
 
@@ -1352,12 +1614,37 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     // Update the matched data with custom English name
     const newMatchedData = { ...matchedData }
     const matchedItem = newMatchedData[matchedDataType][index]
+    
+    // Clean the English name by removing brackets and parentheses
+    const rawEnglishName = selectedItem.name || selectedItem.titleEn
+    const { parseNameWithAliases } = await import('../utils/japaneseNameNormalizer')
+    const parsedName = parseNameWithAliases(rawEnglishName)
+    const customEnglishName = parsedName.mainName.trim() || rawEnglishName
+    
+    console.log('Original matched item:', matchedItem)
+    console.log('Raw English name:', rawEnglishName)
+    console.log('Parsed name:', parsedName)
+    console.log('Custom English name to set:', customEnglishName)
+    
+    // Determine if user selected database name or R18/parsed name
+    const userSelectedDatabaseName = customEnglishName === matchedItem.matched?.name
+    console.log('User selected database name:', userSelectedDatabaseName)
+    console.log('Custom English name:', customEnglishName)
+    console.log('Matched name:', matchedItem.matched?.name)
+    
     newMatchedData[matchedDataType][index] = {
       ...matchedItem,
-      customEnglishName: selectedItem.name || selectedItem.titleEn,
+      customEnglishName: customEnglishName,
       needsConfirmation: false,
-      needsEnglishNameSelection: false // Mark as resolved
+      needsEnglishNameSelection: false, // Mark as resolved
+      // Auto-set shouldUpdateData based on user's choice:
+      // - If user selected database name: don't update master data (false)
+      // - If user selected R18/parsed name: update master data (true)
+      shouldUpdateData: !userSelectedDatabaseName
     }
+    
+    console.log('Updated matched item:', newMatchedData[matchedDataType][index])
+    console.log('=== End MovieDataParser handleEnglishNameSelect ===')
     
     setMatchedData(newMatchedData)
     
@@ -1367,6 +1654,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
 
   const handleJapaneseNameMatchSelect = (selectedItem: MasterDataItem, englishName?: string) => {
     if (!showJapaneseNameMatcher || !matchedData) return
+
+    console.log('=== MovieDataParser handleJapaneseNameMatchSelect ===')
+    console.log('Selected item:', selectedItem)
+    console.log('English name parameter:', englishName)
+    console.log('Show Japanese name matcher:', showJapaneseNameMatcher)
 
     const { type, index } = showJapaneseNameMatcher
 
@@ -1398,7 +1690,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
     // Update the matched data
     const newMatchedData = { ...matchedData }
     const matchedItem = newMatchedData[matchedDataType][index]
-    newMatchedData[matchedDataType][index] = {
+    const updatedItem = {
       ...matchedItem,
       matched: selectedItem,
       customEnglishName: englishName,
@@ -1406,7 +1698,15 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
       needsEnglishNameSelection: false
     }
     
+    console.log('Original matched item:', matchedItem)
+    console.log('Updated matched item:', updatedItem)
+    console.log('Custom English name set to:', englishName)
+    
+    newMatchedData[matchedDataType][index] = updatedItem
+    
     setMatchedData(newMatchedData)
+    
+    console.log('=== End MovieDataParser handleJapaneseNameMatchSelect ===')
     
     // Close selector
     setShowJapaneseNameMatcher(null)
@@ -1692,7 +1992,23 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                       )}
                       
                       {/* Missing Data Section - Hide for series since they're auto-updated */}
-                      {item.missingData && typeKey !== 'series' && (
+                      {/* Hide section if user selected database name (customEnglishName matches database name) */}
+                      {(() => {
+                        // Check if user selected database name
+                        const userSelectedDatabaseName = item.customEnglishName && 
+                          item.matched && 
+                          item.customEnglishName === item.matched.name
+                        
+                        // Show section only if:
+                        // 1. There's missing data
+                        // 2. Not a series (series are auto-updated)
+                        // 3. User didn't select database name (or selected R18/parsed name)
+                        const shouldShowSection = item.missingData && 
+                          typeKey !== 'series' && 
+                          !userSelectedDatabaseName
+                        
+                        return shouldShowSection
+                      })() && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <div className="text-sm font-medium text-yellow-800 mb-2">
                             📝 Data yang belum ada di database:
@@ -1725,7 +2041,15 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                             <label className="flex items-center mt-2">
                               <input
                                 type="checkbox"
-                                checked={item.shouldUpdateData || false}
+                                checked={(() => {
+                                  // Auto-check if user selected R18/parsed name (not database name)
+                                  const userSelectedDatabaseName = item.customEnglishName && 
+                                    item.matched && 
+                                    item.customEnglishName === item.matched.name
+                                  
+                                  // Auto-check if user selected R18 name or if shouldUpdateData is already true
+                                  return !userSelectedDatabaseName || item.shouldUpdateData || false
+                                })()}
                                 onChange={(e) => handleShouldUpdateData(typeKey, index, e.target.checked)}
                                 className="mr-2"
                               />

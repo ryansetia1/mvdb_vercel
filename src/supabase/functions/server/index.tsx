@@ -275,23 +275,51 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       // Merge actresses using matched data - only add new ones, don't duplicate
       const existingActresses = existingMovie.actress ? existingMovie.actress.split(',').map(a => a.trim()).filter(a => a) : []
       
+      console.log('Server existing actresses:', existingActresses)
+      
       // Get matched actress names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActressNames = matchedData.actresses
-        .filter(item => item.matched && !ignoredItems?.includes(`actresses-${matchedData.actresses.indexOf(item)}`))
-        .map(item => item.customEnglishName || item.matched.name || item.matched.jpname || item.original)
+        .map((item, index) => ({ item, index }))
+        .filter(({ item, index }) => item.matched && !ignoredItems?.includes(`actresses-${index}`))
+        .map(({ item }) => {
+          const finalName = item.customEnglishName || item.matched.name || item.matched.jpname || item.original
+          console.log(`Server merge actress: customEnglishName=${item.customEnglishName}, matched.name=${item.matched.name}, final=${finalName}`)
+          return finalName
+        })
         .filter(name => name && name.trim())
       
-      // Only add actresses that don't already exist
-      const uniqueNewActresses = matchedActressNames.filter(actress => 
-        !existingActresses.some(existing => 
-          existing.toLowerCase() === actress.toLowerCase() ||
-          existing.includes(actress) ||
-          actress.includes(existing)
-        )
-      )
+      console.log('Server matched actress names:', matchedActressNames)
       
-      if (uniqueNewActresses.length > 0) {
+      // Only add actresses that don't already exist
+      const uniqueNewActresses = matchedActressNames.filter(actress => {
+        const isDuplicate = existingActresses.some(existing => {
+          const lowerExisting = existing.toLowerCase()
+          const lowerActress = actress.toLowerCase()
+          const includesCheck = existing.includes(actress) || actress.includes(existing)
+          const exactMatch = lowerExisting === lowerActress
+          
+          console.log(`Server checking duplicate: "${existing}" vs "${actress}"`)
+          console.log(`  Exact match: ${exactMatch}`)
+          console.log(`  Includes check: ${includesCheck}`)
+          console.log(`  Is duplicate: ${exactMatch || includesCheck}`)
+          
+          return exactMatch || includesCheck
+        })
+        
+        console.log(`Server actress "${actress}" is duplicate: ${isDuplicate}`)
+        return !isDuplicate
+      })
+      
+      console.log('Server unique new actresses:', uniqueNewActresses)
+      
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (matchedActressNames.length > 0) {
+        updatedMovie.actress = matchedActressNames.join(', ')
+        console.log('Server using user-selected actress names:', matchedActressNames)
+      } else if (uniqueNewActresses.length > 0) {
         updatedMovie.actress = [...existingActresses, ...uniqueNewActresses].join(', ')
+        console.log('Server adding new actresses:', uniqueNewActresses)
       }
     }
 
@@ -301,8 +329,13 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
       
       // Get matched actor names (prefer customEnglishName, then English name, fallback to Japanese)
       const matchedActorNames = matchedData.actors
-        .filter(item => item.matched && !ignoredItems?.includes(`actors-${matchedData.actors.indexOf(item)}`))
-        .map(item => item.customEnglishName || item.matched.name || item.matched.jpname || item.original)
+        .map((item, index) => ({ item, index }))
+        .filter(({ item, index }) => item.matched && !ignoredItems?.includes(`actors-${index}`))
+        .map(({ item }) => {
+          const finalName = item.customEnglishName || item.matched.name || item.matched.jpname || item.original
+          console.log(`Server merge actor: customEnglishName=${item.customEnglishName}, matched.name=${item.matched.name}, final=${finalName}`)
+          return finalName
+        })
         .filter(name => name && name.trim())
       
       // Only add actors that don't already exist
@@ -314,8 +347,14 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
         )
       )
       
-      if (uniqueNewActors.length > 0) {
+      // Always use the names selected by user, even if they already exist
+      // This respects user's choice to keep database names or use parsed names
+      if (matchedActorNames.length > 0) {
+        updatedMovie.actors = matchedActorNames.join(', ')
+        console.log('Server using user-selected actor names:', matchedActorNames)
+      } else if (uniqueNewActors.length > 0) {
         updatedMovie.actors = [...existingActors, ...uniqueNewActors].join(', ')
+        console.log('Server adding new actors:', uniqueNewActors)
       }
     }
 
@@ -332,8 +371,10 @@ app.put('/make-server-e0516fcf/movies/:id/merge', async (c) => {
     if (selectedFields.includes('gallery') && parsedData.gallery && parsedData.gallery.trim()) {
       updatedMovie.gallery = parsedData.gallery
     }
-    if (selectedFields.includes('cropCover')) {
+    // Always update cropCover if it's provided in parsedData
+    if (parsedData.cropCover !== undefined) {
       updatedMovie.cropCover = parsedData.cropCover
+      console.log('Server updating cropCover:', parsedData.cropCover)
     }
 
     // Update timestamp

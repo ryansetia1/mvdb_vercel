@@ -496,7 +496,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
       kanjiName: kanjiName?.trim() || undefined,
       kanaName: kanaName?.trim() || undefined,
       birthdate: birthdate?.trim() || undefined,
-      alias: alias?.trim() || undefined,
+      alias: alias?.trim() || (alias === null || alias === '' ? undefined : existingItem.alias),
       links: processedLinks,
       tags: tags?.trim() || undefined,
       photo: finalPhotoArray,
