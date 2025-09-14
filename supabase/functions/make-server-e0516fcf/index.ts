@@ -2420,7 +2420,7 @@ app.get('/make-server-e0516fcf/favorites', async (c) => {
 })
 
 // Get photobooks for stats
-app.get('/make-server-e0516fcf/photobooks', async (c) => {
+app.get('/make-server-e0516fcf/stats/photobooks', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)

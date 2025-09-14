@@ -415,7 +415,7 @@ export function BulkAssignmentManager({ accessToken }: BulkAssignmentManagerProp
   const testAuth = async () => {
     try {
       console.log('Testing auth with token:', accessToken?.substring(0, 20) + '...')
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-785baef1/health-auth`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/health`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'

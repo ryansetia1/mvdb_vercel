@@ -94,7 +94,7 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
       
       // First test if server is responding
       try {
-        const healthResponse = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-785baef1/health`, {
+        const healthResponse = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/health`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
@@ -249,7 +249,7 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
             <div className="space-y-2 text-xs text-left text-red-700 bg-red-100 p-3 rounded">
               <div><strong>Debug Info:</strong></div>
               <div>Access Token: {accessToken ? '✓ Present' : '✗ Missing'}</div>
-              <div>URL: /functions/v1/make-server-785baef1/photobooks</div>
+              <div>URL: /functions/v1/make-server-e0516fcf/photobooks</div>
               <div>Method: GET</div>
             </div>
             <Button onClick={loadPhotobooks} variant="outline" size="sm" className="mt-4">
