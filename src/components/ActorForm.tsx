@@ -902,14 +902,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       
       // Fungsi untuk memisahkan nama dari kurung dengan regex yang lebih robust
       const extractNamesFromBrackets = (text: string) => {
-        // Handle multiple brackets seperti "Aka Asuka (Shiose) (Nagi Hikaru)"
-        const bracketMatches = text.match(/\(([^)]+)\)/g)
+        // PERBAIKAN: Handle kurung Latin () dan kurung Jepang （）
+        // Handle multiple brackets seperti "Aka Asuka (Shiose) (Nagi Hikaru)" atau "Aka Asuka(Shiose)(Nagi Hikaru)"
+        // atau "星出（コダマイト）（エイリアス）"
+        const bracketMatches = text.match(/[（(]([^）)]+)[）)]/g)
         if (bracketMatches && bracketMatches.length > 0) {
           // Extract semua nama dalam kurung
-          const bracketNames = bracketMatches.map(match => match.replace(/[()]/g, '').trim())
+          const bracketNames = bracketMatches.map(match => match.replace(/[（()）]/g, '').trim())
           
           // Remove semua kurung dari nama utama
-          const mainName = text.replace(/\([^)]+\)/g, '').trim()
+          const mainName = text.replace(/[（(][^）)]*[）)]/g, '').trim()
           
           return {
             mainName: mainName,
@@ -917,8 +919,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           }
         }
         
-        // Handle single bracket seperti "Aka Asuka (Shiose)"
-        const singleBracketMatch = text.match(/^(.+?)\s*\((.+?)\)$/)
+        // Handle single bracket seperti "Aka Asuka (Shiose)" atau "Aka Asuka(Shiose)" atau "星出（コダマイト）"
+        // PERBAIKAN: Tidak mengharuskan spasi sebelum kurung dan mendukung kurung Jepang
+        const singleBracketMatch = text.match(/^(.+?)[（(](.+?)[）)]$/)
         if (singleBracketMatch) {
           return {
             mainName: singleBracketMatch[1].trim(),
@@ -976,9 +979,12 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       
       // PERBAIKAN: Cek apakah kita perlu menggunakan nama dalam kurung sebagai alias utama
       // Kasus khusus: jika ada nama dalam kurung di kedua field (English dan Japanese),
-      // gunakan nama dalam kurung sebagai alias utama, bukan nama utama
-      const hasEnglishBrackets = formData.name.includes('(') && formData.name.includes(')')
-      const hasJapaneseBrackets = formData.jpname.includes('(') && formData.jpname.includes(')')
+      // atau hanya di satu field, gunakan nama dalam kurung sebagai alias utama
+      // PERBAIKAN: Mendukung kurung Latin () dan kurung Jepang （）
+      const hasEnglishBrackets = (formData.name.includes('(') && formData.name.includes(')')) || 
+                                 (formData.name.includes('（') && formData.name.includes('）'))
+      const hasJapaneseBrackets = (formData.jpname.includes('(') && formData.jpname.includes(')')) || 
+                                  (formData.jpname.includes('（') && formData.jpname.includes('）'))
       
       console.log('=== BRACKET DETECTION DEBUG ===')
       console.log('formData.name:', formData.name)
@@ -987,11 +993,19 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       console.log('hasJapaneseBrackets:', hasJapaneseBrackets)
       console.log('nameExtracted:', nameExtracted)
       console.log('jpnameExtracted:', jpnameExtracted)
+      console.log('Names to move to alias:', uniqueNamesToMove)
       
       let newAliasToAdd = ''
       
-      if (hasEnglishBrackets && hasJapaneseBrackets) {
-        console.log('✅ Detected brackets in both English and Japanese fields - using bracket names as primary aliases')
+      // PERBAIKAN: Handle kasus dimana hanya satu field yang memiliki kurung
+      if (hasEnglishBrackets || hasJapaneseBrackets) {
+        if (hasEnglishBrackets && hasJapaneseBrackets) {
+          console.log('✅ Detected brackets in both English and Japanese fields - using bracket names as primary aliases')
+        } else if (hasEnglishBrackets) {
+          console.log('✅ Detected brackets in English field only - using bracket names as primary aliases')
+        } else if (hasJapaneseBrackets) {
+          console.log('✅ Detected brackets in Japanese field only - using bracket names as primary aliases')
+        }
         
         // Ambil nama dari kurung English dan Japanese
         const englishBracketNames = nameExtracted.bracketName ? nameExtracted.bracketName.split(',').map(n => n.trim()) : []
@@ -1002,19 +1016,113 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         
         // Coba pasangkan berdasarkan urutan atau kesesuaian
         const pairedAliases: string[] = []
+        const usedEnglish: string[] = []
+        const usedJapanese: string[] = []
         
-        // Pasangkan berdasarkan urutan (index yang sama)
-        const maxLength = Math.max(englishBracketNames.length, japaneseBracketNames.length)
-        for (let i = 0; i < maxLength; i++) {
-          const englishName = englishBracketNames[i]
-          const japaneseName = japaneseBracketNames[i]
+        // Fungsi untuk mendeteksi apakah dua nama adalah transliterasi yang sama
+        const isTransliteration = (english: string, japanese: string) => {
+          console.log(`🔍 Checking transliteration: "${english}" vs "${japanese}"`)
           
-          if (englishName && japaneseName) {
-            pairedAliases.push(`${englishName} - ${japaneseName}`)
-          } else if (englishName) {
-            pairedAliases.push(englishName)
-          } else if (japaneseName) {
-            pairedAliases.push(japaneseName)
+          // Normalize untuk perbandingan
+          const normalizeForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
+          
+          const engNorm = normalizeForComparison(english)
+          const jpNorm = normalizeForComparison(japanese)
+          
+          console.log(`📝 Normalized: "${engNorm}" vs "${jpNorm}"`)
+          
+          // Cek apakah karakter pertama sama atau mirip
+          if (engNorm.length > 0 && jpNorm.length > 0) {
+            const engFirst = engNorm.charAt(0)
+            const jpFirst = jpNorm.charAt(0)
+            
+            console.log(`🔤 First characters: "${engFirst}" vs "${jpFirst}"`)
+            
+            // Mapping karakter yang mirip
+            const similarChars: { [key: string]: string[] } = {
+              'k': ['k', 'c'],
+              'c': ['k', 'c'],
+              's': ['s', 'sh'],
+              't': ['t', 'ts'],
+              'h': ['h', 'f'],
+              'b': ['b', 'v'],
+              'p': ['p', 'f'],
+              'd': ['d', 't'],
+              'g': ['g', 'k'],
+              'z': ['z', 's'],
+              'j': ['j', 'g'],
+              'r': ['r', 'l'],
+              'n': ['n', 'm']
+            }
+            
+            // Cek apakah karakter pertama sama atau mirip
+            if (engFirst === jpFirst) {
+              console.log(`✅ Exact match: ${engFirst}`)
+              return true
+            }
+            
+            // Cek mapping karakter mirip
+            for (const [key, values] of Object.entries(similarChars)) {
+              if (values.includes(engFirst) && values.includes(jpFirst)) {
+                console.log(`✅ Similar chars match: ${engFirst} ↔ ${jpFirst}`)
+                return true
+              }
+            }
+          }
+          
+          console.log(`❌ No transliteration match`)
+          return false
+        }
+        
+        // Jika ada nama dari kedua field, coba pasangkan berdasarkan transliterasi
+        if (englishBracketNames.length > 0 && japaneseBracketNames.length > 0) {
+          console.log('=== TRANSLITERATION MATCHING ===')
+          englishBracketNames.forEach(englishName => {
+            if (usedEnglish.includes(englishName)) return
+            
+            const japaneseMatch = japaneseBracketNames.find(japaneseName => 
+              !usedJapanese.includes(japaneseName) && 
+              isTransliteration(englishName, japaneseName)
+            )
+            
+            if (japaneseMatch) {
+              console.log(`✅ Transliteration match: ${englishName} ↔ ${japaneseMatch}`)
+              pairedAliases.push(`${englishName} - ${japaneseMatch}`)
+              usedEnglish.push(englishName)
+              usedJapanese.push(japaneseMatch)
+            } else {
+              console.log(`❌ No transliteration match for: ${englishName}`)
+            }
+          })
+          
+          // Kemudian, pasangkan berdasarkan urutan (index yang sama) untuk yang tersisa
+          const maxLength = Math.max(englishBracketNames.length, japaneseBracketNames.length)
+          for (let i = 0; i < maxLength; i++) {
+            const englishName = englishBracketNames[i]
+            const japaneseName = japaneseBracketNames[i]
+            
+            if (englishName && japaneseName && !usedEnglish.includes(englishName) && !usedJapanese.includes(japaneseName)) {
+              pairedAliases.push(`${englishName} - ${japaneseName}`)
+              usedEnglish.push(englishName)
+              usedJapanese.push(japaneseName)
+            } else if (englishName && !usedEnglish.includes(englishName)) {
+              pairedAliases.push(englishName)
+              usedEnglish.push(englishName)
+            } else if (japaneseName && !usedJapanese.includes(japaneseName)) {
+              pairedAliases.push(japaneseName)
+              usedJapanese.push(japaneseName)
+            }
+          }
+        } else {
+          // Jika hanya ada nama dari satu field, tambahkan semua nama dari kurung
+          console.log('=== SINGLE FIELD BRACKET MATCHING ===')
+          if (englishBracketNames.length > 0) {
+            console.log('Adding English bracket names:', englishBracketNames)
+            pairedAliases.push(...englishBracketNames)
+          }
+          if (japaneseBracketNames.length > 0) {
+            console.log('Adding Japanese bracket names:', japaneseBracketNames)
+            pairedAliases.push(...japaneseBracketNames)
           }
         }
         

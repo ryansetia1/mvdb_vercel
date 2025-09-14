@@ -21,7 +21,38 @@ Dokumentasi lengkap untuk implementasi final tombol "Fix Alias" dengan logika br
 
 ```typescript
 const handleFixAlias = async () => {
-  // ... ekstraksi nama dari kurung ...
+  // Fungsi untuk memisahkan nama dari kurung dengan regex yang lebih robust
+  const extractNamesFromBrackets = (text: string) => {
+    // Handle multiple brackets seperti "Aka Asuka (Shiose) (Nagi Hikaru)" atau "Aka Asuka(Shiose)(Nagi Hikaru)"
+    const bracketMatches = text.match(/\(([^)]+)\)/g)
+    if (bracketMatches && bracketMatches.length > 0) {
+      // Extract semua nama dalam kurung
+      const bracketNames = bracketMatches.map(match => match.replace(/[()]/g, '').trim())
+      
+      // Remove semua kurung dari nama utama
+      const mainName = text.replace(/\([^)]+\)/g, '').trim()
+      
+      return {
+        mainName: mainName,
+        bracketName: bracketNames.join(', ') // Gabungkan semua nama dalam kurung
+      }
+    }
+    
+    // Handle single bracket seperti "Aka Asuka (Shiose)" atau "Aka Asuka(Shiose)"
+    // PERBAIKAN: Tidak mengharuskan spasi sebelum kurung
+    const singleBracketMatch = text.match(/^(.+?)\((.+?)\)$/)
+    if (singleBracketMatch) {
+      return {
+        mainName: singleBracketMatch[1].trim(),
+        bracketName: singleBracketMatch[2].trim()
+      }
+    }
+    
+    return {
+      mainName: text.trim(),
+      bracketName: null
+    }
+  }
   
   // PERBAIKAN: Cek bracket matching di awal (sebelum kondisi alias kosong)
   const hasEnglishBrackets = formData.name.includes('(') && formData.name.includes(')')
@@ -172,17 +203,101 @@ Alias: "Shiose - 汐世, Nagi Hikaru"
 Alias: "Chris Erika" (fallback ke logika existing)
 ```
 
+### Kasus 7: Format Tanpa Spasi
+**Input:**
+- Name: "Ai Yoneyama(Yui Onuki)"
+- Japanese Name: "米山愛(大貫唯)"
+- Alias: ""
+
+**Output:**
+```
+Name: "Ai Yoneyama"
+Japanese Name: "米山愛"
+Alias: "Yui Onuki - 大貫唯"
+```
+
+### Kasus 8: Multiple Brackets Tanpa Spasi
+**Input:**
+- Name: "Aka Asuka(Shiose)(Nagi Hikaru)"
+- Japanese Name: "有栖花あか(汐世)(凪ひかる)"
+- Alias: ""
+
+**Output:**
+```
+Name: "Aka Asuka"
+Japanese Name: "有栖花あか"
+Alias: "Shiose - 汐世, Nagi Hikaru - 凪ひかる"
+```
+
+### Kasus 9: Smart Transliteration Matching
+**Input:**
+- Name: "Hoshide(Kodamite)"
+- Japanese Name: "星出 (コダマイト)"
+- Alias: ""
+
+**Output:**
+```
+Name: "Hoshide"
+Japanese Name: "星出"
+Alias: "Kodamite - コダマイト"
+```
+
+**Penjelasan:**
+- Sistem mendeteksi transliterasi: `Kodamite` ↔ `コダマイト` (karakter pertama 'K' dan 'コ' mirip)
+- Memasangkan berdasarkan transliterasi, bukan index
+- Hasil yang lebih akurat untuk kasus dengan perbedaan spasi
+
+### Kasus 10: Mixed Brackets (Latin + Japanese)
+**Input:**
+- Name: "Hoshide(Kodamite)"
+- Japanese Name: "星出（コダマイト）"
+- Alias: ""
+
+**Output:**
+```
+Name: "Hoshide"
+Japanese Name: "星出"
+Alias: "Kodamite - コダマイト"
+```
+
+**Penjelasan:**
+- **PERBAIKAN**: Sistem sekarang mendeteksi kurung Latin `()` dan kurung Jepang `（）`
+- Mendukung mixed brackets: English menggunakan `()` dan Japanese menggunakan `（）`
+- Transliteration matching tetap bekerja untuk mempasangkan `Kodamite` ↔ `コダマイト`
+
+### Kasus 11: Single Field Brackets
+**Input:**
+- Name: "Shun Sakuragi"
+- Japanese Name: "桜木駿（駿くん）"
+- Alias: ""
+
+**Output:**
+```
+Name: "Shun Sakuragi"
+Japanese Name: "桜木駿"
+Alias: "駿くん"
+```
+
+**Penjelasan:**
+- **PERBAIKAN**: Sistem sekarang mendeteksi kurung di salah satu field saja
+- Jika hanya Japanese field yang memiliki kurung, gunakan nama dari kurung sebagai alias
+- Jika hanya English field yang memiliki kurung, gunakan nama dari kurung sebagai alias
+- Tidak perlu kedua field memiliki kurung untuk bracket matching
+
 ## Fitur Utama
 
 ### 1. Bracket Detection
-- Deteksi kurung `()` di kedua field (Name dan Japanese Name)
-- Mendukung multiple brackets: `"Name (alias1) (alias2)"`
+- Deteksi kurung `()` dan `（）` di kedua field (Name dan Japanese Name)
+- Mendukung multiple brackets: `"Name (alias1) (alias2)"` dan `"名前（エイリアス1）（エイリアス2）"`
 - Mendukung kurung Jepang: `"名前（エイリアス）"`
+- **PERBAIKAN**: Mendukung format tanpa spasi: `"Name(alias)"` dan `"Name(alias1)(alias2)"`
+- **PERBAIKAN**: Mendukung mixed brackets: `"Name(alias)"` + `"名前（エイリアス）"`
 
 ### 2. Cross-Field Matching
-- Memasangkan nama English dan Japanese berdasarkan urutan index
-- Fallback untuk nama yang tidak bisa dipasangkan
-- Deteksi karakter type untuk memastikan pasangan yang benar
+- **Smart Transliteration Matching**: Memasangkan berdasarkan transliterasi (Kodamite ↔ コダマイト)
+- **Index-based Matching**: Memasangkan berdasarkan urutan index untuk yang tersisa
+- **Fallback**: Untuk nama yang tidak bisa dipasangkan
+- **Character Type Detection**: Untuk memastikan pasangan yang benar
 
 ### 3. Append Mode
 - Selalu menambahkan alias baru di belakang alias yang sudah ada
