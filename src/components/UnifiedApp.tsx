@@ -117,6 +117,15 @@ interface ContentState {
   mode: ContentMode
   data?: any
   title?: string
+  moviesFilters?: {
+    tagFilter: string
+    studioFilter: string
+    seriesFilter: string
+    typeFilter: string
+    sortBy: string
+    currentPage: number
+    itemsPerPage: number
+  }
 }
 
 // Helper functions for database operations
@@ -224,6 +233,12 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     mode: 'movies',
     title: 'Movies'
   })
+
+  // Debug: Log contentState changes
+  useEffect(() => {
+    console.log('🔥 CONTENT STATE CHANGED:', contentState)
+    console.trace('🔍 STACK TRACE FOR CONTENT STATE CHANGE')
+  }, [contentState])
 
   // Reset search bar when navigating to different pages
   useEffect(() => {
@@ -372,6 +387,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   // Update actresses state locally without reloading
   const updateActressLocally = (updatedActress: MasterDataItem) => {
     setActresses(prev => prev.map(actress => actress.id === updatedActress.id ? updatedActress : actress))
+  }
+
+  // Load movies only
+  const loadMovies = async () => {
+    try {
+      const moviesData = await movieApi.getMovies(accessToken)
+      setMovies(moviesData || [])
+    } catch (error) {
+      console.error('Failed to load movies:', error)
+    }
   }
 
   // Load initial data
@@ -618,7 +643,15 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       console.log('Movie object:', movie)
       
       // Save current state to history before navigating to movie detail
-      setNavigationHistory(prev => [...prev, contentState])
+      // Don't save admin mode to history - always go back to movies
+      const stateToSave = contentState.mode === 'admin' 
+        ? { mode: 'movies' as ContentMode, title: 'Movies' }
+        : contentState
+      
+      setNavigationHistory(prev => [...prev, {
+        ...stateToSave,
+        moviesFilters: moviesFilters // Include current pagination state
+      }])
       
       const newContentState = {
         mode: 'movieDetail' as const,
@@ -800,6 +833,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
           setActiveNavItem(navItem.id)
         }
       }
+      
+      // Special handling for movies mode - restore pagination position
+      if (previousState.mode === 'movies') {
+        // Restore the moviesFilters state if it was saved in navigation history
+        if (previousState.moviesFilters) {
+          setMoviesFilters(previousState.moviesFilters)
+          console.log('Restored movies filters with pagination position:', previousState.moviesFilters.currentPage)
+        } else {
+          console.log('No movies filters found in history, using current state:', moviesFilters.currentPage)
+        }
+      }
     } else {
       // No history available, fall back to default behavior
       const currentNav = navItems.find(item => item.id === activeNavItem)
@@ -813,6 +857,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             title: `${currentNav.label}`,
             data: { filterType: currentNav.filterType, filterValue: currentNav.filterValue }
           })
+        } else if (currentNav.type === 'admin') {
+          // If current nav is admin but no history, go back to movies instead
+          setContentState({ mode: 'movies', title: 'Movies' })
+          setActiveNavItem('movies')
         } else {
           setContentState({ 
             mode: currentNav.type as ContentMode, 
@@ -884,6 +932,23 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   const handleParseMovieSave = async (movie: Movie) => {
     try {
+      // Check if movie has ID (means it's from merge mode, already saved)
+      if (movie.id) {
+        console.log('Movie has ID, this is from merge mode - no need to save again')
+        
+        // Reload movies data
+        await loadMovies()
+        
+        // Go back to movies list
+        setShowParseMovieForm(false)
+        setContentState({ mode: 'movies', title: 'Movies' })
+        setActiveNavItem('movies')
+        
+        // Navigate to the movie detail
+        handleMovieSelect(movie)
+        return
+      }
+      
       const savedMovie = await movieApi.createMovie(movie, accessToken)
       toast.success('Movie berhasil diparse dan disimpan!')
       
@@ -1330,11 +1395,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             onEditMovie={handleEditMovie}
             onParseMovie={handleParseMovie}
             showEditButton={true}
-            onBack={() => {
-              // Return to admin mode when going back from movie detail
-              setContentState({ mode: 'admin', title: 'Admin Panel' })
-              setActiveNavItem('admin')
-            }}
+            onBack={handleBack}
             onMovieUpdated={(updatedMovie) => {
               // Update the movie in the movies list
               setMovies(prev => prev.map(m => m.id === updatedMovie.id ? updatedMovie : m))

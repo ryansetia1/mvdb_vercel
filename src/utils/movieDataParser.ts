@@ -1388,7 +1388,7 @@ export async function matchWithDatabase(
       
       // Check if parsed name contains kana characters
       // Only set kanaName if it's Hiragana (ひらがな), not Katakana (カタカナ)
-      if (/[\u3040-\u309F]/.test(parsedName) && !matchedItem.kanaName) {
+      if (/[\u3040-\u309F]/.test(parsedName) && (!matchedItem.kanaName || matchedItem.kanaName.trim() === '')) {
         missingData.kanaName = parsedName
       }
     }
@@ -1419,7 +1419,7 @@ export async function matchWithDatabase(
         }
         
         // Check for missing kana name
-        if (normalizedR18Data.kanaName && !matchedItem.kanaName) {
+        if (normalizedR18Data.kanaName && (!matchedItem.kanaName || matchedItem.kanaName.trim() === '')) {
           missingData.kanaName = normalizedR18Data.kanaName
         }
         
@@ -1784,19 +1784,32 @@ export async function matchWithDatabase(
     let needsEnglishNameSelection = false
     let availableEnglishNames: string[] = []
     
+    console.log(`=== DEBUG ENGLISH NAME SELECTION FOR ${normalizedActressName} ===`)
+    console.log('Matched item:', matchResult.matched?.name)
+    console.log('Parsed English name:', parsedEnglishName)
+    
     // Check parsed English name
     if (matchResult.matched && parsedEnglishName && matchResult.matched.name) {
       const dbEnglishName = matchResult.matched.name.toLowerCase().trim()
       const parsedEngName = parsedEnglishName.toLowerCase().trim()
       
+      console.log('DB English name (normalized):', dbEnglishName)
+      console.log('Parsed English name (normalized):', parsedEngName)
+      
       // Check if names are different (not just minor variations)
       const normalizedDbName = dbEnglishName.replace(/[\s\-_.,]/g, '')
       const normalizedParsedName = parsedEngName.replace(/[\s\-_.,]/g, '')
       
+      console.log('DB name (fully normalized):', normalizedDbName)
+      console.log('Parsed name (fully normalized):', normalizedParsedName)
+      console.log('Names are different:', normalizedDbName !== normalizedParsedName)
+      
       if (normalizedDbName !== normalizedParsedName) {
         needsEnglishNameSelection = true
         availableEnglishNames.push(parsedEnglishName)
-        console.log('English names differ:', dbEnglishName, 'vs', parsedEngName)
+        console.log('✅ English names differ - NEEDS SELECTION:', dbEnglishName, 'vs', parsedEngName)
+      } else {
+        console.log('✅ English names match - NO SELECTION NEEDED')
       }
     }
     

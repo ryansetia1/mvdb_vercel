@@ -295,6 +295,7 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
                     <TableHead>Actress</TableHead>
                     <TableHead>Release</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Date Added</TableHead>
                     <TableHead className="w-32 text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -359,6 +360,15 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
                           <TableCell>
                             <div className="text-sm">
                               {movie.type || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-gray-600">
+                              {movie.createdAt ? new Date(movie.createdAt).toLocaleDateString('id-ID', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : '-'}
                             </div>
                           </TableCell>
                           <TableCell>

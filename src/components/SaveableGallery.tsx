@@ -9,7 +9,9 @@ import { EnhancedGallery } from './EnhancedGallery'
 import { ModernLightbox } from './ModernLightbox'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { savedGalleryApi, type SavedGalleryData } from '../utils/savedGalleryApi'
-import { Save, RefreshCw, Database, Clock, Grid, List, Eye, Loader2 } from 'lucide-react'
+import { parsedGalleryApi, type ParsedGalleryData } from '../utils/parsedGalleryApi'
+import { useGalleryCache } from '../hooks/useGalleryCache'
+import { Save, RefreshCw, Database, Clock, Grid, List, Eye, Loader2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface SaveableGalleryProps {
@@ -37,6 +39,8 @@ export function SaveableGallery({
   movieData
 }: SaveableGalleryProps) {
   const [savedData, setSavedData] = useState<SavedGalleryData | null>(null)
+  const [parsedData, setParsedData] = useState<ParsedGalleryData | null>(null)
+  const [gallerySource, setGallerySource] = useState<'cached' | 'user_saved' | 'parsed' | 'fresh' | null>(null)
   const [isLoadingSaved, setIsLoadingSaved] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -45,47 +49,68 @@ export function SaveableGallery({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
 
-  // Load saved gallery on mount
+  // Load gallery with priority: cached → user saved → parsed → fresh
   useEffect(() => {
-    const loadSavedGallery = async () => {
+    const loadGalleryWithPriority = async () => {
       if (!movieData?.id || !accessToken) {
         setIsLoadingSaved(false)
         setUseEnhancedGallery(true)
+        setGallerySource('fresh')
         return
       }
 
       try {
-        const saved = await savedGalleryApi.getSavedGallery(movieData.id, accessToken)
+        // Priority 1: Check cached gallery (handled by EnhancedGallery component)
+        // Priority 2: Check user saved gallery
+        const userSaved = await savedGalleryApi.getSavedGallery(movieData.id, accessToken)
         
-        if (saved) {
+        if (userSaved) {
           // Check if template has changed
-          const templateChanged = savedGalleryApi.hasTemplateChanged(saved, galleryTemplate)
+          const templateChanged = savedGalleryApi.hasTemplateChanged(userSaved, galleryTemplate)
           
           if (!templateChanged) {
-            setSavedData(saved)
-            setValidUrls(saved.urls)
+            setSavedData(userSaved)
+            setValidUrls(userSaved.urls)
             setUseEnhancedGallery(false)
-            toast.success(`Loaded ${saved.urls.length} images from saved gallery`, {
-              description: `Saved ${savedGalleryApi.getSaveAgeMinutes(saved.savedAt)} minutes ago`
+            setGallerySource('user_saved')
+            toast.success(`Loaded ${userSaved.urls.length} images from saved gallery`, {
+              description: `Saved ${savedGalleryApi.getSaveAgeMinutes(userSaved.savedAt)} minutes ago`
             })
+            return
           } else {
-            // Template changed, use enhanced gallery
-            setUseEnhancedGallery(true)
-            toast.info('Template changed, loading fresh gallery...')
+            // Template changed, check parsed gallery
+            toast.info('Template changed, checking parsed gallery...')
           }
-        } else {
-          // No saved gallery, use enhanced gallery
-          setUseEnhancedGallery(true)
         }
-      } catch (error) {
-        console.error('Error loading saved gallery:', error)
+
+        // Priority 3: Check parsed gallery from R18 JSON
+        const parsed = await parsedGalleryApi.getParsedGallery(movieData.id, accessToken)
+        
+        if (parsed) {
+          setParsedData(parsed)
+          setValidUrls(parsed.urls)
+          setUseEnhancedGallery(false)
+          setGallerySource('parsed')
+          toast.success(`Loaded ${parsed.urls.length} images from R18 data`, {
+            description: `Parsed ${parsedGalleryApi.getParsedAgeMinutes(parsed.parsedAt)} minutes ago`
+          })
+          return
+        }
+
+        // Priority 4: Use enhanced gallery (fresh generation)
         setUseEnhancedGallery(true)
+        setGallerySource('fresh')
+        
+      } catch (error) {
+        console.error('Error loading gallery:', error)
+        setUseEnhancedGallery(true)
+        setGallerySource('fresh')
       } finally {
         setIsLoadingSaved(false)
       }
     }
 
-    loadSavedGallery()
+    loadGalleryWithPriority()
   }, [movieData?.id, galleryTemplate, accessToken])
 
   // Handle save current valid URLs
@@ -121,6 +146,7 @@ export function SaveableGallery({
         setSavedData(newSavedData)
         setValidUrls(urlsToSave)
         setUseEnhancedGallery(false)
+        setGallerySource('user_saved')
         
         toast.success(`Saved ${urlsToSave.length} valid gallery URLs`, {
           description: 'Gallery will now load instantly from database'
@@ -148,8 +174,10 @@ export function SaveableGallery({
       
       // Reset states and use enhanced gallery
       setSavedData(null)
+      setParsedData(null)
       setValidUrls([])
       setUseEnhancedGallery(true)
+      setGallerySource('fresh')
       
       toast.success('Refreshing gallery...', {
         description: 'Loading fresh images from source'
@@ -187,10 +215,19 @@ export function SaveableGallery({
         {/* Header with status */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="default" className="flex items-center gap-1">
-              <Database className="h-3 w-3" />
-              Saved Gallery
-            </Badge>
+            {/* Gallery Source Indicator */}
+            {gallerySource === 'user_saved' && (
+              <Badge variant="default" className="flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                Saved by User
+              </Badge>
+            )}
+            {gallerySource === 'parsed' && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                From R18 Data
+              </Badge>
+            )}
             
             <span className="text-sm text-muted-foreground">
               {validUrls.length} images
@@ -200,6 +237,12 @@ export function SaveableGallery({
               <Badge variant="outline" className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {savedGalleryApi.getSaveAgeMinutes(savedData.savedAt)}m ago
+              </Badge>
+            )}
+            {parsedData && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {parsedGalleryApi.getParsedAgeMinutes(parsedData.parsedAt)}m ago
               </Badge>
             )}
           </div>
@@ -254,6 +297,12 @@ export function SaveableGallery({
             <div>Template: {savedData.template}</div>
           </div>
         )}
+        {parsedData && (
+          <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+            <div>Parsed: {new Date(parsedData.parsedAt).toLocaleString()}</div>
+            <div>Source: R18 JSON Data</div>
+          </div>
+        )}
 
         {/* Lightbox */}
         <ModernLightbox
@@ -278,6 +327,13 @@ export function SaveableGallery({
         movieData={movieData}
         onSave={handleSaveGallery}
         isSaving={isSaving}
+        onGallerySourceChange={(source) => {
+          if (source === 'cached') {
+            setGallerySource('cached')
+          } else if (source === 'fresh') {
+            setGallerySource('fresh')
+          }
+        }}
       />
     </div>
   )
@@ -291,7 +347,8 @@ function EnhancedGalleryWithSave({
   accessToken,
   movieData,
   onSave,
-  isSaving
+  isSaving,
+  onGallerySourceChange
 }: {
   galleryTemplate: string
   dmcode?: string
@@ -300,6 +357,7 @@ function EnhancedGalleryWithSave({
   movieData?: any
   onSave: (urls: string[]) => void
   isSaving: boolean
+  onGallerySourceChange?: (source: 'cached' | 'fresh') => void
 }) {
   const [validUrls, setValidUrls] = useState<string[]>([])
 
@@ -327,6 +385,7 @@ function EnhancedGalleryWithSave({
         accessToken={accessToken}
         movieData={movieData}
         onValidUrlsChange={setValidUrls}
+        onGallerySourceChange={onGallerySourceChange}
       />
     </div>
   )
@@ -335,12 +394,37 @@ function EnhancedGalleryWithSave({
 // Enhanced Gallery component that extracts valid URLs
 function EnhancedGalleryURLExtractor({ 
   onValidUrlsChange, 
+  onGallerySourceChange,
   ...props 
 }: { 
   onValidUrlsChange: (urls: string[]) => void 
+  onGallerySourceChange?: (source: 'cached' | 'fresh') => void
 } & React.ComponentProps<typeof EnhancedGallery>) {
   
-  // We'll need to modify EnhancedGallery to expose valid URLs or create our own logic
-  // For now, let's render the original EnhancedGallery
+  // Use gallery cache to detect cached gallery
+  const {
+    cachedUrls,
+    isLoading: isCacheLoading,
+    isCached,
+    cacheValid
+  } = useGalleryCache({
+    dmcode: props.dmcode || '',
+    galleryTemplate: props.galleryTemplate,
+    accessToken: props.accessToken,
+    cacheExpiryHours: 24
+  })
+
+  // Update parent when cache status changes
+  useEffect(() => {
+    if (!isCacheLoading) {
+      if (isCached && cacheValid && cachedUrls) {
+        onGallerySourceChange?.('cached')
+        onValidUrlsChange(cachedUrls)
+      } else {
+        onGallerySourceChange?.('fresh')
+      }
+    }
+  }, [isCached, cacheValid, cachedUrls, isCacheLoading, onGallerySourceChange, onValidUrlsChange])
+
   return <EnhancedGallery {...props} />
 }
