@@ -97,8 +97,9 @@ export function GroupDetailContent({
       console.log('Group object:', group)
       
       // Load both actresses and movies data using cached system
+      // Force refresh actresses to ensure we have latest generationData
       const [actressesData, moviesData] = await Promise.all([
-        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as Promise<MasterDataItem[]>,
+        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken), true) as Promise<MasterDataItem[]>,
         loadCachedData('movies', () => movieApi.getMovies(accessToken)) as Promise<Movie[]>
       ])
       
@@ -263,7 +264,14 @@ export function GroupDetailContent({
       setActresses(actressesWithMovieCount)
       setGroupMembers(members)
       
-      // Load generations for this group
+      // Debug: Check if actresses have generation data
+      const actressesWithGenData = actressesWithMovieCount.filter(a => a.generationData && Object.keys(a.generationData).length > 0)
+      console.log('[DEBUG] Actresses with generation data:', actressesWithGenData.length)
+      if (actressesWithGenData.length > 0) {
+        console.log('[DEBUG] Sample actress generation data:', actressesWithGenData[0].name, actressesWithGenData[0].generationData)
+      }
+      
+      // Load generations for this group - ensure actresses data is fully loaded first
       await loadGenerations()
     } catch (error) {
       console.error('Error loading actresses:', error)
