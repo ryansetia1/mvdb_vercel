@@ -291,6 +291,54 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }, [groups, initialData, type, hasUserChangedGroups, JSON.stringify(formData.selectedGroups)])
 
+  // Update selectedLineups when lineups are loaded and we have initial data
+  useEffect(() => {
+    if (initialData && lineups.length > 0 && type === 'actress') {
+      console.log('=== ActorForm: Syncing lineups ===')
+      console.log('Initial data lineupData:', initialData.lineupData)
+      console.log('Available lineups:', lineups.map(l => ({ id: l.id, name: l.name })))
+      
+      // Determine selectedLineups from lineupData
+      let assignedLineups: string[] = []
+      let lineupProfilePictures: { [lineupId: string]: string } = {}
+      let lineupAliases: { [lineupId: string]: string } = {}
+      
+      if (initialData.lineupData && typeof initialData.lineupData === 'object') {
+        Object.entries(initialData.lineupData).forEach(([lineupId, data]: [string, any]) => {
+          const lineupExists = lineups.find(l => l.id === lineupId)
+          if (lineupExists) {
+            assignedLineups.push(lineupId)
+            console.log('ActorForm: Found lineup by id:', lineupId, lineupExists.name)
+            
+            if (data && typeof data === 'object') {
+              if (data.profilePicture) {
+                lineupProfilePictures[lineupId] = data.profilePicture
+                console.log('ActorForm: Loaded lineup profile picture for', lineupId, ':', data.profilePicture)
+              }
+              if (data.alias) {
+                lineupAliases[lineupId] = data.alias
+                console.log('ActorForm: Loaded lineup alias for', lineupId, ':', data.alias)
+              }
+            }
+          } else {
+            console.log('ActorForm: Lineup not found by id:', lineupId)
+          }
+        })
+      }
+      
+      console.log('ActorForm: Final assignedLineups:', assignedLineups)
+      console.log('ActorForm: Final lineupProfilePictures:', lineupProfilePictures)
+      console.log('ActorForm: Final lineupAliases:', lineupAliases)
+      
+      setFormData(prev => ({
+        ...prev,
+        selectedLineups: assignedLineups,
+        lineupProfilePictures,
+        lineupAliases
+      }))
+    }
+  }, [initialData, lineups, type])
+
   const loadGroups = async () => {
     try {
       console.log('ActorForm: Loading groups, generations, and lineups...')
@@ -766,7 +814,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       const lineup = lineups.find(l => l.id === lineupId)
       toast.success(`Lineup "${lineup?.name}" ditambahkan`)
     } else {
-      newSelectedLineups = formData.selectedLineups.filter(l => l !== lineupId)
+      newSelectedLineups = (formData.selectedLineups || []).filter(l => l !== lineupId)
       // Remove profile picture and alias for deselected lineup
       delete newLineupProfilePictures[lineupId]
       let newLineupAliases = { ...formData.lineupAliases }
@@ -865,9 +913,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
     // Build lineupData with profile pictures and aliases
     let lineupData: { [lineupId: string]: any } | undefined = undefined
-    if (type === 'actress' && formData.selectedLineups.length > 0) {
+    if (type === 'actress' && (formData.selectedLineups || []).length > 0) {
       lineupData = {}
-      formData.selectedLineups.forEach(lineupId => {
+      (formData.selectedLineups || []).forEach(lineupId => {
         const lineupProfilePic = formData.lineupProfilePictures[lineupId]
         const lineupAlias = formData.lineupAliases[lineupId]
         
@@ -1871,7 +1919,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                             <input
                               type="checkbox"
                               id={`lineup-${lineup.id}`}
-                              checked={formData.selectedLineups.includes(lineup.id)}
+                              checked={(formData.selectedLineups || []).includes(lineup.id)}
                               onChange={(e) => handleLineupToggle(lineup.id, e.target.checked)}
                               className="rounded border-border"
                             />
@@ -1886,24 +1934,24 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       </div>
                       
                       {/* Display selected lineups */}
-                      {formData.selectedLineups.length > 0 && (
+                      {(formData.selectedLineups || []).length > 0 && (
                         <div className="text-sm text-muted-foreground flex items-center gap-2">
                           <Users className="h-3 w-3" />
-                          Assigned to {formData.selectedLineups.length} lineup(s): {formData.selectedLineups.map(id => lineups.find(l => l.id === id)?.name).join(', ')}
+                          Assigned to {(formData.selectedLineups || []).length} lineup(s): {(formData.selectedLineups || []).map(id => lineups.find(l => l.id === id)?.name).join(', ')}
                         </div>
                       )}
                     </div>
                   )}
 
                   {/* Lineup-Specific Settings */}
-                  {formData.selectedLineups.length > 0 && (
+                  {(formData.selectedLineups || []).length > 0 && (
                     <div className="space-y-4">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <ImageIcon className="h-4 w-4" />
                         Lineup-Specific Settings
                       </h4>
                       <div className="space-y-4">
-                        {formData.selectedLineups.map((lineupId) => {
+                        {(formData.selectedLineups || []).map((lineupId) => {
                           const lineup = lineups.find(l => l.id === lineupId)
                           return (
                             <div key={lineupId} className="p-4 border rounded-lg bg-muted/10">
