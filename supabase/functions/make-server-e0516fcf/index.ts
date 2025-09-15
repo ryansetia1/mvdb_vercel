@@ -1126,6 +1126,7 @@ app.put('/make-server-e0516fcf/master/group/:id/extended', updateGroupData)
 app.post('/make-server-e0516fcf/master/generation/extended', createGenerationData)
 app.put('/make-server-e0516fcf/master/generation/:id/extended', updateGenerationData)
 
+
 app.post('/make-server-e0516fcf/custom-nav-items/reorder', async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1]
@@ -1855,7 +1856,14 @@ app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
       return c.json({ error: 'Unauthorized - admin access required' }, 401)
     }
 
-    return await updateExtendedMasterDataWithSync(c)
+    const type = c.req.param('type')
+    
+    // Use updateExtendedMasterData for lineup, updateExtendedMasterDataWithSync for others
+    if (type === 'lineup') {
+      return await updateExtendedMasterData(c)
+    } else {
+      return await updateExtendedMasterDataWithSync(c)
+    }
   } catch (error) {
     console.error('Update extended master data route error:', error)
     return c.json({ 
@@ -1894,7 +1902,14 @@ app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
       return c.json({ error: 'Unauthorized - admin access required' }, 401)
     }
 
-    return await updateExtendedMasterDataWithSync(c)
+    const type = c.req.param('type')
+    
+    // Use updateExtendedMasterData for lineup, updateExtendedMasterDataWithSync for others
+    if (type === 'lineup') {
+      return await updateExtendedMasterData(c)
+    } else {
+      return await updateExtendedMasterDataWithSync(c)
+    }
   } catch (error) {
     console.error('Update extended master data route error (f3064b20):', error)
     return c.json({ 

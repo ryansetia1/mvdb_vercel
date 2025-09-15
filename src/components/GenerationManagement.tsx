@@ -10,6 +10,7 @@ import { Plus, Trash2, Edit, Calendar, User, Users } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { GenerationActressManagement } from './GenerationActressManagement'
+import { LineupManagement } from './LineupManagement'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
 interface GenerationManagementProps {
@@ -101,8 +102,7 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
     setShowDialog(true)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     if (!groupId || !groupName || !accessToken) {
       setError('Missing required data: groupId, groupName, or accessToken')
       return
@@ -202,9 +202,10 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
   return (
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">Generations</TabsTrigger>
           <TabsTrigger value="actresses">Actress Assignments</TabsTrigger>
+          <TabsTrigger value="lineups">Lineup Management</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -323,6 +324,61 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="lineups" className="space-y-4">
+          {generations.length > 0 ? (
+            <div className="space-y-4">
+              {/* Generation Selector for Lineups */}
+              <div className="space-y-2">
+                <Label htmlFor="lineup-generation-select">Select Generation for Lineup Management</Label>
+                <Select value={selectedGenerationId} onValueChange={setSelectedGenerationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a generation to manage lineups" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generations.map((generation) => (
+                      <SelectItem key={generation.id} value={generation.id}>
+                        <div className="flex items-center gap-2">
+                          {generation.profilePicture ? (
+                            <ImageWithFallback
+                              src={generation.profilePicture}
+                              alt={generation.name || 'Generation'}
+                              className="w-4 h-4 rounded-full object-cover"
+                              fallback={<User className="w-4 h-4 text-gray-400" />}
+                            />
+                          ) : (
+                            <User className="w-4 h-4 text-gray-400" />
+                          )}
+                          <span>{generation.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Lineup Management */}
+              {selectedGenerationId && (
+                <LineupManagement 
+                  generationId={selectedGenerationId}
+                  generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
+                  groupId={groupId || ''}
+                  accessToken={accessToken || ''}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+              <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <h5 className="font-medium text-gray-900 mb-1">No generations available</h5>
+              <p className="text-sm text-gray-500 mb-3">Create a generation first to manage lineups</p>
+              <Button onClick={(e) => handleCreate(e)} size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Create First Generation
+              </Button>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Create/Edit Dialog */}
@@ -337,7 +393,7 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
              <div className="space-y-2">
                <Label htmlFor="name">Generation Name *</Label>
                <Input
@@ -412,7 +468,7 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
                 {editingGeneration ? 'Update Generation' : 'Create Generation'}
               </Button>
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

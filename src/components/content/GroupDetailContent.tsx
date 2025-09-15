@@ -18,6 +18,7 @@ import {
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { useCachedData } from '../../hooks/useCachedData'
+import { LineupDisplay } from '../LineupDisplay'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
 import { toast } from 'sonner@2.0.3'
@@ -60,6 +61,7 @@ export function GroupDetailContent({
   const [activeTab, setActiveTab] = useState('members')
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
   const [generationActresses, setGenerationActresses] = useState<MasterDataItem[]>([])
+  const [lineupRefreshKey, setLineupRefreshKey] = useState(0)
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -246,6 +248,8 @@ export function GroupDetailContent({
   const handleGenerationClick = async (generation: MasterDataItem) => {
     try {
       setSelectedGenerationId(generation.id)
+      // Refresh lineup data when generation changes
+      setLineupRefreshKey(prev => prev + 1)
       
       // Use fresh API call like GenerationActressManagement does
       const allActresses = await masterDataApi.getByType('actress', accessToken)
@@ -334,6 +338,32 @@ export function GroupDetailContent({
     
     // Fallback to group alias, then regular name
     return getGroupAlias(actress, group.name || '') || actress.name
+  }
+
+  const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
+    // Check lineupData for profile picture
+    if (actress.lineupData && typeof actress.lineupData === 'object') {
+      const lineupData = actress.lineupData[lineupId]
+      if (lineupData && lineupData.profilePicture) {
+        return lineupData.profilePicture
+      }
+    }
+    
+    // Fallback to generation profile picture, then group profile picture, then regular profile picture
+    return getGenerationProfilePicture(actress, generationId) || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+  }
+
+  const getLineupAlias = (actress: MasterDataItem, lineupId: string) => {
+    // Check lineupData for alias
+    if (actress.lineupData && typeof actress.lineupData === 'object') {
+      const lineupData = actress.lineupData[lineupId]
+      if (lineupData && lineupData.alias) {
+        return lineupData.alias
+      }
+    }
+    
+    // Fallback to generation alias, then group alias, then regular alias
+    return getGenerationAlias(actress, generationId) || getGroupAlias(actress, group.name || '') || actress.alias
   }
 
   // Filter and sort group members based on search
@@ -966,6 +996,25 @@ export function GroupDetailContent({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Lineup Display */}
+              {selectedGenerationId && (
+                <div className="mt-6">
+                  <LineupDisplay
+                    generationId={selectedGenerationId}
+                    generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
+                    accessToken={accessToken}
+                    onProfileSelect={onProfileSelect}
+                    getLineupProfilePicture={getLineupProfilePicture}
+                    getLineupAlias={getLineupAlias}
+                    refreshKey={lineupRefreshKey}
+                    onDataChange={() => {
+                      // Don't trigger refresh loop - data is already fresh
+                      console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')
+                    }}
+                  />
                 </div>
               )}
             </div>

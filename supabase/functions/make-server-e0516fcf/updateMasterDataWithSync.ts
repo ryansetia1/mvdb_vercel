@@ -20,6 +20,7 @@ interface MasterDataItem {
   profilePicture?: string
   website?: string
   description?: string
+  lineupData?: any // Lineup data for actresses
   updatedAt?: string
 }
 
@@ -392,7 +393,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData, generationData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData, generationData, lineupData } = body
     console.log(`Server: Updating ${type} ${id} with data:`, body)
 
     if (!name?.trim()) {
@@ -445,6 +446,20 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
     }
 
     console.log(`Server: No duplicates found, proceeding with update`)
+
+    // Process lineupData - merge with existing data
+    let processedLineupData = existingItem.lineupData || {}
+    if (lineupData !== undefined && lineupData !== null) {
+      if (typeof lineupData === 'object' && !Array.isArray(lineupData)) {
+        processedLineupData = {
+          ...processedLineupData,
+          ...lineupData
+        }
+        console.log(`Server: Processed lineupData:`, processedLineupData)
+      } else {
+        console.log(`Server: Invalid lineupData format, keeping existing:`, existingItem.lineupData)
+      }
+    }
 
     // Process links - convert from array or keep existing format for backward compatibility
     let processedLinks: any[] | undefined = undefined
@@ -505,6 +520,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : undefined,
       groupData: groupData || undefined,
       generationData: generationData || undefined,
+      lineupData: processedLineupData,
       updatedAt: new Date().toISOString()
     }
 

@@ -138,7 +138,7 @@ export interface MasterDataItem {
   name?: string // For actor, actress, studio, type, tag
   titleEn?: string // For series only
   titleJp?: string // For series only 
-  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation'
+  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation' | 'lineup'
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
@@ -157,16 +157,22 @@ export interface MasterDataItem {
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
   generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
+  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
   gallery?: string[] // Array of gallery photo URLs for groups
   // Generation-specific fields (when type = 'generation')
-  groupId?: string // Reference to parent group
-  groupName?: string // Denormalized group name for easier display
+  generationGroupId?: string // Reference to parent group
+  generationGroupName?: string // Denormalized group name for easier display
   estimatedYears?: string // Estimated years range (e.g., "2020-2023", "2021-present")
   startDate?: string // Generation start date
   endDate?: string // Generation end date (optional)
+  // Lineup-specific fields (when type = 'lineup')
+  generationId?: string // Reference to parent generation
+  generationName?: string // Denormalized generation name for easier display
+  lineupType?: string // Type of lineup (e.g., 'Main', 'Sub', 'Graduated', 'Trainee')
+  lineupOrder?: number // Order within generation for display
   // Links for series, studio, and label
   seriesLinks?: string // For series
   studioLinks?: string // For studio
@@ -181,7 +187,7 @@ export async function getMasterData(c: Context) {
     console.log(`Server: Type check - raw type:`, JSON.stringify(type))
     
     // List of valid types
-    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group', 'generation']
+    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group', 'generation', 'lineup']
     console.log(`Server: Valid types:`, validTypes)
     console.log(`Server: Type validation - includes check:`, validTypes.includes(type))
     
@@ -333,6 +339,10 @@ export async function createExtendedMasterData(c: Context) {
       return await createGenerationData(c)
     }
     
+    if (type === 'lineup') {
+      return await createLineupData(c)
+    }
+    
     if (!type || !['actor', 'actress', 'director'].includes(type)) {
       console.log(`Server: Invalid type for extended creation: ${type}`)
       return c.json({ error: 'Invalid type parameter' }, 400)
@@ -405,7 +415,7 @@ export async function createExtendedMasterData(c: Context) {
     console.log(`Server: Processing links for create ${type}: input=${JSON.stringify(links)}, processed=${JSON.stringify(processedLinks)}`)
 
     // Process photos with proper deduplication and structure
-    const allPhotos = []
+    const allPhotos: string[] = []
     
     // Add profilePicture if provided
     if (profilePicture?.trim()) {
@@ -893,14 +903,21 @@ export async function updateExtendedMasterData(c: Context) {
       return await updateGenerationData(c)
     }
     
-    if (!type || !['actor', 'actress', 'director'].includes(type)) {
+    if (type === 'lineup') {
+      return await updateLineupData(c)
+    }
+    
+    if (!type || !['actor', 'actress', 'director', 'lineup'].includes(type)) {
       console.log(`Server: Invalid type for extended update: ${type}`)
       return c.json({ error: 'Invalid type parameter' }, 400)
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData, lineupData } = body
     console.log(`Server: Updating extended ${type} with data:`, body)
+    console.log(`Server: lineupData received:`, lineupData)
+    console.log(`Server: lineupData type:`, typeof lineupData)
+    console.log(`Server: lineupData keys:`, lineupData ? Object.keys(lineupData) : 'undefined')
 
     if (!name?.trim()) {
       console.log('Server: Name validation failed - name is required')
@@ -979,7 +996,7 @@ export async function updateExtendedMasterData(c: Context) {
     console.log(`Server: Processing links for update ${type}: input=${JSON.stringify(links)}, processed=${JSON.stringify(processedLinks)}`)
 
     // Process photos with proper deduplication and structure
-    const allPhotos = []
+    const allPhotos: string[] = []
     
     // Add profilePicture if provided
     if (profilePicture?.trim()) {
@@ -999,6 +1016,21 @@ export async function updateExtendedMasterData(c: Context) {
     const finalProfilePicture = uniquePhotos.length > 0 ? uniquePhotos[0] : (profilePicture === null || profilePicture === '' ? undefined : existingItem.profilePicture)
     const finalPhotoArray = uniquePhotos.length > 1 ? uniquePhotos.slice(1) : (photo === null || (Array.isArray(photo) && photo.length === 0) ? undefined : existingItem.photo)
 
+    // Process lineupData - ensure it's properly handled
+    let processedLineupData = existingItem.lineupData || {}
+    if (lineupData !== undefined && lineupData !== null) {
+      if (typeof lineupData === 'object' && !Array.isArray(lineupData)) {
+        // Merge with existing lineupData
+        processedLineupData = {
+          ...processedLineupData,
+          ...lineupData
+        }
+        console.log(`Server: Processed lineupData:`, processedLineupData)
+      } else {
+        console.log(`Server: Invalid lineupData format, keeping existing:`, existingItem.lineupData)
+      }
+    }
+
     // Update the item
     const updatedItem = {
       ...existingItem,
@@ -1015,6 +1047,7 @@ export async function updateExtendedMasterData(c: Context) {
       groupId: groupId?.trim() || (groupId === null || groupId === '' ? undefined : existingItem.groupId),
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : (selectedGroups === null || (Array.isArray(selectedGroups) && selectedGroups.length === 0) ? undefined : existingItem.selectedGroups),
       generationData: generationData !== undefined ? generationData : existingItem.generationData,
+      lineupData: processedLineupData,
       updatedAt: new Date().toISOString()
     }
 
@@ -1033,9 +1066,11 @@ export async function updateExtendedMasterData(c: Context) {
     }
 
     console.log(`Server: Updating extended ${type} with data:`, updatedItem)
+    console.log(`Server: lineupData being saved:`, updatedItem.lineupData)
     await kv.set(`master_${type}_${id}`, JSON.stringify(updatedItem))
     
     console.log(`Server: Successfully updated extended ${type}:`, updatedItem)
+    console.log(`Server: lineupData in response:`, updatedItem.lineupData)
     return c.json({ data: updatedItem })
   } catch (error) {
     console.error('Server: Update extended master data error:', error)
@@ -1432,6 +1467,78 @@ export async function createGenerationData(c: Context) {
   }
 }
 
+// Create lineup data
+export async function createLineupData(c: Context) {
+  try {
+    console.log('Server: Creating lineup data')
+    const body = await c.req.json()
+    const { name, generationId, generationName, lineupType, lineupOrder, description } = body
+    console.log('Server: Lineup data:', body)
+
+    if (!name?.trim()) {
+      return c.json({ error: 'Lineup name is required' }, 400)
+    }
+
+    if (!generationId?.trim()) {
+      return c.json({ error: 'Generation ID is required' }, 400)
+    }
+
+    // Check if lineup already exists within the same generation
+    console.log(`Server: Checking for existing lineup with name: "${name}" in generation: "${generationId}"`)
+    const existingData = await kv.getByPrefix(`master_lineup_`)
+    console.log(`Server: Found ${existingData.length} existing lineup items`)
+    
+    const existingItem = existingData.find(item => {
+      try {
+        const parsed = JSON.parse(item.value)
+        const existingName = parsed.name?.toLowerCase()?.trim()
+        const existingGenerationId = parsed.generationId
+        const newName = name.toLowerCase().trim()
+        console.log(`Server: Comparing lineup - existing: "${existingName}" in generation "${existingGenerationId}" with new: "${newName}" in generation "${generationId}"`)
+        
+        const isExactMatch = existingName === newName && existingGenerationId === generationId
+        if (isExactMatch) {
+          console.log(`Server: Exact match found in lineup: "${existingName}" === "${newName}" in same generation`)
+        }
+        return isExactMatch
+      } catch (parseError) {
+        console.log(`Server: Error parsing lineup item:`, parseError)
+        return false
+      }
+    })
+
+    if (existingItem) {
+      console.log(`Server: Lineup "${name}" already exists in generation "${generationId}"`)
+      return c.json({ error: `Lineup "${name}" already exists in this generation` }, 400)
+    }
+
+    const id = crypto.randomUUID()
+    const newItem: MasterDataItem = {
+      id,
+      name: name.trim(),
+      type: 'lineup',
+      createdAt: new Date().toISOString(),
+      generationId: generationId.trim(),
+      generationName: generationName?.trim() || undefined,
+      lineupType: lineupType?.trim() || 'Main',
+      lineupOrder: lineupOrder || 1,
+      description: description?.trim() || undefined
+    }
+
+    console.log(`Server: Saving lineup with ID: ${id}`)
+    await kv.set(`master_lineup_${id}`, JSON.stringify(newItem))
+    
+    console.log('Server: Successfully created lineup:', newItem)
+    return c.json({ data: newItem })
+  } catch (error) {
+    console.error('Server: Create lineup data error:', error)
+    return c.json({ 
+      error: `Failed to create lineup data: ${error.message}`,
+      details: error?.stack
+    }, 500)
+  }
+}
+
 // Update generation data
 export async function updateGenerationData(c: Context) {
   try {
@@ -1505,6 +1612,89 @@ export async function updateGenerationData(c: Context) {
     console.error('Server: Update generation data error:', error)
     return c.json({ 
       error: `Failed to update generation data: ${error.message}`,
+      details: error?.stack
+    }, 500)
+  }
+}
+
+// Update lineup data
+export async function updateLineupData(c: Context) {
+  try {
+    const id = c.req.param('id')
+    console.log('Server: Updating lineup data with ID:', id)
+    
+    const body = await c.req.json()
+    const { name, generationId, generationName, lineupType, lineupOrder, description } = body
+    console.log('Server: Lineup update data:', body)
+
+    if (!name?.trim()) {
+      return c.json({ error: 'Lineup name is required' }, 400)
+    }
+
+    if (!generationId?.trim()) {
+      return c.json({ error: 'Generation ID is required' }, 400)
+    }
+
+    // Get existing item
+    const existingData = await kv.get(`master_lineup_${id}`)
+    if (!existingData) {
+      console.log(`Server: Lineup with ID ${id} not found`)
+      return c.json({ error: 'Lineup not found' }, 404)
+    }
+
+    const existingItem = JSON.parse(existingData)
+    console.log('Server: Found lineup to update:', existingItem)
+
+    // Check for duplicates (exclude current item)
+    const allItems = await kv.getByPrefix(`master_lineup_`)
+    const duplicateItem = allItems.find(item => {
+      try {
+        const parsed = JSON.parse(item.value)
+        if (parsed.id === id) return false
+        
+        const existingName = parsed.name?.toLowerCase()?.trim()
+        const existingGenerationId = parsed.generationId
+        const newName = name.toLowerCase().trim()
+        
+        console.log(`Server: Comparing lineup - existing: "${existingName}" in generation "${existingGenerationId}" with new: "${newName}" in generation "${generationId}"`)
+        
+        const isExactMatch = existingName === newName && existingGenerationId === generationId
+        if (isExactMatch) {
+          console.log(`Server: Exact match found in lineup: "${existingName}" === "${newName}" in same generation`)
+        }
+        return isExactMatch
+      } catch (parseError) {
+        console.log(`Server: Error parsing lineup item:`, parseError)
+        return false
+      }
+    })
+
+    if (duplicateItem) {
+      console.log(`Server: Lineup "${name}" already exists in generation "${generationId}"`)
+      return c.json({ error: `Lineup "${name}" already exists in this generation` }, 400)
+    }
+
+    // Update the item
+    const updatedItem: MasterDataItem = {
+      ...existingItem,
+      name: name.trim(),
+      generationId: generationId.trim(),
+      generationName: generationName?.trim() || undefined,
+      lineupType: lineupType?.trim() || 'Main',
+      lineupOrder: lineupOrder || 1,
+      description: description?.trim() || undefined,
+      updatedAt: new Date().toISOString()
+    }
+
+    console.log(`Server: Saving updated lineup with ID: ${id}`)
+    await kv.set(`master_lineup_${id}`, JSON.stringify(updatedItem))
+    
+    console.log('Server: Successfully updated lineup:', updatedItem)
+    return c.json({ data: updatedItem })
+  } catch (error) {
+    console.error('Server: Update lineup data error:', error)
+    return c.json({ 
+      error: `Failed to update lineup data: ${error.message}`,
       details: error?.stack
     }, 500)
   }
@@ -1761,7 +1951,7 @@ export async function updateExtendedWithSync(c: Context) {
     const id = c.req.param('id')
     console.log(`Server: Updating extended ${type} with sync - ID: ${id}`)
     
-    const validTypesWithSync = ['actor', 'actress', 'director', 'series', 'studio', 'label', 'group', 'generation']
+    const validTypesWithSync = ['actor', 'actress', 'director', 'series', 'studio', 'label', 'group', 'generation', 'lineup']
     
     if (!type || !validTypesWithSync.includes(type)) {
       console.log(`Server: Invalid type for extended update with sync: ${type}`)

@@ -35,7 +35,7 @@ export interface MasterDataItem {
   name?: string // For actor, actress, studio, type, tag
   titleEn?: string // For series only
   titleJp?: string // For series only 
-  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation'
+  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation' | 'lineup'
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
@@ -54,6 +54,7 @@ export interface MasterDataItem {
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
   generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
+  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
@@ -62,6 +63,11 @@ export interface MasterDataItem {
   estimatedYears?: string // Estimated years range (e.g., "2020-2023", "2021-present")
   startDate?: string // Generation start date
   endDate?: string // Generation end date (optional)
+  // Lineup-specific fields (when type = 'lineup')
+  generationId?: string // Reference to parent generation
+  generationName?: string // Denormalized generation name for easier display
+  lineupType?: string // Type of lineup (e.g., 'Main', 'Sub', 'Graduated', 'Trainee')
+  lineupOrder?: number // Order within generation for display
   // Links for series, studio, and label
   seriesLinks?: string // For series
   studioLinks?: string // For studio
@@ -223,7 +229,7 @@ export const masterDataApi = {
   },
 
   // Create new extended item (for actors, actresses, directors, series, studio, label, group, generation with detailed fields)
-  async createExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation', data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
+  async createExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation' | 'lineup', data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log(`Frontend API: Creating extended ${type} with data:`, data)
     
     const response = await fetch(`${getBaseUrl()}/master/${type}/extended`, {
@@ -309,7 +315,7 @@ export const masterDataApi = {
   },
 
   // Update extended item
-  async updateExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
+  async updateExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation' | 'lineup', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log('API call - updateExtended:', { type, id, data })
     console.log('JSON payload being sent:', JSON.stringify(data, null, 2))
     
@@ -332,6 +338,8 @@ export const masterDataApi = {
 
     const result = await response.json()
     console.log('API success response:', result)
+    console.log('API success response data:', result.data)
+    console.log('API success response data lineupData:', result.data?.lineupData)
     return result.data
   },
 
@@ -392,6 +400,36 @@ export const masterDataApi = {
     }
 
     const result = await response.json()
+    return result.data
+  },
+
+  // Update simple item (for partial updates)
+  async update(id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
+    console.log('API call - update:', { id, data })
+    console.log('JSON payload being sent:', JSON.stringify(data, null, 2))
+    
+    // Determine type from the data or try to infer it
+    const type = data.type || 'actress' // Default to actress for lineup operations
+    
+    const response = await fetch(`${getBaseUrl()}/master/${type}/${id}/extended`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+
+    console.log('API response status:', response.status)
+
+    if (!response.ok) {
+      const error = await response.json()
+      console.error('API error response:', error)
+      throw new Error(error.error || 'Failed to update master data')
+    }
+
+    const result = await response.json()
+    console.log('API success response:', result)
     return result.data
   },
 
