@@ -126,6 +126,7 @@ interface FormData {
   selectedGroups: string[] // For multiple group assignments (group names)
   groupProfilePictures: { [groupName: string]: string } // Group-specific profile pictures
   groupAliases: { [groupName: string]: string } // Group-specific aliases/stage names
+  groupSameAsName: { [groupName: string]: boolean } // Checkbox for "Same as Name"
 }
 
 const initialFormData: FormData = {
@@ -141,13 +142,15 @@ const initialFormData: FormData = {
   takulinks: [''],
   selectedGroups: [],
   groupProfilePictures: {},
-  groupAliases: {}
+  groupAliases: {},
+  groupSameAsName: {}
 }
 
 export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: ActorFormProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [groups, setGroups] = useState<MasterDataItem[]>([]) // Available groups for actresses
   const [hasUserChangedGroups, setHasUserChangedGroups] = useState(false) // Track if user manually changed groups
   const [showImageSearch, setShowImageSearch] = useState(false) // Control image search iframe visibility
@@ -283,12 +286,17 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
   const loadGroups = async () => {
     try {
-      console.log('ActorForm: Loading groups...')
-      const groupsData = await masterDataApi.getByType('group', accessToken)
+      console.log('ActorForm: Loading groups and generations...')
+      const [groupsData, generationsData] = await Promise.all([
+        masterDataApi.getByType('group', accessToken),
+        masterDataApi.getByType('generation', accessToken)
+      ])
       console.log('ActorForm: Loaded groups:', groupsData?.map(g => ({ id: g.id, name: g.name })))
+      console.log('ActorForm: Loaded generations:', generationsData?.map(g => ({ id: g.id, name: g.name, groupId: g.groupId })))
       setGroups(groupsData || [])
+      setGenerations(generationsData || [])
     } catch (err) {
-      console.error('Error loading groups:', err)
+      console.error('Error loading groups and generations:', err)
     }
   }
 
@@ -1604,6 +1612,60 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                 <Label htmlFor={`group-pic-${groupName}`}>
                                   Profile Picture
                                 </Label>
+                                
+                                {/* Generation Photo Selector */}
+                                {(() => {
+                                  const groupGenerations = generations.filter(g => g.groupId === groups.find(gr => gr.name === groupName)?.id)
+                                  
+                                  // Check if current actress has photos in any generation of this group
+                                  const currentActressHasPhotos = groupGenerations.some(generation => {
+                                    return initialData?.generationData?.[generation.id]?.profilePicture
+                                  })
+                                  
+                                  return currentActressHasPhotos ? (
+                                    <div className="space-y-2">
+                                      <Select
+                                        value=""
+                                        onValueChange={(generationId) => {
+                                          const generationPhoto = initialData?.generationData?.[generationId]?.profilePicture
+                                          
+                                          if (generationPhoto) {
+                                            setFormData(prev => ({
+                                              ...prev,
+                                              groupProfilePictures: {
+                                                ...prev.groupProfilePictures,
+                                                [groupName]: generationPhoto
+                                              }
+                                            }))
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue placeholder="Select photo from generation..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {groupGenerations.map((generation) => {
+                                            const generationPhoto = initialData?.generationData?.[generation.id]?.profilePicture
+                                            
+                                            return generationPhoto ? (
+                                              <SelectItem key={generation.id} value={generation.id}>
+                                                <div className="flex items-center gap-2">
+                                                  <img
+                                                    src={generationPhoto}
+                                                    alt={`${initialData?.name || 'Actress'} in ${generation.name}`}
+                                                    className="w-6 h-6 rounded object-cover"
+                                                  />
+                                                  <span>{initialData?.name || 'Actress'} ({generation.name})</span>
+                                                </div>
+                                              </SelectItem>
+                                            ) : null
+                                          })}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  ) : null
+                                })()}
+                                
                                 <div className="flex gap-2 items-start">
                                   <div className="flex-1 space-y-1">
                                     <Input
@@ -1645,6 +1707,31 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                 <Label htmlFor={`group-alias-${groupName}`}>
                                   Alias/Stage Name in {groupName}
                                 </Label>
+                                
+                                {/* Same as Name Checkbox */}
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`same-as-name-${groupName}`}
+                                    checked={formData.groupSameAsName?.[groupName] || false}
+                                    onCheckedChange={(checked) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        groupSameAsName: {
+                                          ...(prev.groupSameAsName || {}),
+                                          [groupName]: checked as boolean
+                                        },
+                                        groupAliases: {
+                                          ...prev.groupAliases,
+                                          [groupName]: checked ? formData.name : ''
+                                        }
+                                      }))
+                                    }}
+                                  />
+                                  <Label htmlFor={`same-as-name-${groupName}`} className="text-sm font-normal">
+                                    Same as Name
+                                  </Label>
+                                </div>
+                                
                                 <Input
                                   id={`group-alias-${groupName}`}
                                   value={formData.groupAliases[groupName] || ''}
@@ -1654,6 +1741,10 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                       groupAliases: {
                                         ...prev.groupAliases,
                                         [groupName]: e.target.value
+                                      },
+                                      groupSameAsName: {
+                                        ...(prev.groupSameAsName || {}),
+                                        [groupName]: false // Uncheck when manually typing
                                       }
                                     }))
                                     // Clear related error
@@ -1663,6 +1754,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                   }}
                                   placeholder={`Nama khusus untuk ${groupName}`}
                                   className={`text-sm ${errors[`groupAlias_${groupName}`] ? 'border-destructive' : ''}`}
+                                  disabled={formData.groupSameAsName?.[groupName] || false}
                                 />
                                 {errors[`groupAlias_${groupName}`] && (
                                   <p className="text-sm text-destructive">{errors[`groupAlias_${groupName}`]}</p>
