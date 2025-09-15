@@ -350,7 +350,7 @@ export function GroupDetailContent({
     }
     
     // Fallback to generation profile picture, then group profile picture, then regular profile picture
-    return getGenerationProfilePicture(actress, generationId) || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+    return getGenerationProfilePicture(actress, selectedGenerationId) || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
   }
 
   const getLineupAlias = (actress: MasterDataItem, lineupId: string) => {
@@ -363,7 +363,7 @@ export function GroupDetailContent({
     }
     
     // Fallback to generation alias, then group alias, then regular alias
-    return getGenerationAlias(actress, generationId) || getGroupAlias(actress, group.name || '') || actress.alias
+    return getGenerationAlias(actress, selectedGenerationId) || getGroupAlias(actress, group.name || '') || actress.alias
   }
 
   // Filter and sort group members based on search

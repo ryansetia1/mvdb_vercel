@@ -4,6 +4,7 @@ import { masterDataApi } from '../utils/masterDataApi'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Users, ChevronDown, ChevronRight } from 'lucide-react'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
@@ -31,7 +32,7 @@ export function LineupDisplay({
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [expandedLineups, setExpandedLineups] = useState<Set<string>>(new Set())
+  const [activeLineupId, setActiveLineupId] = useState<string | null>(null)
 
   useEffect(() => {
     loadLineups()
@@ -48,6 +49,11 @@ export function LineupDisplay({
       // Sort by lineupOrder
       generationLineups.sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
       setLineups(generationLineups)
+      
+      // Set first lineup as active if none selected
+      if (generationLineups.length > 0 && !activeLineupId) {
+        setActiveLineupId(generationLineups[0].id)
+      }
 
       // Load actresses for this generation's group
       const generations = await masterDataApi.getByType('generation', accessToken)
@@ -86,15 +92,6 @@ export function LineupDisplay({
     return lineupActresses
   }
 
-  const toggleLineupExpansion = (lineupId: string) => {
-    const newExpanded = new Set(expandedLineups)
-    if (newExpanded.has(lineupId)) {
-      newExpanded.delete(lineupId)
-    } else {
-      newExpanded.add(lineupId)
-    }
-    setExpandedLineups(newExpanded)
-  }
 
   const getProfilePicture = (actress: MasterDataItem, lineupId: string) => {
     if (getLineupProfilePicture) {
@@ -139,91 +136,100 @@ export function LineupDisplay({
         Lineups
       </h3>
       
-      <div className="space-y-3">
+      <Tabs value={activeLineupId || ''} onValueChange={setActiveLineupId} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {lineups.map((lineup) => {
+            const lineupActresses = getLineupActresses(lineup.id)
+            return (
+              <TabsTrigger 
+                key={lineup.id} 
+                value={lineup.id}
+                className="flex flex-col items-center gap-1 p-3 h-auto"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{lineup.name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {lineup.lineupType || 'Main'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="h-3 w-3" />
+                  <span>{lineupActresses.length} members</span>
+                </div>
+              </TabsTrigger>
+            )
+          })}
+        </TabsList>
+        
         {lineups.map((lineup) => {
           const lineupActresses = getLineupActresses(lineup.id)
-          const isExpanded = expandedLineups.has(lineup.id)
           
           return (
-            <Card key={lineup.id} className="overflow-hidden">
-              <CardHeader 
-                className="pb-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => toggleLineupExpansion(lineup.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-gray-500" />
-                    )}
-                    <CardTitle className="text-base">{lineup.name}</CardTitle>
-                    <Badge variant="outline" className="text-xs">
-                      {lineup.lineupType || 'Main'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Users className="h-4 w-4" />
-                    <span>{lineupActresses.length} members</span>
-                  </div>
-                </div>
+            <TabsContent key={lineup.id} value={lineup.id} className="mt-4">
+              <div className="space-y-4">
                 {lineup.description && (
-                  <p className="text-sm text-gray-600 mt-2">{lineup.description}</p>
+                  <p className="text-sm text-gray-600">{lineup.description}</p>
                 )}
-              </CardHeader>
-              
-              {isExpanded && (
-                <CardContent className="pt-0">
-                  {lineupActresses.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {lineupActresses.map((actress) => (
-                        <div 
+                
+                {lineupActresses.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {lineupActresses.map((actress) => {
+                      const profilePicture = getProfilePicture(actress, lineup.id)
+                      const alias = getAlias(actress, lineup.id)
+                      
+                      return (
+                        <Card 
                           key={actress.id}
-                          className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                          className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                           onClick={() => onProfileSelect?.('actress', actress.name || '')}
                         >
-                          <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {getProfilePicture(actress, lineup.id) ? (
-                              <ImageWithFallback
-                                src={getProfilePicture(actress, lineup.id)!}
-                                alt={actress.name || 'Actress'}
-                                className="w-full h-full object-cover"
-                                fallback={
-                                  <span className="text-gray-600 text-sm font-medium">
-                                    {actress.name?.charAt(0)}
-                                  </span>
-                                }
-                              />
-                            ) : (
-                              <span className="text-gray-600 text-sm font-medium">
-                                {actress.name?.charAt(0)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {getAlias(actress, lineup.id)}
-                            </p>
-                            {getAlias(actress, lineup.id) !== actress.name && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {actress.name}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500 text-sm">
-                      Belum ada member di lineup ini
-                    </div>
-                  )}
-                </CardContent>
-              )}
-            </Card>
+                          <CardContent className="p-0">
+                            <div className="aspect-square relative overflow-hidden">
+                              {profilePicture ? (
+                                <ImageWithFallback
+                                  src={profilePicture}
+                                  alt={alias || actress.name || 'Actress'}
+                                  className="w-full h-full object-cover"
+                                  fallback={
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                      <Users className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                  }
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                  <Users className="w-8 h-8 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="p-3">
+                              <h4 className="font-medium text-sm truncate">
+                                {alias || actress.name}
+                              </h4>
+                              {alias && alias !== actress.name && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {actress.name}
+                                </p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium">No members in this lineup</p>
+                    <p className="text-sm">Add actresses to this lineup to see them here</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
           )
         })}
-      </div>
+      </Tabs>
     </div>
   )
 }

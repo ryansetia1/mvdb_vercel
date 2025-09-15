@@ -3,6 +3,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Badge } from './ui/badge'
+import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { SearchableComboBox, useComboBoxOptions } from './ui/searchable-combobox'
 import { Plus, Trash2, Edit, User, Users } from 'lucide-react'
@@ -47,6 +48,7 @@ export function GenerationActressManagement({
     profilePicture: '',
     photos: []
   })
+  const [useCustomAlias, setUseCustomAlias] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -118,7 +120,77 @@ export function GenerationActressManagement({
   const handleAddActress = (e?: React.MouseEvent) => {
     e?.preventDefault()
     e?.stopPropagation()
-    setEditingAssignment(null)
+    resetForm()
+    setShowDialog(true)
+  }
+
+  const handleAddAllActresses = async (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    
+    if (availableActresses.length === 0) {
+      setError('No available actresses to add')
+      return
+    }
+
+    const confirmed = confirm(
+      `Add all ${availableActresses.length} available actresses to ${generationName} generation?\n\nThis will assign each actress with their English name as the default alias.`
+    )
+    
+    if (!confirmed) return
+
+    try {
+      setError(null)
+      setSuccess(null)
+      setIsLoading(true)
+
+      console.log('Adding all actresses to generation:', {
+        generationId,
+        actressCount: availableActresses.length
+      })
+
+      // Add all actresses one by one
+      for (const actress of availableActresses) {
+        await masterDataApi.assignActressToGeneration(
+          actress.id,
+          generationId,
+          accessToken,
+          actress.name || undefined, // Use English name as alias
+          undefined, // No custom profile picture
+          undefined  // No custom photos
+        )
+      }
+
+      setSuccess(`Successfully added all ${availableActresses.length} actresses to ${generationName} generation`)
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add all actresses')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEditAssignment = (actress: MasterDataItem, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    const generationData = actress.generationData?.[generationId]
+    const currentAlias = generationData?.alias || ''
+    const englishName = actress.name || ''
+    
+    setEditingAssignment({ actress, generationData })
+    setFormData({
+      actressId: actress.id,
+      actressName: englishName,
+      alias: currentAlias || englishName, // Use English name as default if no alias
+      profilePicture: generationData?.profilePicture || '',
+      photos: generationData?.photos || []
+    })
+    // Check if alias is different from English name (custom alias)
+    setUseCustomAlias(currentAlias !== '' && currentAlias !== englishName)
+    setShowDialog(true)
+  }
+
+  const resetForm = () => {
     setFormData({
       actressId: '',
       actressName: '',
@@ -126,22 +198,8 @@ export function GenerationActressManagement({
       profilePicture: '',
       photos: []
     })
-    setShowDialog(true)
-  }
-
-  const handleEditAssignment = (actress: MasterDataItem, e?: React.MouseEvent) => {
-    e?.preventDefault()
-    e?.stopPropagation()
-    const generationData = actress.generationData?.[generationId]
-    setEditingAssignment({ actress, generationData })
-    setFormData({
-      actressId: actress.id,
-      actressName: actress.name || '',
-      alias: generationData?.alias || '',
-      profilePicture: generationData?.profilePicture || '',
-      photos: generationData?.photos || []
-    })
-    setShowDialog(true)
+    setUseCustomAlias(false)
+    setEditingAssignment(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,6 +242,7 @@ export function GenerationActressManagement({
 
       setSuccess('Actress assigned to generation successfully')
       await loadData()
+      resetForm()
       setShowDialog(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign actress')
@@ -210,6 +269,14 @@ export function GenerationActressManagement({
 
   const handleInputChange = (field: keyof ActressAssignmentFormData, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // If user manually changes alias, enable custom alias mode
+    if (field === 'alias' && typeof value === 'string') {
+      const englishName = formData.actressName || ''
+      if (value !== englishName) {
+        setUseCustomAlias(true)
+      }
+    }
   }
 
   const handleActressSelect = (actressId: string) => {
@@ -218,7 +285,19 @@ export function GenerationActressManagement({
       setFormData(prev => ({
         ...prev,
         actressId: actressId,
-        actressName: selectedActress.name || ''
+        actressName: selectedActress.name || '',
+        alias: useCustomAlias ? prev.alias : (selectedActress.name || '')
+      }))
+    }
+  }
+
+  const handleCustomAliasChange = (checked: boolean) => {
+    setUseCustomAlias(checked)
+    if (!checked && formData.actressName) {
+      // Reset to English name when unchecking custom alias
+      setFormData(prev => ({
+        ...prev,
+        alias: prev.actressName
       }))
     }
   }
@@ -244,10 +323,23 @@ export function GenerationActressManagement({
           <Badge variant="outline">{generationActresses.length} actresses</Badge>
         </div>
         
-        <Button onClick={(e) => handleAddActress(e)} disabled={isLoading} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Add Actress
-        </Button>
+        <div className="flex gap-2">
+          {availableActresses.length > 0 && (
+            <Button 
+              onClick={handleAddAllActresses} 
+              disabled={isLoading} 
+              size="sm"
+              variant="outline"
+            >
+              <Users className="h-4 w-4 mr-1" />
+              Add All ({availableActresses.length})
+            </Button>
+          )}
+          <Button onClick={(e) => handleAddActress(e)} disabled={isLoading} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Actress
+          </Button>
+        </div>
       </div>
 
       {/* Success/Error Messages */}
@@ -288,6 +380,8 @@ export function GenerationActressManagement({
                 key={actress.id}
                 actress={actress}
                 generationData={generationData}
+                generationId={generationId}
+                accessToken={accessToken}
                 onEdit={(e) => handleEditAssignment(actress, e)}
                 onRemove={(e) => handleRemoveActress(actress, e)}
                 isLoading={isLoading}
@@ -334,7 +428,19 @@ export function GenerationActressManagement({
                 value={formData.alias}
                 onChange={(e) => handleInputChange('alias', e.target.value)}
                 placeholder="Custom name for this generation"
+                disabled={!useCustomAlias}
+                className={!useCustomAlias ? "bg-gray-50" : ""}
               />
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="useCustomAlias"
+                  checked={useCustomAlias}
+                  onCheckedChange={handleCustomAliasChange}
+                />
+                <Label htmlFor="useCustomAlias" className="text-sm font-normal">
+                  Use custom alias (default: English actress name)
+                </Label>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -365,6 +471,8 @@ export function GenerationActressManagement({
 interface ActressAssignmentItemProps {
   actress: MasterDataItem
   generationData: any
+  generationId: string
+  accessToken: string
   onEdit: (e?: React.MouseEvent) => void
   onRemove: (e?: React.MouseEvent) => void
   isLoading: boolean
@@ -373,12 +481,47 @@ interface ActressAssignmentItemProps {
 function ActressAssignmentItem({ 
   actress, 
   generationData, 
+  generationId,
+  accessToken,
   onEdit, 
   onRemove, 
   isLoading 
 }: ActressAssignmentItemProps) {
+  const [profilePicUrl, setProfilePicUrl] = useState(generationData?.profilePicture || '')
+  const [isEditingPic, setIsEditingPic] = useState(false)
+  const [isSavingPic, setIsSavingPic] = useState(false)
+  
   const displayName = generationData?.alias || actress.name
-  const displayPicture = generationData?.profilePicture || actress.profilePicture
+  const displayPicture = profilePicUrl || actress.profilePicture
+
+  const handleProfilePicChange = async (newUrl: string) => {
+    if (newUrl === (generationData?.profilePicture || '')) {
+      setIsEditingPic(false)
+      return
+    }
+
+    setIsSavingPic(true)
+    try {
+      // Call API to update profile picture
+      await masterDataApi.assignActressToGeneration(
+        actress.id,
+        generationId,
+        accessToken,
+        generationData?.alias || undefined,
+        newUrl || undefined,
+        generationData?.photos || undefined
+      )
+      
+      setProfilePicUrl(newUrl)
+      setIsEditingPic(false)
+    } catch (err) {
+      console.error('Failed to update profile picture:', err)
+      // Reset to original value on error
+      setProfilePicUrl(generationData?.profilePicture || '')
+    } finally {
+      setIsSavingPic(false)
+    }
+  }
 
   return (
     <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 hover:bg-gray-100 transition-colors">
@@ -400,6 +543,23 @@ function ActressAssignmentItem({
               <p className="text-xs text-gray-500">Original: {actress.name}</p>
             )}
           </div>
+        </div>
+        
+        {/* Profile Picture Input Field */}
+        <div className="flex-1 mx-4">
+          <Input
+            value={profilePicUrl}
+            onChange={(e) => setProfilePicUrl(e.target.value)}
+            onBlur={() => handleProfilePicChange(profilePicUrl)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleProfilePicChange(profilePicUrl)
+              }
+            }}
+            placeholder="Profile picture URL..."
+            className="h-7 text-xs"
+            disabled={isSavingPic}
+          />
         </div>
         
         <div className="flex gap-1">
