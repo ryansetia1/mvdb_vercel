@@ -3,7 +3,7 @@ import { cors } from 'npm:hono/cors'
 import { logger } from 'npm:hono/logger'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as kv from './kv_store.ts'
-import { getMasterData, createMasterData, deleteMasterData, createExtendedMasterData, updateExtendedMasterData } from './masterDataApi.ts'
+import { getMasterData, createMasterData, deleteMasterData, createExtendedMasterData, updateExtendedMasterData, createGenerationData, updateGenerationData } from './masterDataApi.ts'
 import { updateExtendedMasterDataWithSync, updateSimpleMasterDataWithSync } from './updateMasterDataWithSync.ts'
 import { updateGroupData } from './updateGroupData.ts'
 import { photobookApi } from './photobookApi.ts'
@@ -1121,6 +1121,10 @@ app.delete('/make-server-e0516fcf/custom-nav-items/:itemId', async (c) => {
 
 // Update group data with gallery support - THIS ROUTE WAS MISSING!
 app.put('/make-server-e0516fcf/master/group/:id/extended', updateGroupData)
+
+// Generation routes
+app.post('/make-server-e0516fcf/master/generation/extended', createGenerationData)
+app.put('/make-server-e0516fcf/master/generation/:id/extended', updateGenerationData)
 
 app.post('/make-server-e0516fcf/custom-nav-items/reorder', async (c) => {
   try {

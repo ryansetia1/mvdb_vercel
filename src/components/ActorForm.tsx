@@ -839,7 +839,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           // Preserve other fields that should not be overwritten
           createdAt: initialData.createdAt,
           id: initialData.id,
-          type: initialData.type
+          type: initialData.type,
+          // Preserve generationData to prevent losing generation assignments
+          generationData: initialData.generationData
         }
         
         // Explicitly handle field removal - if form has empty pictures, remove old ones

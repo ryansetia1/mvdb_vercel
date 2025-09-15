@@ -35,7 +35,7 @@ export interface MasterDataItem {
   name?: string // For actor, actress, studio, type, tag
   titleEn?: string // For series only
   titleJp?: string // For series only 
-  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group'
+  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation'
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
@@ -53,10 +53,15 @@ export interface MasterDataItem {
   groupName?: string // Denormalized group name for easier display (deprecated)
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
+  generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
   gallery?: string[] // Array of gallery photo URLs for groups
+  // Generation-specific fields (when type = 'generation')
+  estimatedYears?: string // Estimated years range (e.g., "2020-2023", "2021-present")
+  startDate?: string // Generation start date
+  endDate?: string // Generation end date (optional)
   // Links for series, studio, and label
   seriesLinks?: string // For series
   studioLinks?: string // For studio
@@ -217,8 +222,8 @@ export const masterDataApi = {
     return result.data
   },
 
-  // Create new extended item (for actors, actresses, directors, series, studio, label with detailed fields)
-  async createExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label', data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
+  // Create new extended item (for actors, actresses, directors, series, studio, label, group, generation with detailed fields)
+  async createExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation', data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log(`Frontend API: Creating extended ${type} with data:`, data)
     
     const response = await fetch(`${getBaseUrl()}/master/${type}/extended`, {
@@ -304,7 +309,7 @@ export const masterDataApi = {
   },
 
   // Update extended item
-  async updateExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
+  async updateExtended(type: 'actor' | 'actress' | 'director' | 'series' | 'studio' | 'label' | 'group' | 'generation', id: string, data: Partial<MasterDataItem>, accessToken: string): Promise<MasterDataItem> {
     console.log('API call - updateExtended:', { type, id, data })
     console.log('JSON payload being sent:', JSON.stringify(data, null, 2))
     
@@ -442,6 +447,125 @@ export const masterDataApi = {
 
     const result = await response.json()
     return result.data
+  },
+
+  // Generation-specific methods
+  async createGeneration(name: string, groupId: string, groupName: string, accessToken: string, estimatedYears?: string, startDate?: string, endDate?: string, description?: string, profilePicture?: string): Promise<MasterDataItem> {
+    const response = await fetch(`${getBaseUrl()}/master/generation/extended`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name, groupId, groupName, estimatedYears, startDate, endDate, description, profilePicture })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to create generation')
+    }
+
+    const result = await response.json()
+    return result.data
+  },
+
+  async updateGeneration(id: string, name: string, groupId: string, groupName: string, accessToken: string, estimatedYears?: string, startDate?: string, endDate?: string, description?: string, profilePicture?: string): Promise<MasterDataItem> {
+    const response = await fetch(`${getBaseUrl()}/master/generation/${id}/extended`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name, groupId, groupName, estimatedYears, startDate, endDate, description, profilePicture })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to update generation')
+    }
+
+    const result = await response.json()
+    return result.data
+  },
+
+  // Helper method to get generations by group
+  async getGenerationsByGroup(groupId: string, accessToken: string): Promise<MasterDataItem[]> {
+    const generations = await this.getByType('generation', accessToken)
+    return generations.filter(gen => gen.groupId === groupId)
+  },
+
+  // Helper method to assign actress to generation
+  async assignActressToGeneration(actressId: string, generationId: string, accessToken: string, alias?: string, profilePicture?: string, photos?: string[]): Promise<MasterDataItem> {
+    console.log('Frontend API: Assigning actress to generation:', { actressId, generationId, alias, profilePicture, photos })
+    
+    // Get current actress data
+    const actress = await this.getByType('actress', accessToken)
+    const currentActress = actress.find(a => a.id === actressId)
+    
+    if (!currentActress) {
+      throw new Error('Actress not found')
+    }
+
+    // Update generationData
+    const updatedGenerationData = {
+      ...currentActress.generationData,
+      [generationId]: {
+        alias: alias?.trim() || undefined,
+        profilePicture: profilePicture?.trim() || undefined,
+        photos: photos || undefined
+      }
+    }
+
+    console.log('Frontend API: Updated generation data:', updatedGenerationData)
+
+    // Update actress with all existing data plus new generationData
+    const updateData = {
+      ...currentActress,
+      generationData: updatedGenerationData,
+      updatedAt: new Date().toISOString()
+    }
+
+    // Remove fields that shouldn't be sent in update
+    delete updateData.id
+    delete updateData.createdAt
+
+    console.log('Frontend API: Update data being sent:', updateData)
+
+    return await this.updateExtended('actress', actressId, updateData, accessToken)
+  },
+
+  // Helper method to remove actress from generation
+  async removeActressFromGeneration(actressId: string, generationId: string, accessToken: string): Promise<MasterDataItem> {
+    console.log('Frontend API: Removing actress from generation:', { actressId, generationId })
+    
+    // Get current actress data
+    const actress = await this.getByType('actress', accessToken)
+    const currentActress = actress.find(a => a.id === actressId)
+    
+    if (!currentActress) {
+      throw new Error('Actress not found')
+    }
+
+    // Remove generation from generationData
+    const updatedGenerationData = { ...currentActress.generationData }
+    delete updatedGenerationData[generationId]
+
+    console.log('Frontend API: Updated generation data after removal:', updatedGenerationData)
+
+    // Update actress with all existing data plus new generationData
+    const updateData = {
+      ...currentActress,
+      generationData: Object.keys(updatedGenerationData).length > 0 ? updatedGenerationData : undefined,
+      updatedAt: new Date().toISOString()
+    }
+
+    // Remove fields that shouldn't be sent in update
+    delete updateData.id
+    delete updateData.createdAt
+
+    console.log('Frontend API: Update data being sent for removal:', updateData)
+
+    return await this.updateExtended('actress', actressId, updateData, accessToken)
   },
 
   // Helper method to get actresses with their group info populated
@@ -602,6 +726,14 @@ export function castMatchesQuery(castMember: MasterDataItem, query: string): boo
       if (groupInfo.alias?.toLowerCase().includes(searchQuery)) return true
     }
   }
+
+  // Search in generation-specific aliases
+  if (castMember.generationData) {
+    for (const generationId in castMember.generationData) {
+      const generationInfo = castMember.generationData[generationId]
+      if (generationInfo.alias?.toLowerCase().includes(searchQuery)) return true
+    }
+  }
   
   // Enhanced search with reverse name matching
   // Check if query matches names in reverse order (e.g., "hatano yui" matches "yui hatano")
@@ -645,6 +777,14 @@ export function castMatchesQuery(castMember: MasterDataItem, query: string): boo
       if (groupInfo.alias && checkReverseName(groupInfo.alias)) return true
     }
   }
+
+  // Apply reverse name search to generation-specific aliases
+  if (castMember.generationData) {
+    for (const generationId in castMember.generationData) {
+      const generationInfo = castMember.generationData[generationId]
+      if (generationInfo.alias && checkReverseName(generationInfo.alias)) return true
+    }
+  }
   
   return false
 }
@@ -664,6 +804,16 @@ export function getAllAliases(castMember: MasterDataItem): string[] {
       const groupInfo = castMember.groupData[groupName]
       if (groupInfo.alias?.trim()) {
         aliases.push(groupInfo.alias.trim())
+      }
+    }
+  }
+
+  // Add generation-specific aliases
+  if (castMember.generationData) {
+    for (const generationId in castMember.generationData) {
+      const generationInfo = castMember.generationData[generationId]
+      if (generationInfo.alias?.trim()) {
+        aliases.push(generationInfo.alias.trim())
       }
     }
   }

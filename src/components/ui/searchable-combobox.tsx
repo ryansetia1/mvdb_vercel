@@ -12,7 +12,7 @@ export interface ComboBoxOption {
 }
 
 interface SearchableComboBoxProps {
-  options: ComboBoxOption[]
+  options?: ComboBoxOption[]
   value?: string
   onValueChange?: (value: string) => void
   placeholder?: string
@@ -24,7 +24,7 @@ interface SearchableComboBoxProps {
 }
 
 export function SearchableComboBox({
-  options,
+  options = [],
   value,
   onValueChange,
   placeholder = "Select option...",
@@ -36,7 +36,7 @@ export function SearchableComboBox({
 }: SearchableComboBoxProps) {
   const [open, setOpen] = React.useState(false)
 
-  const selectedOption = options.find((option) => option.value === value)
+  const selectedOption = options?.find((option) => option.value === value)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -65,7 +65,7 @@ export function SearchableComboBox({
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {options?.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
@@ -102,7 +102,7 @@ export function useComboBoxOptions<T>(
   getSearchTerms?: (item: T) => string[]
 ): ComboBoxOption[] {
   return React.useMemo(() => 
-    items.map(item => ({
+    (items || []).map(item => ({
       value: getValue(item),
       label: getLabel(item),
       searchTerms: getSearchTerms?.(item)

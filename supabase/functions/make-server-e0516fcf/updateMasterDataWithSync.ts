@@ -392,7 +392,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData, generationData } = body
     console.log(`Server: Updating ${type} ${id} with data:`, body)
 
     if (!name?.trim()) {
@@ -504,6 +504,7 @@ export async function updateExtendedMasterDataWithSync(c: Context) {
       groupId: groupId?.trim() || undefined,
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : undefined,
       groupData: groupData || undefined,
+      generationData: generationData || undefined,
       updatedAt: new Date().toISOString()
     }
 

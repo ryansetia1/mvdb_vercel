@@ -49,6 +49,7 @@ export function GroupDetailContent({
   const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [groupMembers, setGroupMembers] = useState<MasterDataItem[]>([])
+  const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [movies, setMovies] = useState<Movie[]>([])
   const [sortBy, setSortBy] = useState('name')
   const [isLoading, setIsLoading] = useState(true)
@@ -57,6 +58,8 @@ export function GroupDetailContent({
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [lightboxTitle, setLightboxTitle] = useState('')
   const [activeTab, setActiveTab] = useState('members')
+  const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
+  const [generationActresses, setGenerationActresses] = useState<MasterDataItem[]>([])
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -117,17 +120,23 @@ export function GroupDetailContent({
         groupName: a.groupName
       })))
       
-      // Use the SAME logic as Edit Group dialog - only check selectedGroups
+      // Use comprehensive logic to check group membership
       const members = actressesWithMovieCount.filter(actress => {
         const hasSelectedGroups = actress.selectedGroups && actress.selectedGroups.includes(group.name)
+        const hasGroupId = actress.groupId === group.id
+        const hasGroupData = actress.groupData && actress.groupData[group.id]
         
-        if (hasSelectedGroups) {
+        const isInGroup = hasSelectedGroups || hasGroupId || hasGroupData
+        
+        if (isInGroup) {
           console.log(`✓ ${actress.name} is in group ${group.name}:`, {
             selectedGroups: actress.selectedGroups,
-            matchType: 'selectedGroups'
+            groupId: actress.groupId,
+            groupData: actress.groupData,
+            matchType: hasSelectedGroups ? 'selectedGroups' : hasGroupId ? 'groupId' : 'groupData'
           })
         }
-        return hasSelectedGroups
+        return isInGroup
       })
       
       console.log('Group members found:', members.length)
@@ -213,11 +222,51 @@ export function GroupDetailContent({
       
       setActresses(actressesWithMovieCount)
       setGroupMembers(members)
+      
+      // Load generations for this group
+      await loadGenerations()
     } catch (error) {
       console.error('Error loading actresses:', error)
       toast.error('Failed to load actresses')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadGenerations = async () => {
+    try {
+      const generationsData = await masterDataApi.getGenerationsByGroup(group.id, accessToken)
+      setGenerations(generationsData)
+      console.log('Loaded generations for group:', group.name, generationsData.length)
+    } catch (error) {
+      console.error('Error loading generations:', error)
+    }
+  }
+
+  const handleGenerationClick = async (generation: MasterDataItem) => {
+    try {
+      setSelectedGenerationId(generation.id)
+      
+      // Use fresh API call like GenerationActressManagement does
+      const allActresses = await masterDataApi.getByType('actress', accessToken)
+      
+      // Filter actresses that are assigned to this group (same logic as GenerationActressManagement)
+      const actressesInGroup = allActresses.filter(actress => {
+        const isInGroup = actress.groupId === group.id || 
+                        (actress.selectedGroups && actress.selectedGroups.includes(group.name)) ||
+                        (actress.groupData && actress.groupData[group.id])
+        return isInGroup
+      })
+      
+      // Filter actresses that have this generation in their generationData
+      const actressesInGeneration = actressesInGroup.filter(actress => {
+        const hasGeneration = actress.generationData && actress.generationData[generation.id]
+        return hasGeneration
+      })
+      
+      setGenerationActresses(actressesInGeneration)
+    } catch (error) {
+      console.error('Error loading generation actresses:', error)
     }
   }
 
@@ -259,6 +308,32 @@ export function GroupDetailContent({
     }
     
     return null
+  }
+
+  const getGenerationProfilePicture = (actress: MasterDataItem, generationId: string) => {
+    // Check generationData for profile picture
+    if (actress.generationData && typeof actress.generationData === 'object') {
+      const generationData = actress.generationData[generationId]
+      if (generationData && generationData.profilePicture) {
+        return generationData.profilePicture
+      }
+    }
+    
+    // Fallback to group profile picture, then regular profile picture
+    return getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+  }
+
+  const getGenerationAlias = (actress: MasterDataItem, generationId: string) => {
+    // Check generationData for alias
+    if (actress.generationData && typeof actress.generationData === 'object') {
+      const generationData = actress.generationData[generationId]
+      if (generationData && generationData.alias) {
+        return generationData.alias
+      }
+    }
+    
+    // Fallback to group alias, then regular name
+    return getGroupAlias(actress, group.name || '') || actress.name
   }
 
   // Filter and sort group members based on search
@@ -456,13 +531,22 @@ export function GroupDetailContent({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Members
             {groupMembers.length > 0 && (
               <Badge variant="secondary" className="ml-1 text-xs">
                 {groupMembers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="generations" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Generations
+            {generations.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {generations.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -743,6 +827,151 @@ export function GroupDetailContent({
           )}
         </TabsContent>
 
+        {/* Generations Tab */}
+        <TabsContent value="generations" className="mt-6">
+          {generations.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No generations yet</h3>
+              <p className="text-muted-foreground">
+                This group doesn't have any generations defined yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {generations.map((generation) => (
+                  <Card 
+                    key={generation.id} 
+                    className={`hover:shadow-md transition-shadow cursor-pointer ${
+                      selectedGenerationId === generation.id ? 'ring-2 ring-primary' : ''
+                    }`}
+                    onClick={() => handleGenerationClick(generation)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {generation.profilePicture ? (
+                          <img
+                            src={generation.profilePicture}
+                            alt={generation.name || 'Generation'}
+                            className="w-12 h-12 rounded-lg object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center ${generation.profilePicture ? 'hidden' : ''}`}>
+                          <Calendar className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-lg truncate">{generation.name}</h4>
+                          {(generation.estimatedYears || generation.startDate || generation.endDate) && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>
+                                {generation.estimatedYears || 
+                                 (generation.startDate && generation.endDate
+                                   ? `${generation.startDate} - ${generation.endDate}`
+                                   : generation.startDate || generation.endDate)}
+                              </span>
+                            </div>
+                          )}
+                          {generation.description && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                              {generation.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Selected Generation Actresses */}
+              {selectedGenerationId && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h4 className="text-lg font-medium">
+                      Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
+                    </h4>
+                    <Badge variant="secondary">
+                      {generationActresses.length} actresses
+                    </Badge>
+                  </div>
+                  
+                  {generationActresses.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <h5 className="font-medium text-gray-900 mb-1">No actresses assigned</h5>
+                      <p className="text-sm text-gray-500">No actresses have been assigned to this generation yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {generationActresses.map((actress) => {
+                        const imageUrl = getGenerationProfilePicture(actress, selectedGenerationId)
+                        const generationAlias = getGenerationAlias(actress, selectedGenerationId)
+                        
+                        return (
+                          <Card 
+                            key={actress.id} 
+                            className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
+                            onClick={() => onProfileSelect('actress', actress.name)}
+                          >
+                            <CardContent className="p-0">
+                              {/* Profile Picture */}
+                              <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
+                                {imageUrl ? (
+                                  <>
+                                    <img
+                                      src={imageUrl}
+                                      alt={generationAlias || actress.name || 'Actress'}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                      }}
+                                    />
+                                    <div className="hidden w-full h-full flex items-center justify-center bg-muted">
+                                      <ImageOff className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                                    <ImageOff className="h-8 w-8 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Actress Info */}
+                              <div className="p-3">
+                                <h4 className="font-medium text-sm truncate">
+                                  {generationAlias || actress.name}
+                                </h4>
+                                {generationAlias && generationAlias !== actress.name && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {actress.name}
+                                  </p>
+                                )}
+                                {actress.birthdate && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {calculateAge(actress.birthdate)} years old
+                                  </p>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
         {/* Gallery Tab */}
         <TabsContent value="gallery" className="mt-6">
           {groupGalleryPhotos.length === 0 ? (
@@ -824,6 +1053,7 @@ export function GroupDetailContent({
           sourceTitle: lightboxTitle
         }}
       />
+
     </div>
   )
 }

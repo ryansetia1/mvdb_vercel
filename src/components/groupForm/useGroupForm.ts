@@ -346,6 +346,7 @@ export function useGroupForm({ accessToken }: UseGroupFormProps) {
         profilePicture: actress.profilePicture || null,
         groupId: actress.groupId || null,
         groupData: actress.groupData || null,
+        generationData: null, // Remove generationData when removing from group
         selectedGroups: updatedGroups.length > 0 ? updatedGroups : null
       }
 

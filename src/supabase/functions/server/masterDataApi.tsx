@@ -138,7 +138,7 @@ export interface MasterDataItem {
   name?: string // For actor, actress, studio, type, tag
   titleEn?: string // For series only
   titleJp?: string // For series only 
-  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group'
+  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation'
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
@@ -156,10 +156,17 @@ export interface MasterDataItem {
   groupName?: string // Denormalized group name for easier display
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
+  generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
   gallery?: string[] // Array of gallery photo URLs for groups
+  // Generation-specific fields (when type = 'generation')
+  groupId?: string // Reference to parent group
+  groupName?: string // Denormalized group name for easier display
+  estimatedYears?: string // Estimated years range (e.g., "2020-2023", "2021-present")
+  startDate?: string // Generation start date
+  endDate?: string // Generation end date (optional)
   // Links for series, studio, and label
   seriesLinks?: string // For series
   studioLinks?: string // For studio
@@ -174,7 +181,7 @@ export async function getMasterData(c: Context) {
     console.log(`Server: Type check - raw type:`, JSON.stringify(type))
     
     // List of valid types
-    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group']
+    const validTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'linklabel', 'group', 'generation']
     console.log(`Server: Valid types:`, validTypes)
     console.log(`Server: Type validation - includes check:`, validTypes.includes(type))
     
@@ -322,13 +329,17 @@ export async function createExtendedMasterData(c: Context) {
       return await createGroupData(c)
     }
     
+    if (type === 'generation') {
+      return await createGenerationData(c)
+    }
+    
     if (!type || !['actor', 'actress', 'director'].includes(type)) {
       console.log(`Server: Invalid type for extended creation: ${type}`)
       return c.json({ error: 'Invalid type parameter' }, 400)
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData } = body
     console.log(`Server: Creating extended ${type} with data:`, body)
 
     if (!name?.trim()) {
@@ -430,7 +441,8 @@ export async function createExtendedMasterData(c: Context) {
       photo: finalPhotoArray,
       profilePicture: finalProfilePicture,
       groupId: groupId?.trim() || undefined,
-      selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : undefined
+      selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : undefined,
+      generationData: generationData || undefined
     }
 
     console.log('Server: New item before saving:', JSON.stringify(newItem, null, 2))
@@ -877,13 +889,17 @@ export async function updateExtendedMasterData(c: Context) {
       return await updateGroupData(c)
     }
     
+    if (type === 'generation') {
+      return await updateGenerationData(c)
+    }
+    
     if (!type || !['actor', 'actress', 'director'].includes(type)) {
       console.log(`Server: Invalid type for extended update: ${type}`)
       return c.json({ error: 'Invalid type parameter' }, 400)
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData } = body
     console.log(`Server: Updating extended ${type} with data:`, body)
 
     if (!name?.trim()) {
@@ -998,6 +1014,7 @@ export async function updateExtendedMasterData(c: Context) {
       profilePicture: finalProfilePicture,
       groupId: groupId?.trim() || (groupId === null || groupId === '' ? undefined : existingItem.groupId),
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : (selectedGroups === null || (Array.isArray(selectedGroups) && selectedGroups.length === 0) ? undefined : existingItem.selectedGroups),
+      generationData: generationData !== undefined ? generationData : existingItem.generationData,
       updatedAt: new Date().toISOString()
     }
 
@@ -1335,6 +1352,164 @@ export async function updateGroupData(c: Context) {
   }
 }
 
+// Create generation data 
+export async function createGenerationData(c: Context) {
+  try {
+    console.log('Server: Creating generation data')
+    const body = await c.req.json()
+    const { name, groupId, groupName, estimatedYears, startDate, endDate, description, profilePicture } = body
+    console.log('Server: Generation data:', body)
+
+    if (!name?.trim()) {
+      return c.json({ error: 'Generation name is required' }, 400)
+    }
+
+    if (!groupId?.trim()) {
+      return c.json({ error: 'Group ID is required' }, 400)
+    }
+
+    // Check if generation already exists within the same group
+    console.log(`Server: Checking for existing generation with name: "${name}" in group: "${groupId}"`)
+    const existingData = await kv.getByPrefix(`master_generation_`)
+    console.log(`Server: Found ${existingData.length} existing generation items`)
+    
+    const existingItem = existingData.find(item => {
+      try {
+        const parsed = JSON.parse(item.value)
+        const existingName = parsed.name?.toLowerCase()?.trim()
+        const existingGroupId = parsed.groupId
+        const newName = name.toLowerCase().trim()
+        console.log(`Server: Comparing generation - existing: "${existingName}" in group "${existingGroupId}" with new: "${newName}" in group "${groupId}"`)
+        
+        const isExactMatch = existingName === newName && existingGroupId === groupId
+        if (isExactMatch) {
+          console.log(`Server: Exact match found in generation: "${existingName}" === "${newName}" in same group`)
+        }
+        return isExactMatch
+      } catch (parseError) {
+        console.error('Server: Error parsing existing generation for duplicate check:', parseError)
+        return false
+      }
+    })
+
+    if (existingItem) {
+      const parsedExisting = JSON.parse(existingItem.value)
+      console.log(`Server: Duplicate generation found: "${name}" in group "${groupId}" (ID: ${parsedExisting.id})`)
+      return c.json({ 
+        error: 'Generation with this name already exists in this group',
+        details: `A generation named "${name}" already exists in this group with ID: ${parsedExisting.id}`
+      }, 400)
+    }
+    
+    console.log(`Server: No duplicate generation found for "${name}" in group "${groupId}" - safe to create`)
+
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newItem: MasterDataItem = {
+      id,
+      name: name.trim(),
+      type: 'generation',
+      createdAt: new Date().toISOString(),
+      groupId: groupId.trim(),
+      groupName: groupName?.trim() || undefined,
+      estimatedYears: estimatedYears?.trim() || undefined,
+      startDate: startDate?.trim() || undefined,
+      endDate: endDate?.trim() || undefined,
+      description: description?.trim() || undefined,
+      profilePicture: profilePicture?.trim() || undefined
+    }
+
+    console.log(`Server: Saving generation with ID: ${id}`)
+    await kv.set(`master_generation_${id}`, JSON.stringify(newItem))
+    
+    console.log('Server: Successfully created generation:', newItem)
+    return c.json({ data: newItem })
+  } catch (error) {
+    console.error('Server: Create generation data error:', error)
+    return c.json({ 
+      error: `Failed to create generation data: ${error.message}`,
+      details: error?.stack
+    }, 500)
+  }
+}
+
+// Update generation data
+export async function updateGenerationData(c: Context) {
+  try {
+    const id = c.req.param('id')
+    console.log('Server: Updating generation data with ID:', id)
+    
+    const body = await c.req.json()
+    const { name, groupId, groupName, estimatedYears, startDate, endDate, description, profilePicture } = body
+    console.log('Server: Generation update data:', body)
+
+    if (!name?.trim()) {
+      return c.json({ error: 'Generation name is required' }, 400)
+    }
+
+    if (!groupId?.trim()) {
+      return c.json({ error: 'Group ID is required' }, 400)
+    }
+
+    // Get existing item
+    const existingData = await kv.get(`master_generation_${id}`)
+    if (!existingData) {
+      return c.json({ error: 'Generation not found' }, 404)
+    }
+
+    const existingItem = JSON.parse(existingData)
+
+    // Check for duplicates (exclude current item)
+    const allItems = await kv.getByPrefix(`master_generation_`)
+    const duplicateItem = allItems.find(item => {
+      try {
+        const parsed = JSON.parse(item.value)
+        if (parsed.id === id) return false
+        
+        const existingName = parsed.name?.toLowerCase()?.trim()
+        const existingGroupId = parsed.groupId
+        const newName = name.toLowerCase().trim()
+        
+        return existingName === newName && existingGroupId === groupId
+      } catch (parseError) {
+        console.error('Server: Error parsing generation for duplicate check:', parseError)
+        return false
+      }
+    })
+
+    if (duplicateItem) {
+      const parsedDuplicate = JSON.parse(duplicateItem.value)
+      return c.json({ 
+        error: 'Generation with this name already exists in this group',
+        details: `A generation named "${name}" already exists in this group with ID: ${parsedDuplicate.id}`
+      }, 400)
+    }
+
+    const updatedItem = {
+      ...existingItem,
+      name: name.trim(),
+      groupId: groupId.trim(),
+      groupName: groupName?.trim() || undefined,
+      estimatedYears: estimatedYears?.trim() || undefined,
+      startDate: startDate?.trim() || undefined,
+      endDate: endDate?.trim() || undefined,
+      description: description?.trim() || undefined,
+      profilePicture: profilePicture?.trim() || undefined,
+      updatedAt: new Date().toISOString()
+    }
+
+    await kv.set(`master_generation_${id}`, JSON.stringify(updatedItem))
+    
+    console.log('Server: Successfully updated generation:', updatedItem)
+    return c.json({ data: updatedItem })
+  } catch (error) {
+    console.error('Server: Update generation data error:', error)
+    return c.json({ 
+      error: `Failed to update generation data: ${error.message}`,
+      details: error?.stack
+    }, 500)
+  }
+}
+
 // Delete master data item
 export async function deleteMasterData(c: Context) {
   try {
@@ -1586,7 +1761,7 @@ export async function updateExtendedWithSync(c: Context) {
     const id = c.req.param('id')
     console.log(`Server: Updating extended ${type} with sync - ID: ${id}`)
     
-    const validTypesWithSync = ['actor', 'actress', 'director', 'series', 'studio', 'label', 'group']
+    const validTypesWithSync = ['actor', 'actress', 'director', 'series', 'studio', 'label', 'group', 'generation']
     
     if (!type || !validTypesWithSync.includes(type)) {
       console.log(`Server: Invalid type for extended update with sync: ${type}`)
@@ -1617,6 +1792,8 @@ export async function updateExtendedWithSync(c: Context) {
       updatedResult = await updateLabelData(c)
     } else if (type === 'group') {
       updatedResult = await updateGroupData(c)
+    } else if (type === 'generation') {
+      updatedResult = await updateGenerationData(c)
     } else {
       updatedResult = await updateExtendedMasterData(c)
     }

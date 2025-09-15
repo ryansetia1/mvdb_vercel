@@ -12,6 +12,7 @@ import { MasterDataItem } from '../../utils/masterDataApi'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { GROUP_FORM_CONSTANTS } from './constants'
 import { GalleryUrlManager } from './GalleryUrlManager'
+import { GenerationManagement } from '../GenerationManagement'
 
 interface GroupFormDialogProps {
   open: boolean
@@ -103,9 +104,10 @@ export function GroupFormDialog({
 
         <form onSubmit={onSubmit} className="w-full">
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="info">Group Info</TabsTrigger>
               <TabsTrigger value="gallery">Gallery</TabsTrigger>
+              <TabsTrigger value="generations">Generations</TabsTrigger>
               <TabsTrigger value="actresses">Manage Actresses</TabsTrigger>
             </TabsList>
 
@@ -246,6 +248,44 @@ export function GroupFormDialog({
                       console.log('Gallery tab submit - Form data:', formData)
                       console.log('Gallery data specifically:', formData.gallery)
                     }}
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : null}
+                    {editingGroup ? 'Update Group' : 'Create Group'}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="generations" className="space-y-4 mt-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Group Generations</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Manage generations within this group. Each generation can have different actresses with unique aliases and profile pictures.
+                  </p>
+                </div>
+                
+                <GenerationManagement 
+                  groupId={editingGroup?.id}
+                  groupName={editingGroup?.name}
+                  accessToken={accessToken}
+                />
+
+                {/* Actions for Generations Tab */}
+                <div className="flex gap-2 justify-end pt-4 border-t">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => onOpenChange(false)}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

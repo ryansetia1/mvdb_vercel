@@ -173,19 +173,27 @@ export function ActressesContent({
       {/* Actresses Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {paginatedActresses.map((actress) => {
-          // Get profile picture URL
+          // Get profile picture URL - prioritize generation-specific profile picture
           let imageUrl = null
           
-          // Priority 1: profilePicture (main image)
-          if (actress.profilePicture?.trim()) {
+          // Priority 1: Generation-specific profile picture
+          if (actress.generationData && Object.keys(actress.generationData).length > 0) {
+            const firstGenerationData = Object.values(actress.generationData)[0] as any
+            if (firstGenerationData?.profilePicture?.trim()) {
+              imageUrl = firstGenerationData.profilePicture.trim()
+            }
+          }
+          
+          // Priority 2: profilePicture (main image)
+          if (!imageUrl && actress.profilePicture?.trim()) {
             imageUrl = actress.profilePicture.trim()
           }
-          // Priority 2: photoUrl for backward compatibility
-          else if (actress.photoUrl?.trim()) {
+          // Priority 3: photoUrl for backward compatibility
+          else if (!imageUrl && actress.photoUrl?.trim()) {
             imageUrl = actress.photoUrl.trim()
           }
-          // Priority 3: First photo from photo array if no profilePicture
-          else if (actress.photo && Array.isArray(actress.photo) && actress.photo.length > 0) {
+          // Priority 4: First photo from photo array if no profilePicture
+          else if (!imageUrl && actress.photo && Array.isArray(actress.photo) && actress.photo.length > 0) {
             const firstValidPhoto = actress.photo.find(photo => 
               typeof photo === 'string' && photo.trim()
             )
@@ -284,6 +292,24 @@ export function ActressesContent({
                     <p className="text-xs text-muted-foreground">
                       🎬 {actress.movieCount} movies
                     </p>
+                  )}
+
+                  {/* Generation information */}
+                  {actress.generationData && Object.keys(actress.generationData).length > 0 && (
+                    <div className="space-y-1">
+                      {Object.entries(actress.generationData).map(([generationId, generationInfo]) => (
+                        <div key={generationId} className="flex items-center gap-1">
+                          <span className="text-xs text-blue-600 font-medium">
+                            {generationInfo.alias || actress.name}
+                          </span>
+                          {generationInfo.alias && generationInfo.alias !== actress.name && (
+                            <span className="text-xs text-muted-foreground">
+                              ({actress.name})
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                   
                   {/* Photo count */}
