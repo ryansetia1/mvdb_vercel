@@ -12,7 +12,7 @@ export interface ComboBoxOption {
 }
 
 interface SearchableComboBoxProps {
-  options: ComboBoxOption[]
+  options?: ComboBoxOption[]
   value?: string
   onValueChange?: (value: string) => void
   placeholder?: string
@@ -23,8 +23,48 @@ interface SearchableComboBoxProps {
   triggerClassName?: string
 }
 
+// Custom filtering function that prioritizes exact matches and sorts by relevance
+function filterAndSortOptions(options: ComboBoxOption[], searchValue: string): ComboBoxOption[] {
+  if (!searchValue.trim()) {
+    return options
+  }
+
+  const searchLower = searchValue.toLowerCase().trim()
+  
+  return options
+    .map(option => {
+      const labelLower = option.label.toLowerCase()
+      const searchTermsLower = (option.searchTerms || []).map(term => term.toLowerCase())
+      
+      // Calculate relevance score
+      let score = 0
+      
+      // Exact match gets highest score
+      if (labelLower === searchLower) {
+        score = 1000
+      }
+      // Starts with search term gets high score
+      else if (labelLower.startsWith(searchLower)) {
+        score = 500
+      }
+      // Contains search term gets medium score
+      else if (labelLower.includes(searchLower)) {
+        score = 100
+      }
+      // Search terms match gets lower score
+      else if (searchTermsLower.some(term => term.includes(searchLower))) {
+        score = 50
+      }
+      
+      return { option, score }
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ option }) => option)
+}
+
 export function SearchableComboBox({
-  options,
+  options = [],
   value,
   onValueChange,
   placeholder = "Select option...",
@@ -35,11 +75,31 @@ export function SearchableComboBox({
   triggerClassName
 }: SearchableComboBoxProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState("")
 
-  const selectedOption = options.find((option) => option.value === value)
+  const selectedOption = options?.find((option) => option.value === value)
+  
+  // Filter and sort options based on search value
+  const filteredOptions = React.useMemo(() => {
+    return filterAndSortOptions(options, searchValue)
+  }, [options, searchValue])
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (!newOpen) {
+      setSearchValue("")
+    }
+  }
+
+  const handleSelect = (selectedValue: string) => {
+    const newValue = selectedValue === value ? "" : selectedValue
+    onValueChange?.(newValue)
+    setOpen(false)
+    setSearchValue("")
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -57,25 +117,21 @@ export function SearchableComboBox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn("w-full p-0", className)} align="start">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder} 
             className="h-9"
+            value={searchValue}
+            onValueChange={setSearchValue}
           />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={(currentValue) => {
-                    const selectedValue = currentValue === value ? "" : currentValue
-                    onValueChange?.(selectedValue)
-                    setOpen(false)
-                  }}
-                  // Add search terms for better matching
-                  keywords={[option.label, ...(option.searchTerms || [])]}
+                  onSelect={handleSelect}
                 >
                   <Check
                     className={cn(
@@ -102,7 +158,7 @@ export function useComboBoxOptions<T>(
   getSearchTerms?: (item: T) => string[]
 ): ComboBoxOption[] {
   return React.useMemo(() => 
-    items.map(item => ({
+    (items || []).map(item => ({
       value: getValue(item),
       label: getLabel(item),
       searchTerms: getSearchTerms?.(item)

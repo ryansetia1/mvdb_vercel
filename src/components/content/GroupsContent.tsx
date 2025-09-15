@@ -430,15 +430,24 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   }
 
   const getGroupActressCount = (groupName: string) => {
-    return actresses.filter(actress => 
-      actress.selectedGroups && actress.selectedGroups.includes(groupName)
-    ).length
+    return actresses.filter(actress => {
+      // Use same logic as GroupDetailContent for consistency
+      // Check both groupId (for ID matching) and selectedGroups (for name matching)
+      const isInGroup = actress.groupId === groupName || 
+                       (actress.selectedGroups && actress.selectedGroups.includes(groupName)) ||
+                       (actress.groupData && actress.groupData[groupName])
+      return isInGroup
+    }).length
   }
 
   const handleGroupClick = (group: MasterDataItem) => {
-    const members = actresses.filter(actress => 
-      actress.selectedGroups && actress.selectedGroups.includes(group.name)
-    )
+    const members = actresses.filter(actress => {
+      // Use same logic as GroupDetailContent for consistency
+      const isInGroup = actress.groupId === group.name || 
+                       (actress.selectedGroups && actress.selectedGroups.includes(group.name)) ||
+                       (actress.groupData && actress.groupData[group.name])
+      return isInGroup
+    })
     
     // Debug logging to check data structure
     console.log('Group clicked:', group.name)

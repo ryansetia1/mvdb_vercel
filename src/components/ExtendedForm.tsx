@@ -293,7 +293,14 @@ export function ExtendedForm({ type, accessToken, data, onDataChange, initialEdi
       let result
       if (editingId) {
         console.log('Updating actor/actress:', editingId)
-        result = await masterDataApi.updateExtended(type, editingId, submitData, accessToken)
+        // Find the original item to preserve generationData
+        const originalItem = data.find(item => item.id === editingId)
+        const updateData = {
+          ...submitData,
+          // Preserve generationData to prevent losing generation assignments
+          generationData: originalItem?.generationData
+        }
+        result = await masterDataApi.updateExtended(type, editingId, updateData, accessToken)
         onDataChange(data.map(item => item.id === editingId ? result : item))
       } else {
         console.log('Creating new actor/actress')

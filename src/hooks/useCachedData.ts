@@ -113,7 +113,9 @@ function saveToLocalStorage(cache: CacheState): void {
           selectedGroups: actress.selectedGroups, // Keep selectedGroups for group functionality
           groupId: actress.groupId, // Keep legacy groupId
           groupName: actress.groupName, // Keep groupName
-          groupData: actress.groupData // Keep groupData for group-specific info
+          groupData: actress.groupData, // Keep groupData for group-specific info
+          generationData: actress.generationData, // Keep generationData for generation functionality
+          lineupData: actress.lineupData // Keep lineupData for lineup functionality
           // Remove large fields like photos, etc. but keep all group-related fields
         }))
       }

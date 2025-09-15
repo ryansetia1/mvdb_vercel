@@ -126,6 +126,10 @@ interface FormData {
   selectedGroups: string[] // For multiple group assignments (group names)
   groupProfilePictures: { [groupName: string]: string } // Group-specific profile pictures
   groupAliases: { [groupName: string]: string } // Group-specific aliases/stage names
+  groupSameAsName: { [groupName: string]: boolean } // Checkbox for "Same as Name"
+  selectedLineups: string[] // For multiple lineup assignments (lineup IDs)
+  lineupProfilePictures: { [lineupId: string]: string } // Lineup-specific profile pictures
+  lineupAliases: { [lineupId: string]: string } // Lineup-specific aliases/stage names
 }
 
 const initialFormData: FormData = {
@@ -141,14 +145,20 @@ const initialFormData: FormData = {
   takulinks: [''],
   selectedGroups: [],
   groupProfilePictures: {},
-  groupAliases: {}
+  groupAliases: {},
+  groupSameAsName: {},
+  selectedLineups: [],
+  lineupProfilePictures: {},
+  lineupAliases: {}
 }
 
 export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: ActorFormProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [groups, setGroups] = useState<MasterDataItem[]>([]) // Available groups for actresses
+  const [lineups, setLineups] = useState<MasterDataItem[]>([]) // Available lineups for actresses
   const [hasUserChangedGroups, setHasUserChangedGroups] = useState(false) // Track if user manually changed groups
   const [showImageSearch, setShowImageSearch] = useState(false) // Control image search iframe visibility
   const [autoSearchImage, setAutoSearchImage] = useState(false) // Control auto search trigger
@@ -281,14 +291,70 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }, [groups, initialData, type, hasUserChangedGroups, JSON.stringify(formData.selectedGroups)])
 
+  // Update selectedLineups when lineups are loaded and we have initial data
+  useEffect(() => {
+    if (initialData && lineups.length > 0 && type === 'actress') {
+      console.log('=== ActorForm: Syncing lineups ===')
+      console.log('Initial data lineupData:', initialData.lineupData)
+      console.log('Available lineups:', lineups.map(l => ({ id: l.id, name: l.name })))
+      
+      // Determine selectedLineups from lineupData
+      let assignedLineups: string[] = []
+      let lineupProfilePictures: { [lineupId: string]: string } = {}
+      let lineupAliases: { [lineupId: string]: string } = {}
+      
+      if (initialData.lineupData && typeof initialData.lineupData === 'object') {
+        Object.entries(initialData.lineupData).forEach(([lineupId, data]: [string, any]) => {
+          const lineupExists = lineups.find(l => l.id === lineupId)
+          if (lineupExists) {
+            assignedLineups.push(lineupId)
+            console.log('ActorForm: Found lineup by id:', lineupId, lineupExists.name)
+            
+            if (data && typeof data === 'object') {
+              if (data.profilePicture) {
+                lineupProfilePictures[lineupId] = data.profilePicture
+                console.log('ActorForm: Loaded lineup profile picture for', lineupId, ':', data.profilePicture)
+              }
+              if (data.alias) {
+                lineupAliases[lineupId] = data.alias
+                console.log('ActorForm: Loaded lineup alias for', lineupId, ':', data.alias)
+              }
+            }
+          } else {
+            console.log('ActorForm: Lineup not found by id:', lineupId)
+          }
+        })
+      }
+      
+      console.log('ActorForm: Final assignedLineups:', assignedLineups)
+      console.log('ActorForm: Final lineupProfilePictures:', lineupProfilePictures)
+      console.log('ActorForm: Final lineupAliases:', lineupAliases)
+      
+      setFormData(prev => ({
+        ...prev,
+        selectedLineups: assignedLineups,
+        lineupProfilePictures,
+        lineupAliases
+      }))
+    }
+  }, [initialData, lineups, type])
+
   const loadGroups = async () => {
     try {
-      console.log('ActorForm: Loading groups...')
-      const groupsData = await masterDataApi.getByType('group', accessToken)
+      console.log('ActorForm: Loading groups, generations, and lineups...')
+      const [groupsData, generationsData, lineupsData] = await Promise.all([
+        masterDataApi.getByType('group', accessToken),
+        masterDataApi.getByType('generation', accessToken),
+        masterDataApi.getByType('lineup', accessToken)
+      ])
       console.log('ActorForm: Loaded groups:', groupsData?.map(g => ({ id: g.id, name: g.name })))
+      console.log('ActorForm: Loaded generations:', generationsData?.map(g => ({ id: g.id, name: g.name, groupId: g.groupId })))
+      console.log('ActorForm: Loaded lineups:', lineupsData?.map(l => ({ id: l.id, name: l.name, generationId: l.generationId })))
       setGroups(groupsData || [])
+      setGenerations(generationsData || [])
+      setLineups(lineupsData || [])
     } catch (err) {
-      console.error('Error loading groups:', err)
+      console.error('Error loading groups and generations:', err)
     }
   }
 
@@ -724,6 +790,54 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     setHasUserChangedGroups(true)
   }
 
+  const handleLineupToggle = (lineupId: string, isChecked: boolean) => {
+    let newSelectedLineups: string[]
+    let newLineupProfilePictures = { ...formData.lineupProfilePictures }
+    
+    if (isChecked) {
+      newSelectedLineups = [...formData.selectedLineups, lineupId]
+      // Initialize empty profile picture and alias for new lineup
+      if (!newLineupProfilePictures[lineupId]) {
+        newLineupProfilePictures[lineupId] = ''
+      }
+      let newLineupAliases = { ...formData.lineupAliases }
+      if (!newLineupAliases[lineupId]) {
+        newLineupAliases[lineupId] = ''
+      }
+      setFormData(prev => ({
+        ...prev,
+        selectedLineups: newSelectedLineups,
+        lineupProfilePictures: newLineupProfilePictures,
+        lineupAliases: newLineupAliases
+      }))
+      
+      const lineup = lineups.find(l => l.id === lineupId)
+      toast.success(`Lineup "${lineup?.name}" ditambahkan`)
+    } else {
+      newSelectedLineups = (formData.selectedLineups || []).filter(l => l !== lineupId)
+      // Remove profile picture and alias for deselected lineup
+      delete newLineupProfilePictures[lineupId]
+      let newLineupAliases = { ...formData.lineupAliases }
+      delete newLineupAliases[lineupId]
+      // Clear any errors for this lineup
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[`lineupProfilePicture_${lineupId}`]
+        delete newErrors[`lineupAlias_${lineupId}`]
+        return newErrors
+      })
+      setFormData(prev => ({
+        ...prev,
+        selectedLineups: newSelectedLineups,
+        lineupProfilePictures: newLineupProfilePictures,
+        lineupAliases: newLineupAliases
+      }))
+      
+      const lineup = lineups.find(l => l.id === lineupId)
+      toast.success(`Lineup "${lineup?.name}" dihapus`)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('ActorForm: handleSubmit called')
     e.preventDefault()
@@ -770,31 +884,60 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         selectedGroups = formData.selectedGroups
         console.log('ActorForm: Setting selectedGroups for submission:', selectedGroups)
         
-        // Build groupData with profile pictures and aliases
-        groupData = {}
-        formData.selectedGroups.forEach(groupName => {
-          const groupProfilePic = formData.groupProfilePictures[groupName]
-          const groupAlias = formData.groupAliases[groupName]
-          
-          if ((groupProfilePic && groupProfilePic.trim()) || (groupAlias && groupAlias.trim())) {
-            groupData![groupName] = {}
-            
-            if (groupProfilePic && groupProfilePic.trim()) {
-              groupData![groupName].profilePicture = groupProfilePic.trim()
-              console.log('ActorForm: Setting group profile picture for', groupName, ':', groupProfilePic)
-            }
-            
-            if (groupAlias && groupAlias.trim()) {
-              groupData![groupName].alias = groupAlias.trim()
-              console.log('ActorForm: Setting group alias for', groupName, ':', groupAlias)
-            }
-          }
-        })
+      // Build groupData with profile pictures and aliases
+      groupData = {}
+      formData.selectedGroups.forEach(groupName => {
+        const groupProfilePic = formData.groupProfilePictures[groupName]
+        const groupAlias = formData.groupAliases[groupName]
         
-        // If no group profile pictures, don't include groupData
-        if (Object.keys(groupData).length === 0) {
-          groupData = undefined
+        if ((groupProfilePic && groupProfilePic.trim()) || (groupAlias && groupAlias.trim())) {
+          groupData![groupName] = {}
+          
+          if (groupProfilePic && groupProfilePic.trim()) {
+            groupData![groupName].profilePicture = groupProfilePic.trim()
+            console.log('ActorForm: Setting group profile picture for', groupName, ':', groupProfilePic)
+          }
+          
+          if (groupAlias && groupAlias.trim()) {
+            groupData![groupName].alias = groupAlias.trim()
+            console.log('ActorForm: Setting group alias for', groupName, ':', groupAlias)
+          }
         }
+      })
+      
+      // If no group profile pictures, don't include groupData
+      if (Object.keys(groupData).length === 0) {
+        groupData = undefined
+      }
+    }
+
+    // Build lineupData with profile pictures and aliases
+    let lineupData: { [lineupId: string]: any } | undefined = undefined
+    if (type === 'actress' && (formData.selectedLineups || []).length > 0) {
+      lineupData = {}
+      (formData.selectedLineups || []).forEach(lineupId => {
+        const lineupProfilePic = formData.lineupProfilePictures[lineupId]
+        const lineupAlias = formData.lineupAliases[lineupId]
+        
+        if ((lineupProfilePic && lineupProfilePic.trim()) || (lineupAlias && lineupAlias.trim())) {
+          lineupData![lineupId] = {}
+          
+          if (lineupProfilePic && lineupProfilePic.trim()) {
+            lineupData![lineupId].profilePicture = lineupProfilePic.trim()
+            console.log('ActorForm: Setting lineup profile picture for', lineupId, ':', lineupProfilePic)
+          }
+          
+          if (lineupAlias && lineupAlias.trim()) {
+            lineupData![lineupId].alias = lineupAlias.trim()
+            console.log('ActorForm: Setting lineup alias for', lineupId, ':', lineupAlias)
+          }
+        }
+      })
+      
+      // If no lineup profile pictures, don't include lineupData
+      if (Object.keys(lineupData).length === 0) {
+        lineupData = undefined
+      }
       }
 
       // Normalize Japanese names to avoid redundancy
@@ -819,6 +962,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         // Group assignment for actresses
         selectedGroups: selectedGroups,
         groupData: groupData,
+        lineupData: lineupData,
         // Keep legacy groupId for backward compatibility (use first group if any)
         groupId: type === 'actress' && selectedGroups && selectedGroups.length > 0 ? 
           groups.find(g => g.name === selectedGroups[0])?.id : undefined
@@ -839,7 +983,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           // Preserve other fields that should not be overwritten
           createdAt: initialData.createdAt,
           id: initialData.id,
-          type: initialData.type
+          type: initialData.type,
+          // Preserve generationData to prevent losing generation assignments
+          generationData: initialData.generationData
         }
         
         // Explicitly handle field removal - if form has empty pictures, remove old ones
@@ -1602,6 +1748,60 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                 <Label htmlFor={`group-pic-${groupName}`}>
                                   Profile Picture
                                 </Label>
+                                
+                                {/* Generation Photo Selector */}
+                                {(() => {
+                                  const groupGenerations = generations.filter(g => g.groupId === groups.find(gr => gr.name === groupName)?.id)
+                                  
+                                  // Check if current actress has photos in any generation of this group
+                                  const currentActressHasPhotos = groupGenerations.some(generation => {
+                                    return initialData?.generationData?.[generation.id]?.profilePicture
+                                  })
+                                  
+                                  return currentActressHasPhotos ? (
+                                    <div className="space-y-2">
+                                      <Select
+                                        value=""
+                                        onValueChange={(generationId) => {
+                                          const generationPhoto = initialData?.generationData?.[generationId]?.profilePicture
+                                          
+                                          if (generationPhoto) {
+                                            setFormData(prev => ({
+                                              ...prev,
+                                              groupProfilePictures: {
+                                                ...prev.groupProfilePictures,
+                                                [groupName]: generationPhoto
+                                              }
+                                            }))
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue placeholder="Select photo from generation..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {groupGenerations.map((generation) => {
+                                            const generationPhoto = initialData?.generationData?.[generation.id]?.profilePicture
+                                            
+                                            return generationPhoto ? (
+                                              <SelectItem key={generation.id} value={generation.id}>
+                                                <div className="flex items-center gap-2">
+                                                  <img
+                                                    src={generationPhoto}
+                                                    alt={`${initialData?.name || 'Actress'} in ${generation.name}`}
+                                                    className="w-6 h-6 rounded object-cover"
+                                                  />
+                                                  <span>{initialData?.name || 'Actress'} ({generation.name})</span>
+                                                </div>
+                                              </SelectItem>
+                                            ) : null
+                                          })}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  ) : null
+                                })()}
+                                
                                 <div className="flex gap-2 items-start">
                                   <div className="flex-1 space-y-1">
                                     <Input
@@ -1643,6 +1843,31 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                 <Label htmlFor={`group-alias-${groupName}`}>
                                   Alias/Stage Name in {groupName}
                                 </Label>
+                                
+                                {/* Same as Name Checkbox */}
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`same-as-name-${groupName}`}
+                                    checked={formData.groupSameAsName?.[groupName] || false}
+                                    onCheckedChange={(checked) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        groupSameAsName: {
+                                          ...(prev.groupSameAsName || {}),
+                                          [groupName]: checked as boolean
+                                        },
+                                        groupAliases: {
+                                          ...prev.groupAliases,
+                                          [groupName]: checked ? formData.name : ''
+                                        }
+                                      }))
+                                    }}
+                                  />
+                                  <Label htmlFor={`same-as-name-${groupName}`} className="text-sm font-normal">
+                                    Same as Name
+                                  </Label>
+                                </div>
+                                
                                 <Input
                                   id={`group-alias-${groupName}`}
                                   value={formData.groupAliases[groupName] || ''}
@@ -1652,6 +1877,10 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                       groupAliases: {
                                         ...prev.groupAliases,
                                         [groupName]: e.target.value
+                                      },
+                                      groupSameAsName: {
+                                        ...(prev.groupSameAsName || {}),
+                                        [groupName]: false // Uncheck when manually typing
                                       }
                                     }))
                                     // Clear related error
@@ -1661,6 +1890,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                                   }}
                                   placeholder={`Nama khusus untuk ${groupName}`}
                                   className={`text-sm ${errors[`groupAlias_${groupName}`] ? 'border-destructive' : ''}`}
+                                  disabled={formData.groupSameAsName?.[groupName] || false}
                                 />
                                 {errors[`groupAlias_${groupName}`] && (
                                   <p className="text-sm text-destructive">{errors[`groupAlias_${groupName}`]}</p>
@@ -1675,6 +1905,125 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       </div>
                     </div>
                   )}
+
+                  {/* Lineup Assignment */}
+                  {lineups.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Lineup Assignment
+                      </h4>
+                      <div className="space-y-2">
+                        {lineups.map((lineup) => (
+                          <div key={lineup.id} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`lineup-${lineup.id}`}
+                              checked={(formData.selectedLineups || []).includes(lineup.id)}
+                              onChange={(e) => handleLineupToggle(lineup.id, e.target.checked)}
+                              className="rounded border-border"
+                            />
+                            <Label 
+                              htmlFor={`lineup-${lineup.id}`} 
+                              className="text-sm cursor-pointer flex-1"
+                            >
+                              {lineup.name} ({lineup.lineupType || 'Main'})
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Display selected lineups */}
+                      {(formData.selectedLineups || []).length > 0 && (
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          Assigned to {(formData.selectedLineups || []).length} lineup(s): {(formData.selectedLineups || []).map(id => lineups.find(l => l.id === id)?.name).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Lineup-Specific Settings */}
+                  {(formData.selectedLineups || []).length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        Lineup-Specific Settings
+                      </h4>
+                      <div className="space-y-4">
+                        {(formData.selectedLineups || []).map((lineupId) => {
+                          const lineup = lineups.find(l => l.id === lineupId)
+                          return (
+                            <div key={lineupId} className="p-4 border rounded-lg bg-muted/10">
+                              <h5 className="font-medium mb-3">{lineup?.name} ({lineup?.lineupType || 'Main'})</h5>
+                              <div className="space-y-3">
+                                {/* Lineup Profile Picture */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`lineup-pic-${lineupId}`}>
+                                    Profile Picture
+                                  </Label>
+                                  <Input
+                                    id={`lineup-pic-${lineupId}`}
+                                    value={formData.lineupProfilePictures[lineupId] || ''}
+                                    onChange={(e) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        lineupProfilePictures: {
+                                          ...prev.lineupProfilePictures,
+                                          [lineupId]: e.target.value
+                                        }
+                                      }))
+                                      // Clear related error
+                                      if (errors[`lineupProfilePicture_${lineupId}`]) {
+                                        setErrors(prev => ({ ...prev, [`lineupProfilePicture_${lineupId}`]: '' }))
+                                      }
+                                    }}
+                                    placeholder="URL foto profil khusus untuk lineup ini"
+                                    className={`text-sm ${errors[`lineupProfilePicture_${lineupId}`] ? 'border-destructive' : ''}`}
+                                  />
+                                  {errors[`lineupProfilePicture_${lineupId}`] && (
+                                    <p className="text-sm text-destructive">{errors[`lineupProfilePicture_${lineupId}`]}</p>
+                                  )}
+                                </div>
+
+                                {/* Lineup Alias */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`lineup-alias-${lineupId}`}>
+                                    Alias/Stage Name
+                                  </Label>
+                                  <Input
+                                    id={`lineup-alias-${lineupId}`}
+                                    value={formData.lineupAliases[lineupId] || ''}
+                                    onChange={(e) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        lineupAliases: {
+                                          ...prev.lineupAliases,
+                                          [lineupId]: e.target.value
+                                        }
+                                      }))
+                                      // Clear related error
+                                      if (errors[`lineupAlias_${lineupId}`]) {
+                                        setErrors(prev => ({ ...prev, [`lineupAlias_${lineupId}`]: '' }))
+                                      }
+                                    }}
+                                    placeholder={`Nama khusus untuk lineup ${lineup?.name}`}
+                                    className={`text-sm ${errors[`lineupAlias_${lineupId}`] ? 'border-destructive' : ''}`}
+                                  />
+                                  {errors[`lineupAlias_${lineupId}`] && (
+                                    <p className="text-sm text-destructive">{errors[`lineupAlias_${lineupId}`]}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                        💡 <strong>Tip:</strong> Lineup profile pictures dan alias akan digunakan khusus untuk konteks lineup tersebut. Ini memungkinkan aktris memiliki identitas yang berbeda di setiap lineup.
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Debug info */}
                   {initialData && type === 'actress' && (
@@ -1683,7 +2032,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                       selectedGroups: {JSON.stringify(initialData.selectedGroups)}<br/>
                       legacy groupId: {initialData.groupId || 'none'}<br/>
                       current selectedGroups: {JSON.stringify(formData.selectedGroups)}<br/>
-                      groupProfilePictures: {JSON.stringify(formData.groupProfilePictures)}
+                      groupProfilePictures: {JSON.stringify(formData.groupProfilePictures)}<br/>
+                      selectedLineups: {JSON.stringify(formData.selectedLineups)}<br/>
+                      lineupProfilePictures: {JSON.stringify(formData.lineupProfilePictures)}
                     </div>
                   )}
                 </div>

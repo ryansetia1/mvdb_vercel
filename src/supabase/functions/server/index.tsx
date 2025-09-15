@@ -1851,7 +1851,7 @@ app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
       return c.json({ error: 'Unauthorized - admin access required' }, 401)
     }
 
-    return await updateExtendedMasterDataWithSync(c)
+    return await updateExtendedMasterData(c)
   } catch (error) {
     console.error('Update extended master data route error:', error)
     return c.json({ 
@@ -1890,7 +1890,7 @@ app.put('/make-server-e0516fcf/master/:type/:id/extended', async (c) => {
       return c.json({ error: 'Unauthorized - admin access required' }, 401)
     }
 
-    return await updateExtendedMasterDataWithSync(c)
+    return await updateExtendedMasterData(c)
   } catch (error) {
     console.error('Update extended master data route error (f3064b20):', error)
     return c.json({ 

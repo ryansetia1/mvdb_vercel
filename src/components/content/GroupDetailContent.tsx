@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -18,9 +18,10 @@ import {
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { useCachedData } from '../../hooks/useCachedData'
+import { LineupDisplay } from '../LineupDisplay'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface GroupDetailContentProps {
   group: MasterDataItem
@@ -35,8 +36,8 @@ const sortOptions = [
   { key: 'name-desc', label: 'Name (Z-A)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
   { key: 'age', label: 'Age (Young)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 999 },
   { key: 'age-desc', label: 'Age (Old)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 0 },
-  { key: 'movieCount', label: 'Movies (Few)', getValue: (actress: MasterDataItem) => actress.movieCount || 0 },
-  { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => actress.movieCount || 0 },
+  { key: 'movieCount', label: 'Movies (Few)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+  { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
 ]
 
 export function GroupDetailContent({ 
@@ -49,6 +50,7 @@ export function GroupDetailContent({
   const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [groupMembers, setGroupMembers] = useState<MasterDataItem[]>([])
+  const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [movies, setMovies] = useState<Movie[]>([])
   const [sortBy, setSortBy] = useState('name')
   const [isLoading, setIsLoading] = useState(true)
@@ -57,6 +59,12 @@ export function GroupDetailContent({
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [lightboxTitle, setLightboxTitle] = useState('')
   const [activeTab, setActiveTab] = useState('members')
+  const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
+  const [generationActresses, setGenerationActresses] = useState<MasterDataItem[]>([])
+  const [lineupRefreshKey, setLineupRefreshKey] = useState(0)
+  const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
+  const [lineups, setLineups] = useState<MasterDataItem[]>([])
+  const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -64,6 +72,21 @@ export function GroupDetailContent({
     console.log('Cache cleared for fresh data')
     loadActresses()
   }, [accessToken, group.id]) // Use group.id instead of group.name to prevent unnecessary re-renders
+
+  // Update filtered actresses when view mode changes
+  useEffect(() => {
+    if (selectedViewMode === 'default') {
+      setFilteredActresses(groupMembers)
+    } else if (selectedViewMode.startsWith('generation-')) {
+      const generationId = selectedViewMode.replace('generation-', '')
+      setFilteredActresses(getFilteredActresses('generation', generationId))
+    } else if (selectedViewMode.startsWith('lineup-')) {
+      const lineupId = selectedViewMode.replace('lineup-', '')
+      setFilteredActresses(getFilteredActresses('lineup', lineupId))
+    } else {
+      setFilteredActresses(groupMembers)
+    }
+  }, [selectedViewMode, groupMembers, generations, lineups])
 
   const loadActresses = async () => {
     try {
@@ -74,8 +97,9 @@ export function GroupDetailContent({
       console.log('Group object:', group)
       
       // Load both actresses and movies data using cached system
+      // Force refresh actresses to ensure we have latest generationData
       const [actressesData, moviesData] = await Promise.all([
-        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken)) as Promise<MasterDataItem[]>,
+        loadCachedData('actresses', () => masterDataApi.getByType('actress', accessToken), true) as Promise<MasterDataItem[]>,
         loadCachedData('movies', () => movieApi.getMovies(accessToken)) as Promise<Movie[]>
       ])
       
@@ -117,25 +141,51 @@ export function GroupDetailContent({
         groupName: a.groupName
       })))
       
-      // Use the SAME logic as Edit Group dialog - only check selectedGroups
+      // Use comprehensive logic to check group membership
       const members = actressesWithMovieCount.filter(actress => {
-        const hasSelectedGroups = actress.selectedGroups && actress.selectedGroups.includes(group.name)
+        const hasSelectedGroups = actress.selectedGroups && actress.selectedGroups.includes(group.name || '')
+        const hasGroupId = actress.groupId === group.id
+        const hasGroupData = actress.groupData && actress.groupData[group.id]
         
-        if (hasSelectedGroups) {
+        const isInGroup = hasSelectedGroups || hasGroupId || hasGroupData
+        
+        if (isInGroup) {
           console.log(`✓ ${actress.name} is in group ${group.name}:`, {
             selectedGroups: actress.selectedGroups,
-            matchType: 'selectedGroups'
+            groupId: actress.groupId,
+            groupData: actress.groupData,
+            matchType: hasSelectedGroups ? 'selectedGroups' : hasGroupId ? 'groupId' : 'groupData'
           })
         }
-        return hasSelectedGroups
+        return isInGroup
       })
       
       console.log('Group members found:', members.length)
       console.log('Group members (FRESH DATA):', members.map(m => ({ 
         name: m.name, 
         selectedGroups: m.selectedGroups,
+        generationData: m.generationData,
         matchType: 'selectedGroups'
       })))
+      
+      // Debug: Check if any actress has generation data
+      const actressesWithGenerationData = members.filter(m => m.generationData && Object.keys(m.generationData).length > 0)
+      console.log('[DEBUG] Actresses with generation data:', actressesWithGenerationData.length)
+      actressesWithGenerationData.forEach(actress => {
+        console.log(`[DEBUG] ${actress.name} generation data:`, actress.generationData)
+      })
+      
+      // Debug: Check sample actress data structure
+      if (members.length > 0) {
+        console.log('[DEBUG] Sample actress data structure:', {
+          name: members[0].name,
+          id: members[0].id,
+          generationData: members[0].generationData,
+          lineupData: members[0].lineupData,
+          groupData: members[0].groupData,
+          selectedGroups: members[0].selectedGroups
+        })
+      }
       
       // Compare with expected members from Edit Group dialog
       const expectedMembers = [
@@ -184,7 +234,7 @@ export function GroupDetailContent({
             groupId: actress.groupId,
             groupName: actress.groupName,
             groupData: actress.groupData,
-            hasSelectedGroups: actress.selectedGroups?.includes(group.name),
+            hasSelectedGroups: actress.selectedGroups?.includes(group.name || ''),
             hasLegacyGroup: actress.groupId === group.id,
             hasGroupName: actress.groupName === group.name
           })
@@ -195,7 +245,7 @@ export function GroupDetailContent({
       
       // Summary debug info
       const actressesWithAnyGroupData = actressesWithMovieCount.filter(actress => {
-        return actress.selectedGroups?.length > 0 || 
+        return (actress.selectedGroups?.length || 0) > 0 || 
                actress.groupId || 
                actress.groupName ||
                actress.groupData
@@ -213,6 +263,16 @@ export function GroupDetailContent({
       
       setActresses(actressesWithMovieCount)
       setGroupMembers(members)
+      
+      // Debug: Check if actresses have generation data
+      const actressesWithGenData = actressesWithMovieCount.filter(a => a.generationData && Object.keys(a.generationData).length > 0)
+      console.log('[DEBUG] Actresses with generation data:', actressesWithGenData.length)
+      if (actressesWithGenData.length > 0) {
+        console.log('[DEBUG] Sample actress generation data:', actressesWithGenData[0].name, actressesWithGenData[0].generationData)
+      }
+      
+      // Load generations for this group - ensure actresses data is fully loaded first
+      await loadGenerations()
     } catch (error) {
       console.error('Error loading actresses:', error)
       toast.error('Failed to load actresses')
@@ -221,38 +281,108 @@ export function GroupDetailContent({
     }
   }
 
-  const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
-    // Check groupProfilePictures first
-    if (actress.groupProfilePictures && typeof actress.groupProfilePictures === 'object') {
-      const groupPic = actress.groupProfilePictures[groupName]
-      if (groupPic && groupPic.trim()) {
-        return groupPic.trim()
-      }
+  const loadGenerations = async () => {
+    try {
+      const generationsData = await masterDataApi.getGenerationsByGroup(group.id, accessToken)
+      setGenerations(generationsData)
+      console.log('Loaded generations for group:', group.name, generationsData.length)
+      console.log('[DEBUG] Generations data:', generationsData.map(g => ({ id: g.id, name: g.name })))
+      
+      // Load lineups for all generations
+      await loadLineups(generationsData)
+    } catch (error) {
+      console.error('Error loading generations:', error)
     }
+  }
+
+  const loadLineups = async (generationsData: MasterDataItem[]) => {
+    try {
+      const allLineups = await masterDataApi.getByType('lineup', accessToken)
+      const groupLineups = allLineups.filter(lineup => 
+        generationsData.some(gen => gen.id === lineup.generationId)
+      )
+      setLineups(groupLineups)
+      console.log('Loaded lineups for group:', group.name, groupLineups.length)
+    } catch (error) {
+      console.error('Error loading lineups:', error)
+    }
+  }
+
+  const handleGenerationClick = async (generation: MasterDataItem) => {
+    try {
+      setSelectedGenerationId(generation.id)
+      // Refresh lineup data when generation changes
+      setLineupRefreshKey(prev => prev + 1)
+      
+      // Use fresh API call like GenerationActressManagement does
+      const allActresses = await masterDataApi.getByType('actress', accessToken)
+      
+      // Filter actresses that are assigned to this group (same logic as GenerationActressManagement)
+      const actressesInGroup = allActresses.filter(actress => {
+        const isInGroup = actress.groupId === group.id || 
+                        (actress.selectedGroups && actress.selectedGroups.includes(group.name || '')) ||
+                        (actress.groupData && actress.groupData[group.id])
+        return isInGroup
+      })
+      
+      // Filter actresses that have this generation in their generationData
+      const actressesInGeneration = actressesInGroup.filter(actress => {
+        const hasGeneration = actress.generationData && actress.generationData[generation.id]
+        console.log(`[DEBUG] Checking ${actress.name} for generation ${generation.id}:`, {
+          hasGenerationData: !!actress.generationData,
+          generationData: actress.generationData,
+          hasThisGeneration: hasGeneration
+        })
+        return hasGeneration
+      })
+      
+      console.log(`[DEBUG] Found ${actressesInGeneration.length} actresses in generation ${generation.id}`)
+      setGenerationActresses(actressesInGeneration)
+    } catch (error) {
+      console.error('Error loading generation actresses:', error)
+    }
+  }
+
+  const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
+    console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
     
     // Check groupData structure
     if (actress.groupData && typeof actress.groupData === 'object') {
       const groupInfo = actress.groupData[groupName]
-      if (groupInfo?.profilePicture?.trim()) {
+      console.log('Group info:', groupInfo)
+      
+      // Check for profilePicture field (saved from ActorForm)
+      if (groupInfo?.profilePicture && groupInfo.profilePicture.trim()) {
+        console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
         return groupInfo.profilePicture.trim()
       }
       
-      // Check photos array
+      // Check for photos array (alternative structure)
       if (groupInfo?.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
         const firstPhoto = groupInfo.photos[0]?.trim()
-        if (firstPhoto) return firstPhoto
+        if (firstPhoto) {
+          console.log('✅ Found groupData photos array:', firstPhoto)
+          return firstPhoto
+        }
       }
     }
     
+    // Check groupProfilePictures structure (legacy)
+    if (actress.groupProfilePictures && typeof actress.groupProfilePictures === 'object') {
+      if (actress.groupProfilePictures[groupName]) {
+        const groupPic = actress.groupProfilePictures[groupName].trim()
+        if (groupPic) {
+          console.log('✅ Found groupProfilePictures photo:', groupPic)
+          return groupPic
+        }
+      }
+    }
+    
+    console.log('❌ No group-specific photo found')
     return null
   }
 
   const getGroupAlias = (actress: MasterDataItem, groupName: string) => {
-    // Check groupAliases first
-    if (actress.groupAliases && actress.groupAliases[groupName]) {
-      return actress.groupAliases[groupName]
-    }
-    
     // Check groupData structure
     if (actress.groupData && actress.groupData[groupName]?.alias?.trim()) {
       return actress.groupData[groupName].alias.trim()
@@ -261,14 +391,270 @@ export function GroupDetailContent({
     return null
   }
 
+  const getGenerationProfilePicture = (actress: MasterDataItem, generationId: string) => {
+    // Check generationData for profile picture
+    if (actress.generationData && typeof actress.generationData === 'object') {
+      const generationData = actress.generationData[generationId]
+      
+      if (generationData && generationData.profilePicture) {
+        return generationData.profilePicture
+      }
+      
+      // Check photos array in generationData
+      if (generationData && generationData.photos && Array.isArray(generationData.photos) && generationData.photos.length > 0) {
+        const firstPhoto = generationData.photos[0]?.trim()
+        if (firstPhoto) {
+          return firstPhoto
+        }
+      }
+    }
+    
+    // Fallback to group profile picture, then regular profile picture
+    return getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+  }
+
+  const getGenerationAlias = (actress: MasterDataItem, generationId: string) => {
+    // Check generationData for alias
+    if (actress.generationData && typeof actress.generationData === 'object') {
+      const generationData = actress.generationData[generationId]
+      if (generationData && generationData.alias) {
+        return generationData.alias
+      }
+    }
+    
+    // Fallback to group alias, then regular name
+    return getGroupAlias(actress, group.name || '') || actress.name
+  }
+
+  const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
+    // Check lineupData for profile picture
+    if (actress.lineupData && typeof actress.lineupData === 'object') {
+      const lineupData = actress.lineupData[lineupId]
+      if (lineupData && lineupData.profilePicture) {
+        return lineupData.profilePicture
+      }
+    }
+    
+    // Fallback to generation profile picture, then group profile picture, then regular profile picture
+    return getGenerationProfilePicture(actress, selectedGenerationId || '') || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+  }
+
+  const getLineupAlias = (actress: MasterDataItem, lineupId: string) => {
+    // Check lineupData for alias
+    if (actress.lineupData && typeof actress.lineupData === 'object') {
+      const lineupData = actress.lineupData[lineupId]
+      if (lineupData && lineupData.alias) {
+        return lineupData.alias
+      }
+    }
+    
+    // Fallback to generation alias, then group alias, then regular alias
+    return getGenerationAlias(actress, selectedGenerationId || '') || getGroupAlias(actress, group.name || '') || actress.alias
+  }
+
+  // Find latest generation where actress exists
+  const findLatestGenerationWhereActressExists = (actress: MasterDataItem): MasterDataItem | null => {
+    if (!actress.generationData || typeof actress.generationData !== 'object') {
+      return null
+    }
+
+    const actressGenerationIds = Object.keys(actress.generationData)
+    if (actressGenerationIds.length === 0) {
+      return null
+    }
+
+    // Find generations that exist in our loaded generations
+    const existingGenerations = generations.filter(gen => actressGenerationIds.includes(gen.id))
+    if (existingGenerations.length === 0) {
+      return null
+    }
+
+    // Sort by createdAt (newest first) or estimatedYears (newest first)
+    existingGenerations.sort((a, b) => {
+      // First try to sort by estimatedYears
+      if (a.estimatedYears && b.estimatedYears) {
+        const aYear = parseInt(a.estimatedYears.split('-')[0])
+        const bYear = parseInt(b.estimatedYears.split('-')[0])
+        if (aYear !== bYear) {
+          return bYear - aYear // Newest first
+        }
+      }
+      
+      // Then sort by createdAt
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
+    return existingGenerations[0]
+  }
+
+  // Find latest lineup where actress exists
+  const findLatestLineupWhereActressExists = (actress: MasterDataItem): MasterDataItem | null => {
+    if (!actress.lineupData || typeof actress.lineupData !== 'object') {
+      return null
+    }
+
+    const actressLineupIds = Object.keys(actress.lineupData)
+    if (actressLineupIds.length === 0) {
+      return null
+    }
+
+    // Find lineups that exist in our loaded lineups
+    const existingLineups = lineups.filter(lineup => actressLineupIds.includes(lineup.id))
+    if (existingLineups.length === 0) {
+      return null
+    }
+
+    // Sort by lineupOrder (highest first), then by createdAt (newest first)
+    existingLineups.sort((a, b) => {
+      if (a.lineupOrder !== b.lineupOrder) {
+        return (b.lineupOrder || 0) - (a.lineupOrder || 0) // Highest first
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
+    return existingLineups[0]
+  }
+
+  // Get latest generation profile picture
+  const getLatestGenerationProfilePicture = (actress: MasterDataItem): string | null => {
+    const latestGeneration = findLatestGenerationWhereActressExists(actress)
+    if (latestGeneration) {
+      return getGenerationProfilePicture(actress, latestGeneration.id) || null
+    }
+    return null
+  }
+
+  // Get latest lineup profile picture
+  const getLatestLineupProfilePicture = (actress: MasterDataItem): string | null => {
+    const latestLineup = findLatestLineupWhereActressExists(actress)
+    if (latestLineup) {
+      return getLineupProfilePicture(actress, latestLineup.id) || null
+    }
+    return null
+  }
+
+  // Get default profile picture with fallback hierarchy
+  const getDefaultProfilePicture = (actress: MasterDataItem): string | null => {
+    // Priority 1: Group-specific profile picture (user preference)
+    const groupPic = getGroupProfilePicture(actress, group.name || '')
+    if (groupPic) return groupPic
+    
+    // Priority 2: Latest generation profile picture (jika ada generation)
+    if (generations.length > 0) {
+      const latestGenPic = getLatestGenerationProfilePicture(actress)
+      if (latestGenPic) return latestGenPic
+    }
+    
+    // Priority 3: Latest lineup profile picture (jika ada lineup)
+    if (lineups.length > 0) {
+      const latestLineupPic = getLatestLineupProfilePicture(actress)
+      if (latestLineupPic) return latestLineupPic
+    }
+    
+    // Priority 4: Main profile picture (fallback terakhir)
+    return actress.profilePicture || null
+  }
+
+  // Get filtered profile picture for specific generation/lineup
+  const getFilteredProfilePicture = (actress: MasterDataItem, filterType: string, filterId: string): string | null => {
+    if (filterType === 'generation') {
+      return getGenerationProfilePicture(actress, filterId) || null
+    }
+    if (filterType === 'lineup') {
+      return getLineupProfilePicture(actress, filterId) || null
+    }
+    return getDefaultProfilePicture(actress)
+  }
+
+  // Filter actresses based on generation/lineup
+  const getFilteredActresses = (filterType: string, filterId: string): MasterDataItem[] => {
+    if (filterType === 'default') {
+      return groupMembers
+    }
+    
+    return groupMembers.filter(actress => {
+      if (filterType === 'generation') {
+        return actress.generationData && actress.generationData[filterId]
+      }
+      if (filterType === 'lineup') {
+        return actress.lineupData && actress.lineupData[filterId]
+      }
+      return true
+    })
+  }
+
+  // Get dropdown options for view mode
+  const getViewModeOptions = () => {
+    const options = [
+      { value: 'default', label: 'Default View' }
+    ]
+    
+    // Add generation options
+    generations.forEach((generation, index) => {
+      options.push({
+        value: `generation-${generation.id}`,
+        label: `Generation: ${generation.name || `Gen ${index + 1}`}`
+      })
+    })
+    
+    // Add lineup options
+    lineups.forEach((lineup, index) => {
+      const generationName = generations.find(gen => gen.id === lineup.generationId)?.name || `Gen ${index + 1}`
+      options.push({
+        value: `lineup-${lineup.id}`,
+        label: `Lineup: ${lineup.name || `Lineup ${index + 1}`} (${generationName})`
+      })
+    })
+    
+    return options
+  }
+
+  // Get profile picture based on selected view mode
+  const getViewModeProfilePicture = (actress: MasterDataItem) => {
+    if (selectedViewMode === 'default') {
+      return getDefaultProfilePicture(actress)
+    }
+    
+    if (selectedViewMode.startsWith('generation-')) {
+      const generationId = selectedViewMode.replace('generation-', '')
+      return getFilteredProfilePicture(actress, 'generation', generationId)
+    }
+    
+    if (selectedViewMode.startsWith('lineup-')) {
+      const lineupId = selectedViewMode.replace('lineup-', '')
+      return getFilteredProfilePicture(actress, 'lineup', lineupId)
+    }
+    
+    return getDefaultProfilePicture(actress)
+  }
+
+  // Get alias based on selected view mode
+  const getViewModeAlias = (actress: MasterDataItem) => {
+    if (selectedViewMode === 'default') {
+      return getGroupAlias(actress, group.name || '')
+    }
+    
+    if (selectedViewMode.startsWith('generation-')) {
+      const generationId = selectedViewMode.replace('generation-', '')
+      return getGenerationAlias(actress, generationId)
+    }
+    
+    if (selectedViewMode.startsWith('lineup-')) {
+      const lineupId = selectedViewMode.replace('lineup-', '')
+      return getLineupAlias(actress, lineupId)
+    }
+    
+    return getGroupAlias(actress, group.name || '')
+  }
+
   // Filter and sort group members based on search
   const filteredAndSortedMembers = useMemo(() => {
-    let filtered = groupMembers
+    let filtered = filteredActresses
     
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = groupMembers.filter(actress => {
+      filtered = filteredActresses.filter(actress => {
         const name = actress.name?.toLowerCase() || ''
         const jpname = actress.jpname?.toLowerCase() || ''
         const alias = actress.alias?.toLowerCase() || ''
@@ -294,7 +680,7 @@ export function GroupDetailContent({
       if (aVal > bVal) return isDesc ? -1 : 1
       return 0
     })
-  }, [groupMembers, searchQuery, sortBy, group.name])
+  }, [filteredActresses, searchQuery, sortBy, group.name])
 
   const openImageViewer = (images: string[], startIndex: number = 0, title: string = '') => {
     setLightboxImages(images)
@@ -317,12 +703,8 @@ export function GroupDetailContent({
     if (Array.isArray(group.gallery)) {
       return group.gallery.filter(url => url && url.trim()) // Filter out empty URLs
     }
-    // Fallback to galleryPhotos for backward compatibility
-    if (Array.isArray(group.galleryPhotos)) {
-      return group.galleryPhotos.filter(url => url && url.trim())
-    }
     return []
-  }, [group.gallery, group.galleryPhotos])
+  }, [group.gallery])
 
   if (isLoading) {
     return (
@@ -444,8 +826,25 @@ export function GroupDetailContent({
                       </SelectContent>
                     </Select>
 
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">View:</span>
+                    </div>
+                    
+                    <Select value={selectedViewMode} onValueChange={setSelectedViewMode}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getViewModeOptions().map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     <div className="text-sm text-muted-foreground">
-                      Showing {filteredAndSortedMembers.length} of {groupMembers.length} members
+                      Showing {filteredAndSortedMembers.length} of {filteredActresses.length} members
                     </div>
                   </div>
                 </CardContent>
@@ -456,13 +855,22 @@ export function GroupDetailContent({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Members
             {groupMembers.length > 0 && (
               <Badge variant="secondary" className="ml-1 text-xs">
                 {groupMembers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="generations" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Generations
+            {generations.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {generations.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -479,12 +887,15 @@ export function GroupDetailContent({
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-6">
-          {groupMembers.length === 0 ? (
+          {filteredActresses.length === 0 ? (
             <div className="text-center py-12">
               <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No members yet</h3>
+              <h3 className="text-lg font-medium mb-2">No members found</h3>
               <p className="text-muted-foreground mb-4">
-                No actresses have been assigned to this group yet.
+                {selectedViewMode === 'default' 
+                  ? 'No actresses have been assigned to this group yet.'
+                  : 'No actresses found in the selected filter.'
+                }
               </p>
               <div className="flex gap-2 justify-center">
                 <Button 
@@ -495,7 +906,7 @@ export function GroupDetailContent({
                     
                     const testMembers = testActresses.map(actress => ({
                       ...actress,
-                      selectedGroups: [...(actress.selectedGroups || []), group.name]
+                      selectedGroups: [...(actress.selectedGroups || []), group.name || '']
                     }))
                     
                     setGroupMembers(testMembers)
@@ -551,11 +962,11 @@ export function GroupDetailContent({
                     
                     // Find actresses that should be in the group but aren't
                     const missingActresses = expectedMembers.filter(name => 
-                      !members.find(m => m.name === name)
+                      !groupMembers.find(m => m.name === name)
                     )
                     
                     // Find actresses that are in the group but shouldn't be
-                    const extraActresses = members.filter(m => 
+                    const extraActresses = groupMembers.filter(m => 
                       !expectedMembers.includes(m.name || '')
                     )
                     
@@ -647,14 +1058,14 @@ export function GroupDetailContent({
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {filteredAndSortedMembers.map((actress) => {
-                const imageUrl = getGroupProfilePicture(actress, group.name || '')
-                const groupAlias = getGroupAlias(actress, group.name || '')
+                const imageUrl = getViewModeProfilePicture(actress)
+                const viewAlias = getViewModeAlias(actress)
                 
                 return (
                   <Card 
                     key={actress.id} 
                     className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
-                    onClick={() => onProfileSelect('actress', actress.name)}
+                    onClick={() => onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
                   >
                     <CardContent className="p-0">
                       {/* Profile Picture */}
@@ -708,10 +1119,10 @@ export function GroupDetailContent({
                           {actress.name || 'Unnamed'}
                         </h3>
                         
-                        {/* Show group alias if available */}
-                        {groupAlias && (
-                          <p className="text-xs text-blue-600 truncate" title={`Group alias: ${groupAlias}`}>
-                            {groupAlias}
+                        {/* Show view alias if available */}
+                        {viewAlias && (
+                          <p className="text-xs text-blue-600 truncate" title={`View alias: ${viewAlias}`}>
+                            {viewAlias}
                           </p>
                         )}
                         
@@ -729,9 +1140,9 @@ export function GroupDetailContent({
                         )}
                         
                         {/* Movie count badge */}
-                        {actress.movieCount !== undefined && actress.movieCount > 0 && (
+                        {(actress as any).movieCount !== undefined && (actress as any).movieCount > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            🎬 {actress.movieCount} movies
+                            🎬 {(actress as any).movieCount} movies
                           </p>
                         )}
                       </div>
@@ -739,6 +1150,170 @@ export function GroupDetailContent({
                   </Card>
                 )
               })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Generations Tab */}
+        <TabsContent value="generations" className="mt-6">
+          {generations.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No generations yet</h3>
+              <p className="text-muted-foreground">
+                This group doesn't have any generations defined yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {generations.map((generation) => (
+                  <Card 
+                    key={generation.id} 
+                    className={`hover:shadow-md transition-shadow cursor-pointer ${
+                      selectedGenerationId === generation.id ? 'ring-2 ring-primary' : ''
+                    }`}
+                    onClick={() => handleGenerationClick(generation)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {generation.profilePicture ? (
+                          <img
+                            src={generation.profilePicture}
+                            alt={generation.name || 'Generation'}
+                            className="w-12 h-12 rounded-lg object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center ${generation.profilePicture ? 'hidden' : ''}`}>
+                          <Calendar className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-lg truncate">{generation.name}</h4>
+                          {(generation.estimatedYears || generation.startDate || generation.endDate) && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>
+                                {generation.estimatedYears || 
+                                 (generation.startDate && generation.endDate
+                                   ? `${generation.startDate} - ${generation.endDate}`
+                                   : generation.startDate || generation.endDate)}
+                              </span>
+                            </div>
+                          )}
+                          {generation.description && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                              {generation.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Selected Generation Actresses */}
+              {selectedGenerationId && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h4 className="text-lg font-medium">
+                      Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
+                    </h4>
+                    <Badge variant="secondary">
+                      {generationActresses.length} actresses
+                    </Badge>
+                  </div>
+                  
+                  {generationActresses.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <h5 className="font-medium text-gray-900 mb-1">No actresses assigned</h5>
+                      <p className="text-sm text-gray-500">No actresses have been assigned to this generation yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {generationActresses.map((actress) => {
+                        const imageUrl = getGenerationProfilePicture(actress, selectedGenerationId)
+                        const generationAlias = getGenerationAlias(actress, selectedGenerationId)
+                        
+                        return (
+                          <Card 
+                            key={actress.id} 
+                            className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
+                            onClick={() => onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
+                          >
+                            <CardContent className="p-0">
+                              {/* Profile Picture */}
+                              <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
+                                {imageUrl ? (
+                                  <>
+                                    <img
+                                      src={imageUrl}
+                                      alt={generationAlias || actress.name || 'Actress'}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                      }}
+                                    />
+                                    <div className="hidden w-full h-full flex items-center justify-center bg-muted">
+                                      <ImageOff className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                                    <ImageOff className="h-8 w-8 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Actress Info */}
+                              <div className="p-3">
+                                <h4 className="font-medium text-sm truncate">
+                                  {generationAlias || actress.name}
+                                </h4>
+                                {generationAlias && generationAlias !== actress.name && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {actress.name}
+                                  </p>
+                                )}
+                                {actress.birthdate && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {calculateAge(actress.birthdate)} years old
+                                  </p>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lineup Display */}
+              {selectedGenerationId && (
+                <div className="mt-6">
+                  <LineupDisplay
+                    generationId={selectedGenerationId}
+                    generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
+                    accessToken={accessToken}
+                    onProfileSelect={onProfileSelect}
+                    getLineupProfilePicture={getLineupProfilePicture}
+                    getLineupAlias={getLineupAlias}
+                    refreshKey={lineupRefreshKey}
+                    onDataChange={() => {
+                      // Don't trigger refresh loop - data is already fresh
+                      console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
@@ -769,11 +1344,11 @@ export function GroupDetailContent({
                   <div
                     key={index}
                     className="aspect-square rounded-lg overflow-hidden bg-muted relative group cursor-pointer hover:shadow-lg transition-all duration-200"
-                    onClick={() => openImageViewer(groupGalleryPhotos, index, `${group.name} Gallery`)}
+                    onClick={() => openImageViewer(groupGalleryPhotos, index, `${group.name || ''} Gallery`)}
                   >
                     <img
                       src={photoUrl}
-                      alt={`${group.name} Gallery Photo ${index + 1}`}
+                      alt={`${group.name || ''} Gallery Photo ${index + 1}`}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       onError={(e) => {
                         const target = e.currentTarget
@@ -824,6 +1399,7 @@ export function GroupDetailContent({
           sourceTitle: lightboxTitle
         }}
       />
+
     </div>
   )
 }

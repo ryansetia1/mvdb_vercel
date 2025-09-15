@@ -234,7 +234,7 @@ export function ActressesGrid({
       {/* Actresses Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {paginatedActresses.map((actress) => {
-          // Get profile picture URL
+          // Get profile picture URL - prioritize main profile picture
           let imageUrl = null
           
           // Priority 1: profilePicture (main image)
@@ -362,6 +362,24 @@ export function ActressesGrid({
                     <p className="text-xs text-muted-foreground">
                       🎬 {actress.movieCount} total movies
                     </p>
+                  )}
+
+                  {/* Generation information */}
+                  {actress.generationData && Object.keys(actress.generationData).length > 0 && (
+                    <div className="space-y-1">
+                      {Object.entries(actress.generationData).map(([generationId, generationInfo]) => (
+                        <div key={generationId} className="flex items-center gap-1">
+                          <span className="text-xs text-blue-600 font-medium">
+                            {generationInfo.alias || actress.name}
+                          </span>
+                          {generationInfo.alias && generationInfo.alias !== actress.name && (
+                            <span className="text-xs text-muted-foreground">
+                              ({actress.name})
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                   
                   {/* Photo count */}

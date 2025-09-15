@@ -7,7 +7,7 @@ interface MasterDataItem {
   name?: string // For actor, actress, studio, type, tag
   titleEn?: string // For series only
   titleJp?: string // For series only 
-  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group'
+  type: 'actor' | 'actress' | 'series' | 'studio' | 'type' | 'tag' | 'director' | 'label' | 'linklabel' | 'group' | 'generation' | 'lineup'
   createdAt: string
   // Extended fields for actors and actresses
   jpname?: string
@@ -25,11 +25,23 @@ interface MasterDataItem {
   groupName?: string // Denormalized group name for easier display
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
+  generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
+  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
   category?: string // Category for groups (e.g., 'Idol', 'Band', 'Acting', 'Solo Artist', etc.)
   gallery?: string[] // Gallery URLs for groups
+  // Generation-specific fields (when type = 'generation')
+  groupId?: string // Reference to parent group
+  groupName?: string // Denormalized group name for easier display
+  startDate?: string // Generation start date
+  endDate?: string // Generation end date (optional)
+  // Lineup-specific fields (when type = 'lineup')
+  generationId?: string // Reference to parent generation
+  generationName?: string // Denormalized generation name for easier display
+  lineupType?: string // Type of lineup (e.g., 'Main', 'Sub', 'Graduated', 'Trainee')
+  lineupOrder?: number // Order within generation for display
   // Links for series, studio, and label
   seriesLinks?: string // For series
   studioLinks?: string // For studio
