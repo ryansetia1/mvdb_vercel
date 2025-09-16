@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -13,7 +14,8 @@ import {
   Filter, 
   Images, 
   Globe,
-  Maximize
+  Maximize,
+  Plus
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -21,6 +23,7 @@ import { useCachedData } from '../../hooks/useCachedData'
 import { LineupDisplay } from '../LineupDisplay'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
+import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
 import { toast } from 'sonner'
 
 interface GroupDetailContentProps {
@@ -68,6 +71,11 @@ export function GroupDetailContent({
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
   const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
   const [lastGenerationId, setLastGenerationId] = useState<string | null>(null)
+  const [selectedActressId, setSelectedActressId] = useState<string>('')
+  const [isAddingMember, setIsAddingMember] = useState(false)
+  const [newActressName, setNewActressName] = useState<string>('')
+  const [newActressJpName, setNewActressJpName] = useState<string>('')
+  const [isCreatingActress, setIsCreatingActress] = useState(false)
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -693,6 +701,110 @@ export function GroupDetailContent({
     return getGroupAlias(actress, group.name || '')
   }
 
+  // Function to add actress to group
+  const handleAddActressToGroup = async () => {
+    if (!selectedActressId || !group.name) return
+    
+    try {
+      setIsAddingMember(true)
+      const actress = cachedActresses.find(a => a.id === selectedActressId)
+      if (!actress) {
+        toast.error('Actress not found')
+        return
+      }
+
+      // Check if actress is already in this group
+      if (actress.selectedGroups && actress.selectedGroups.includes(group.name)) {
+        toast.error('Actress is already in this group')
+        return
+      }
+
+      const updatedGroups = [...(actress.selectedGroups || []), group.name]
+      
+      // Preserve ALL existing data when updating
+      const updateData = {
+        name: actress.name, // Required field
+        jpname: actress.jpname,
+        birthdate: actress.birthdate,
+        alias: actress.alias,
+        links: actress.links,
+        takulinks: actress.takulinks,
+        tags: actress.tags,
+        photo: actress.photo,
+        profilePicture: actress.profilePicture,
+        groupId: actress.groupId,
+        groupData: actress.groupData,
+        selectedGroups: updatedGroups
+      }
+
+      console.log('Adding actress to group with preserved data:', updateData)
+
+      await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+
+      toast.success('Actress added to group successfully!')
+      setSelectedActressId('')
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error adding actress to group:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add actress to group'
+      toast.error(errorMessage)
+    } finally {
+      setIsAddingMember(false)
+    }
+  }
+
+  // Function to create new actress and add to group
+  const handleCreateNewActress = async () => {
+    if (!newActressName.trim() || !group.name) return
+    
+    try {
+      setIsCreatingActress(true)
+      
+      const actressData = {
+        name: newActressName.trim(),
+        jpname: newActressJpName.trim() || undefined,
+        selectedGroups: [group.name]
+      }
+
+      console.log('Creating new actress with data:', actressData)
+
+      const newActress = await masterDataApi.createExtended('actress', actressData, accessToken)
+
+      console.log('New actress created successfully:', newActress)
+
+      toast.success('Aktris baru berhasil dibuat dan ditambahkan ke group!')
+      
+      // Clear form
+      setNewActressName('')
+      setNewActressJpName('')
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error creating new actress:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Gagal membuat aktris baru'
+      toast.error(errorMessage)
+    } finally {
+      setIsCreatingActress(false)
+    }
+  }
+
+  // Prepare options for searchable combobox - only show actresses not already in group
+  const actressOptions = useComboBoxOptions(
+    cachedActresses.filter(actress => 
+      !groupMembers.some(groupMember => groupMember.id === actress.id)
+    ),
+    (actress) => actress.id,
+    (actress) => `${actress.name}${actress.jpname ? ` (${actress.jpname})` : ''}`,
+    (actress) => [
+      actress.name || '',
+      actress.jpname || '',
+      ...(actress.alias ? [actress.alias] : [])
+    ].filter(Boolean)
+  )
+
   // Filter and sort group members based on search
   const filteredAndSortedMembers = useMemo(() => {
     let filtered = filteredActresses
@@ -933,6 +1045,82 @@ export function GroupDetailContent({
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-6">
+          {/* Add Member Section */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium">Tambah Member</h3>
+                
+                {/* Add Existing Actress */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <h4 className="font-medium">Tambah Aktris yang Sudah Ada</h4>
+                  <div className="flex gap-2">
+                    <SearchableComboBox
+                      options={actressOptions}
+                      value={selectedActressId}
+                      onValueChange={setSelectedActressId}
+                      placeholder="Pilih aktris..."
+                      searchPlaceholder="Cari aktris..."
+                      emptyMessage="Tidak ada aktris ditemukan."
+                      className="min-w-[300px]"
+                      triggerClassName="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddActressToGroup}
+                      disabled={!selectedActressId || isAddingMember}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {isAddingMember ? 'Menambahkan...' : 'Tambah'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Create New Actress */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <h4 className="font-medium">Buat Aktris Baru</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newActressName">Nama Aktris</Label>
+                      <Input
+                        id="newActressName"
+                        value={newActressName}
+                        onChange={(e) => setNewActressName(e.target.value)}
+                        placeholder="Masukkan nama aktris..."
+                        disabled={isCreatingActress}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newActressJpName">Nama Jepang (Opsional)</Label>
+                      <Input
+                        id="newActressJpName"
+                        value={newActressJpName}
+                        onChange={(e) => setNewActressJpName(e.target.value)}
+                        placeholder="Masukkan nama Jepang..."
+                        disabled={isCreatingActress}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={handleCreateNewActress}
+                      disabled={!newActressName.trim() || isCreatingActress}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {isCreatingActress ? 'Membuat...' : 'Buat Aktris Baru'}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Ini akan membuat aktris baru dengan data placeholder. Anda dapat mengedit detail lengkap di tab Aktris nanti.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {filteredActresses.length === 0 ? (
             <div className="text-center py-12">
               <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
