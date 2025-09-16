@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -13,7 +14,10 @@ import {
   Filter, 
   Images, 
   Globe,
-  Maximize
+  Maximize,
+  Plus,
+  ChevronDown,
+  Camera
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -21,6 +25,8 @@ import { useCachedData } from '../../hooks/useCachedData'
 import { LineupDisplay } from '../LineupDisplay'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
+import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { toast } from 'sonner'
 
 interface GroupDetailContentProps {
@@ -68,6 +74,122 @@ export function GroupDetailContent({
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
   const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
   const [lastGenerationId, setLastGenerationId] = useState<string | null>(null)
+  const [selectedActressId, setSelectedActressId] = useState<string>('')
+  const [isAddingMember, setIsAddingMember] = useState(false)
+  const [newActressName, setNewActressName] = useState<string>('')
+  const [newActressJpName, setNewActressJpName] = useState<string>('')
+  const [newActressGroupPhoto, setNewActressGroupPhoto] = useState<string>('')
+  const [newActressPreviewUrl, setNewActressPreviewUrl] = useState<string>('')
+  const [newActressPreviewError, setNewActressPreviewError] = useState<boolean>(false)
+  const [newActressUrlWasTrimmed, setNewActressUrlWasTrimmed] = useState<boolean>(false)
+  const [isCreatingActress, setIsCreatingActress] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<string>('')
+  const [isAddMemberSectionOpen, setIsAddMemberSectionOpen] = useState(false)
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
+  const [selectedActressForEdit, setSelectedActressForEdit] = useState<MasterDataItem | null>(null)
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string>('')
+  const [isUpdatingProfilePicture, setIsUpdatingProfilePicture] = useState(false)
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string>('')
+  const [previewError, setPreviewError] = useState<boolean>(false)
+  const [urlWasTrimmed, setUrlWasTrimmed] = useState<boolean>(false)
+
+  // Function to auto-trim fandom.com URLs from the end
+  const autoTrimFandomUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return url
+    
+    // Check if it's a fandom.com URL
+    if (!url.includes('static.wikia.nocookie.net')) return url
+    
+    // Find the last occurrence of image extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    let trimmedUrl = url
+    
+    // Try each extension from the end
+    for (const ext of imageExtensions) {
+      const lastIndex = url.lastIndexOf(ext)
+      if (lastIndex !== -1) {
+        // Found the extension, trim everything after it
+        trimmedUrl = url.substring(0, lastIndex + ext.length)
+        break
+      }
+    }
+    
+    return trimmedUrl
+  }
+
+  // Debounce preview URL update with auto-trim
+  useEffect(() => {
+    if (!profilePictureUrl.trim()) {
+      setPreviewUrl('')
+      setPreviewError(false)
+      setUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(profilePictureUrl.trim())
+      const wasTrimmed = trimmedUrl !== profilePictureUrl.trim()
+      
+      setPreviewUrl(trimmedUrl)
+      setPreviewError(false)
+      setUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setProfilePictureUrl(trimmedUrl)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [profilePictureUrl])
+
+  // Debounce preview URL update for new actress group photo
+  useEffect(() => {
+    if (!newActressGroupPhoto.trim()) {
+      setNewActressPreviewUrl('')
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(newActressGroupPhoto.trim())
+      const wasTrimmed = trimmedUrl !== newActressGroupPhoto.trim()
+      
+      setNewActressPreviewUrl(trimmedUrl)
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setNewActressGroupPhoto(trimmedUrl)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [newActressGroupPhoto])
+
+  // Check for duplicate actress names in real-time
+  useEffect(() => {
+    if (!newActressName.trim()) {
+      setDuplicateWarning('')
+      return
+    }
+
+    const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
+    if (duplicate) {
+      const duplicateInfo = []
+      if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
+      if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
+      if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
+      
+      const duplicateDetails = duplicateInfo.join(', ')
+      setDuplicateWarning(`⚠️ Aktris dengan nama yang sama sudah ada:\n${duplicateDetails}`)
+    } else {
+      setDuplicateWarning('')
+    }
+  }, [newActressName, newActressJpName, cachedActresses])
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -693,6 +815,249 @@ export function GroupDetailContent({
     return getGroupAlias(actress, group.name || '')
   }
 
+  // Function to add actress to group
+  const handleAddActressToGroup = async () => {
+    if (!selectedActressId || !group.name) return
+    
+    try {
+      setIsAddingMember(true)
+      const actress = cachedActresses.find(a => a.id === selectedActressId)
+      if (!actress) {
+        toast.error('Actress not found')
+        return
+      }
+
+      // Check if actress is already in this group
+      if (actress.selectedGroups && actress.selectedGroups.includes(group.name)) {
+        toast.error('Actress is already in this group')
+        return
+      }
+
+      const updatedGroups = [...(actress.selectedGroups || []), group.name]
+      
+      // Preserve ALL existing data when updating
+      const updateData = {
+        name: actress.name, // Required field
+        jpname: actress.jpname,
+        birthdate: actress.birthdate,
+        alias: actress.alias,
+        links: actress.links,
+        takulinks: actress.takulinks,
+        tags: actress.tags,
+        photo: actress.photo,
+        profilePicture: actress.profilePicture,
+        groupId: actress.groupId,
+        groupData: actress.groupData,
+        selectedGroups: updatedGroups
+      }
+
+      console.log('Adding actress to group with preserved data:', updateData)
+
+      await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+
+      toast.success('Actress added to group successfully!')
+      setSelectedActressId('')
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error adding actress to group:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add actress to group'
+      toast.error(errorMessage)
+    } finally {
+      setIsAddingMember(false)
+    }
+  }
+
+  // Function to check for duplicate actress names
+  const checkForDuplicateActress = (name: string, jpname?: string): MasterDataItem | null => {
+    if (!name.trim()) return null
+    
+    const searchName = name.trim().toLowerCase()
+    const searchJpname = jpname?.trim().toLowerCase()
+    
+    // Check against all actresses in cache
+    const duplicate = cachedActresses.find(actress => {
+      const actressName = actress.name?.toLowerCase() || ''
+      const actressJpname = actress.jpname?.toLowerCase() || ''
+      const actressAlias = actress.alias?.toLowerCase() || ''
+      
+      // Check exact name match
+      if (actressName === searchName) return true
+      if (actressJpname === searchName) return true
+      if (actressAlias === searchName) return true
+      
+      // Check exact jpname match (if provided)
+      if (searchJpname) {
+        if (actressName === searchJpname) return true
+        if (actressJpname === searchJpname) return true
+        if (actressAlias === searchJpname) return true
+      }
+      
+      return false
+    })
+    
+    return duplicate || null
+  }
+
+  // Function to create new actress and add to group
+  const handleCreateNewActress = async () => {
+    if (!newActressName.trim() || !group.name) return
+    
+    try {
+      setIsCreatingActress(true)
+      
+      // Check for duplicates before creating
+      const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
+      if (duplicate) {
+        const duplicateInfo = []
+        if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
+        if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
+        if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
+        
+        const duplicateDetails = duplicateInfo.join(', ')
+        const errorMessage = `Aktris dengan nama yang sama sudah ada di database!\n\nAktris yang sama:\n${duplicateDetails}\n\nSilakan gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.`
+        
+        toast.error(errorMessage)
+        setIsCreatingActress(false)
+        return
+      }
+      
+      // Prepare group-specific data if group photo is provided
+      const groupData = newActressGroupPhoto.trim() ? {
+        [group.name]: {
+          profilePicture: newActressGroupPhoto.trim()
+        }
+      } : undefined
+      
+      const actressData = {
+        name: newActressName.trim(),
+        jpname: newActressJpName.trim() || undefined,
+        selectedGroups: [group.name],
+        groupData: groupData
+      }
+
+      console.log('Creating new actress with data:', actressData)
+
+      const newActress = await masterDataApi.createExtended('actress', actressData, accessToken)
+
+      console.log('New actress created successfully:', newActress)
+
+      toast.success('Aktris baru berhasil dibuat dan ditambahkan ke group!')
+      
+      // Clear form
+      setNewActressName('')
+      setNewActressJpName('')
+      setNewActressGroupPhoto('')
+      setNewActressPreviewUrl('')
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(false)
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error creating new actress:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Gagal membuat aktris baru'
+      toast.error(errorMessage)
+    } finally {
+      setIsCreatingActress(false)
+    }
+  }
+
+  // Function to open edit profile picture modal
+  const handleEditProfilePicture = (actress: MasterDataItem) => {
+    setSelectedActressForEdit(actress)
+    
+    // Get group-specific profile picture
+    const groupSpecificPhoto = actress.groupData?.[group.name]?.profilePicture || ''
+    setProfilePictureUrl(groupSpecificPhoto)
+    setPreviewUrl(groupSpecificPhoto)
+    setPreviewError(false)
+    setEditProfileModalOpen(true)
+  }
+
+  // Function to close edit profile picture modal
+  const handleCloseEditModal = () => {
+    setEditProfileModalOpen(false)
+    setSelectedActressForEdit(null)
+    setProfilePictureUrl('')
+    setPreviewUrl('')
+    setPreviewError(false)
+    setUrlWasTrimmed(false)
+  }
+
+  // Function to update group-specific profile picture
+  const handleUpdateProfilePicture = async () => {
+    if (!selectedActressForEdit || !profilePictureUrl.trim() || !group.name) return
+    
+    try {
+      setIsUpdatingProfilePicture(true)
+      setUpdatingMemberId(selectedActressForEdit.id)
+      
+      // Update groupData with new profile picture
+      const updatedGroupData = {
+        ...selectedActressForEdit.groupData,
+        [group.name]: {
+          ...selectedActressForEdit.groupData?.[group.name],
+          profilePicture: profilePictureUrl.trim()
+        }
+      }
+      
+      const updateData = {
+        name: selectedActressForEdit.name,
+        jpname: selectedActressForEdit.jpname,
+        birthdate: selectedActressForEdit.birthdate,
+        alias: selectedActressForEdit.alias,
+        links: selectedActressForEdit.links,
+        takulinks: selectedActressForEdit.takulinks,
+        tags: selectedActressForEdit.tags,
+        photo: selectedActressForEdit.photo,
+        profilePicture: selectedActressForEdit.profilePicture, // Keep original profile picture
+        groupId: selectedActressForEdit.groupId,
+        groupData: updatedGroupData, // Update group-specific data
+        selectedGroups: selectedActressForEdit.selectedGroups
+      }
+
+      console.log('Updating group-specific profile picture with data:', updateData)
+
+      await masterDataApi.updateExtended('actress', selectedActressForEdit.id, updateData, accessToken)
+
+      // Update local state immediately without reloading entire page
+      setGroupMembers(prevMembers => 
+        prevMembers.map(member => 
+          member.id === selectedActressForEdit.id 
+            ? { ...member, groupData: updatedGroupData }
+            : member
+        )
+      )
+
+      toast.success('Group-specific profile picture updated successfully!')
+      handleCloseEditModal()
+      
+    } catch (err) {
+      console.error('Error updating group-specific profile picture:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update group-specific profile picture'
+      toast.error(errorMessage)
+    } finally {
+      setIsUpdatingProfilePicture(false)
+      setUpdatingMemberId(null)
+    }
+  }
+
+  // Prepare options for searchable combobox - only show actresses not already in group
+  const actressOptions = useComboBoxOptions(
+    cachedActresses.filter(actress => 
+      !groupMembers.some(groupMember => groupMember.id === actress.id)
+    ),
+    (actress) => actress.id,
+    (actress) => `${actress.name}${actress.jpname ? ` (${actress.jpname})` : ''}`,
+    (actress) => [
+      actress.name || '',
+      actress.jpname || '',
+      ...(actress.alias ? [actress.alias] : [])
+    ].filter(Boolean)
+  )
+
   // Filter and sort group members based on search
   const filteredAndSortedMembers = useMemo(() => {
     let filtered = filteredActresses
@@ -933,6 +1298,165 @@ export function GroupDetailContent({
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-6">
+          {/* Add Member Button */}
+          <div className="mb-6">
+            <Button
+              onClick={() => setIsAddMemberSectionOpen(!isAddMemberSectionOpen)}
+              variant="outline"
+              className="w-full flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Member
+              </span>
+              <ChevronDown 
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  isAddMemberSectionOpen ? 'rotate-180' : ''
+                }`} 
+              />
+            </Button>
+          </div>
+
+          {/* Collapsible Add Member Section */}
+          {isAddMemberSectionOpen && (
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium">Tambah Member</h3>
+                  
+                  {/* Add Existing Actress */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Tambah Aktris yang Sudah Ada</h4>
+                    <div className="flex gap-2">
+                      <SearchableComboBox
+                        options={actressOptions}
+                        value={selectedActressId}
+                        onValueChange={setSelectedActressId}
+                        placeholder="Pilih aktris..."
+                        searchPlaceholder="Cari aktris..."
+                        emptyMessage="Tidak ada aktris ditemukan."
+                        className="min-w-[300px]"
+                        triggerClassName="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddActressToGroup}
+                        disabled={!selectedActressId || isAddingMember}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {isAddingMember ? 'Menambahkan...' : 'Tambah'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Create New Actress */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Buat Aktris Baru</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="newActressName">Nama Aktris</Label>
+                        <Input
+                          id="newActressName"
+                          value={newActressName}
+                          onChange={(e) => setNewActressName(e.target.value)}
+                          placeholder="Masukkan nama aktris..."
+                          disabled={isCreatingActress}
+                          className={duplicateWarning ? 'border-red-500 focus:border-red-500' : ''}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newActressJpName">Nama Jepang (Opsional)</Label>
+                        <Input
+                          id="newActressJpName"
+                          value={newActressJpName}
+                          onChange={(e) => setNewActressJpName(e.target.value)}
+                          placeholder="Masukkan nama Jepang..."
+                          disabled={isCreatingActress}
+                          className={duplicateWarning ? 'border-red-500 focus:border-red-500' : ''}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Duplicate Warning */}
+                    {duplicateWarning && (
+                      <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                        <span className="text-red-600 text-lg">⚠️</span>
+                        <div className="flex-1">
+                          <div className="font-medium mb-1">Nama Aktris Sudah Ada!</div>
+                          <div className="whitespace-pre-line text-sm">{duplicateWarning.split('\n')[1]}</div>
+                          <div className="text-xs mt-2 text-red-500">
+                            💡 Gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Group Profile Picture */}
+                    <div className="space-y-4">
+                      <Label htmlFor="newActressGroupPhoto">Group Profile Picture (Opsional)</Label>
+                      <Input
+                        id="newActressGroupPhoto"
+                        value={newActressGroupPhoto}
+                        onChange={(e) => setNewActressGroupPhoto(e.target.value)}
+                        placeholder="Masukkan URL foto group-specific..."
+                        disabled={isCreatingActress}
+                      />
+                      
+                      {/* Preview */}
+                      {newActressPreviewUrl && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Preview:</Label>
+                          <div className="flex justify-center">
+                            <div className="w-[200px] h-[250px] rounded-lg overflow-hidden bg-muted shadow-lg">
+                              <img
+                                src={newActressPreviewUrl}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                onError={() => setNewActressPreviewError(true)}
+                                onLoad={() => setNewActressPreviewError(false)}
+                              />
+                            </div>
+                          </div>
+                          {newActressPreviewError && (
+                            <div className="text-center text-red-500 text-sm">
+                              ❌ Failed to load preview image
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* URL Trimmed Notification */}
+                      {newActressUrlWasTrimmed && (
+                        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                          <span className="text-blue-600">✂️</span>
+                          <span>URL automatically trimmed to clean image format</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={handleCreateNewActress}
+                        disabled={!newActressName.trim() || isCreatingActress || !!duplicateWarning}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {isCreatingActress ? 'Membuat...' : duplicateWarning ? 'Nama Sudah Ada' : 'Buat Aktris Baru'}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Ini akan membuat aktris baru dengan data placeholder. Anda dapat mengedit detail lengkap di tab Aktris nanti.
+                      <br />
+                      <span className="text-xs text-blue-600">💡 Tip: Fandom.com URLs will be automatically cleaned</span>
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {filteredActresses.length === 0 ? (
             <div className="text-center py-12">
               <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -1106,22 +1630,33 @@ export function GroupDetailContent({
               {filteredAndSortedMembers.map((actress) => {
                 const imageUrl = getViewModeProfilePicture(actress)
                 const viewAlias = getViewModeAlias(actress)
+                const isUpdating = updatingMemberId === actress.id
                 
                 return (
                   <Card 
                     key={actress.id} 
-                    className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
-                    onClick={() => onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
+                    className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${isUpdating ? 'opacity-75' : ''}`}
+                    onClick={() => !isUpdating && onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
                   >
                     <CardContent className="p-0">
                       {/* Profile Picture */}
                       <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
+                        {/* Loading Overlay */}
+                        {isUpdating && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                              <span className="text-white text-xs font-medium">Updating...</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         {imageUrl ? (
                           <>
                             <img
                               src={imageUrl}
                               alt={`${actress.name} in ${group.name}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ${isUpdating ? 'blur-sm' : ''}`}
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none'
                                 const fallback = e.currentTarget.nextElementSibling as HTMLElement
@@ -1145,9 +1680,21 @@ export function GroupDetailContent({
                           </div>
                         )}
 
-                        {/* Favorite Button */}
-                        {accessToken && (
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Action Buttons */}
+                        {accessToken && !isUpdating && (
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="bg-black/20 hover:bg-black/40 backdrop-blur-sm h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditProfilePicture(actress)
+                              }}
+                              title="Edit Profile Picture"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
                             <SimpleFavoriteButton
                               type="cast"
                               itemId={actress.name || ''}
@@ -1448,6 +1995,132 @@ export function GroupDetailContent({
           sourceTitle: lightboxTitle
         }}
       />
+
+      {/* Edit Profile Picture Modal */}
+      <Dialog open={editProfileModalOpen} onOpenChange={setEditProfileModalOpen}>
+        <DialogContent 
+          className="!max-w-none !max-h-[95vh] !w-[80vw] !h-[80vh] flex flex-col"
+          style={{ 
+            maxWidth: 'none !important',
+            width: '80vw !important',
+            maxHeight: '95vh !important',
+            height: '80vh !important'
+          }}
+          data-custom-dialog="true"
+        >
+          <DialogHeader className="flex-shrink-0 p-6 pb-4">
+            <DialogTitle className="text-xl font-semibold">Edit Group Profile Picture</DialogTitle>
+            <DialogDescription className="text-base">
+              Update group-specific profile picture for {selectedActressForEdit?.name} in {group.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedActressForEdit && (
+            <div className="flex-1 overflow-auto p-6 pt-0 space-y-6">
+              {/* Preview Group-Specific Profile Picture */}
+              <div className="space-y-4">
+                <Label className="text-lg font-medium">
+                  {previewUrl ? 'Preview Group Profile Picture' : 'Current Group Profile Picture'}
+                </Label>
+                <div className="flex justify-center">
+                  <div className="w-[250px] h-[312px] sm:w-[300px] sm:h-[375px] md:w-[350px] md:h-[437px] rounded-lg overflow-hidden bg-muted shadow-lg">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt={`${selectedActressForEdit.name} in ${group.name}`}
+                        className="w-full h-full object-cover"
+                        onError={() => setPreviewError(true)}
+                        onLoad={() => setPreviewError(false)}
+                      />
+                    ) : selectedActressForEdit.groupData?.[group.name]?.profilePicture ? (
+                      <img
+                        src={selectedActressForEdit.groupData[group.name].profilePicture}
+                        alt={`${selectedActressForEdit.name} in ${group.name}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        <User className="h-24 w-24 mb-4" />
+                        <span className="text-sm text-center px-4">
+                          No group-specific photo for {group.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {previewError && previewUrl && (
+                  <div className="text-center text-red-500 text-sm">
+                    ❌ Failed to load preview image. Please check the URL.
+                  </div>
+                )}
+                {previewUrl && !previewError && (
+                  <div className="text-center text-green-600 text-sm">
+                    ✅ Preview loaded successfully
+                  </div>
+                )}
+              </div>
+
+              {/* URL Input */}
+              <div className="space-y-4">
+                <Label htmlFor="profilePictureUrl" className="text-lg font-medium">Group Profile Picture URL</Label>
+                <Input
+                  id="profilePictureUrl"
+                  value={profilePictureUrl}
+                  onChange={(e) => setProfilePictureUrl(e.target.value)}
+                  placeholder="Enter group-specific image URL..."
+                  className="h-12 text-lg"
+                />
+                {urlWasTrimmed && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <span className="text-blue-600">✂️</span>
+                    <span>URL automatically trimmed to clean image format</span>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  This will set a specific profile picture for {selectedActressForEdit.name} when displayed in {group.name} context.
+                  <br />
+                  <span className="text-xs text-blue-600">💡 Tip: Fandom.com URLs will be automatically cleaned (removes parameters like ?cb=...)</span>
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-6 pt-8 border-t border-border/50">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseEditModal} 
+                  className="!h-16 !px-16 !text-xl !font-semibold !min-w-[160px] !border-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  style={{
+                    height: '64px !important',
+                    paddingLeft: '64px !important',
+                    paddingRight: '64px !important',
+                    fontSize: '20px !important',
+                    fontWeight: '600 !important',
+                    minWidth: '160px !important',
+                    borderWidth: '2px !important'
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleUpdateProfilePicture}
+                  disabled={!profilePictureUrl.trim() || isUpdatingProfilePicture}
+                  className="!h-16 !px-16 !text-xl !font-semibold !min-w-[280px] bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  style={{
+                    height: '64px !important',
+                    paddingLeft: '64px !important',
+                    paddingRight: '64px !important',
+                    fontSize: '20px !important',
+                    fontWeight: '600 !important',
+                    minWidth: '280px !important'
+                  }}
+                >
+                  {isUpdatingProfilePicture ? 'Updating...' : 'Update Group Profile Picture'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   )

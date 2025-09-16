@@ -155,7 +155,7 @@ export interface MasterDataItem {
   groupId?: string // Reference to actress group
   groupName?: string // Denormalized group name for easier display
   selectedGroups?: string[] // Array of group names the actress belongs to
-  groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
+  groupData?: { [groupName: string]: { photos: string[], alias?: string, profilePicture?: string } } // Per-group data including photos, aliases, and profile pictures
   generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
   lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
@@ -349,7 +349,7 @@ export async function createExtendedMasterData(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData, generationData } = body
     console.log(`Server: Creating extended ${type} with data:`, body)
 
     if (!name?.trim()) {
@@ -452,6 +452,7 @@ export async function createExtendedMasterData(c: Context) {
       profilePicture: finalProfilePicture,
       groupId: groupId?.trim() || undefined,
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : undefined,
+      groupData: groupData || undefined,
       generationData: generationData || undefined
     }
 
@@ -913,7 +914,7 @@ export async function updateExtendedMasterData(c: Context) {
     }
 
     const body = await c.req.json()
-    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, generationData, lineupData } = body
+    const { name, jpname, kanjiName, kanaName, birthdate, alias, links, takulinks, tags, photo, profilePicture, groupId, selectedGroups, groupData, generationData, lineupData } = body
     console.log(`Server: Updating extended ${type} with data:`, body)
     console.log(`Server: lineupData received:`, lineupData)
     console.log(`Server: lineupData type:`, typeof lineupData)
@@ -1046,6 +1047,7 @@ export async function updateExtendedMasterData(c: Context) {
       profilePicture: finalProfilePicture,
       groupId: groupId?.trim() || (groupId === null || groupId === '' ? undefined : existingItem.groupId),
       selectedGroups: Array.isArray(selectedGroups) && selectedGroups.length > 0 ? selectedGroups : (selectedGroups === null || (Array.isArray(selectedGroups) && selectedGroups.length === 0) ? undefined : existingItem.selectedGroups),
+      groupData: groupData !== undefined ? groupData : existingItem.groupData,
       generationData: generationData !== undefined ? generationData : existingItem.generationData,
       lineupData: processedLineupData,
       updatedAt: new Date().toISOString()

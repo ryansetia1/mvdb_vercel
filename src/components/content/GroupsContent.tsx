@@ -4,7 +4,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
-import { Search, Plus, Edit, Trash2, Globe, ArrowLeft, User, Calendar, ImageOff, Filter } from 'lucide-react'
+import { Search, Plus, Edit, Trash2, Globe, ArrowLeft, User, Calendar, ImageOff, Filter, Loader2 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -52,6 +52,7 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
   const [sortBy, setSortBy] = useState('name')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(24)
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     jpname: '',
@@ -177,23 +178,31 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     console.log('=== EDITING GROUP ===')
     console.log('Group:', group)
     
-    setFormData({
-      name: group.name || '',
-      jpname: group.jpname || '',
-      profilePicture: group.profilePicture || '',
-      website: group.website || '',
-      description: group.description || '',
-      gallery: group.gallery || []
-    })
-    setEditingGroup(group)
+    // Set loading state for this specific group
+    setEditingGroupId(group.id)
     
-    // Load actresses for this specific group being edited
-    if (group.name) {
-      console.log('Loading actresses for editing group...')
-      await loadEditingGroupActresses(group.name)
+    try {
+      setFormData({
+        name: group.name || '',
+        jpname: group.jpname || '',
+        profilePicture: group.profilePicture || '',
+        website: group.website || '',
+        description: group.description || '',
+        gallery: group.gallery || []
+      })
+      setEditingGroup(group)
+      
+      // Load actresses for this specific group being edited
+      if (group.name) {
+        console.log('Loading actresses for editing group...')
+        await loadEditingGroupActresses(group.name)
+      }
+      
+      setShowCreateDialog(true)
+    } finally {
+      // Clear loading state when dialog opens
+      setEditingGroupId(null)
     }
-    
-    setShowCreateDialog(true)
   }
 
   const handleInputChange = (field: string, value: string | string[]) => {
@@ -925,9 +934,13 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
                       e.stopPropagation()
                       handleEdit(group)
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || editingGroupId === group.id}
                   >
-                    <Edit className="h-3 w-3" />
+                    {editingGroupId === group.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Edit className="h-3 w-3" />
+                    )}
                   </Button>
                   
                   <Button

@@ -5,6 +5,7 @@ import { Label } from './ui/label'
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { SearchableComboBox, useComboBoxOptions } from './ui/searchable-combobox'
 import { Plus, Trash2, Edit, User, Users } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
@@ -49,10 +50,58 @@ export function GenerationActressManagement({
     photos: []
   })
   const [useCustomAlias, setUseCustomAlias] = useState(false)
+  const [sortBy, setSortBy] = useState<'name' | 'name-desc'>('name')
+  const [urlWasTrimmed, setUrlWasTrimmed] = useState(false)
 
   useEffect(() => {
     loadData()
   }, [generationId, groupId, accessToken])
+
+  // Function to auto-trim fandom.com URLs from the end
+  const autoTrimFandomUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return url
+    
+    // Check if it's a fandom.com URL
+    if (!url.includes('static.wikia.nocookie.net')) return url
+    
+    // Find the last occurrence of image extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    let trimmedUrl = url
+    
+    // Try each extension from the end
+    for (const ext of imageExtensions) {
+      const lastIndex = url.lastIndexOf(ext)
+      if (lastIndex !== -1) {
+        // Found the extension, trim everything after it
+        trimmedUrl = url.substring(0, lastIndex + ext.length)
+        break
+      }
+    }
+    
+    return trimmedUrl
+  }
+
+  // Debounce profile picture URL update with auto-trim
+  useEffect(() => {
+    if (!formData.profilePicture.trim()) {
+      setUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(formData.profilePicture.trim())
+      const wasTrimmed = trimmedUrl !== formData.profilePicture.trim()
+      
+      setUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setFormData(prev => ({ ...prev, profilePicture: trimmedUrl }))
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.profilePicture])
 
   const loadData = async () => {
     if (!generationId || !groupId || !accessToken) {
@@ -313,6 +362,18 @@ export function GenerationActressManagement({
     (actress) => actress.name || 'Unnamed Actress'
   )
 
+  // Sort actresses based on selected sort option
+  const sortedActresses = [...generationActresses].sort((a, b) => {
+    const nameA = a.name || ''
+    const nameB = b.name || ''
+    
+    if (sortBy === 'name') {
+      return nameA.localeCompare(nameB)
+    } else {
+      return nameB.localeCompare(nameA)
+    }
+  })
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -321,6 +382,22 @@ export function GenerationActressManagement({
           <Users className="h-5 w-5" />
           <h4 className="font-medium">Actresses in {generationName}</h4>
           <Badge variant="outline">{generationActresses.length} actresses</Badge>
+          
+          {/* Sort Dropdown */}
+          {generationActresses.length > 1 && (
+            <div className="flex items-center gap-2 ml-4">
+              <span className="text-sm text-muted-foreground">Sort:</span>
+              <Select value={sortBy} onValueChange={(value: 'name' | 'name-desc') => setSortBy(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         
         <div className="flex gap-2">
@@ -373,7 +450,7 @@ export function GenerationActressManagement({
         </div>
       ) : (
         <div className="space-y-2">
-          {generationActresses.map((actress) => {
+          {sortedActresses.map((actress) => {
             const generationData = actress.generationData?.[generationId]
             return (
               <ActressAssignmentItem
@@ -451,6 +528,12 @@ export function GenerationActressManagement({
                 onChange={(e) => handleInputChange('profilePicture', e.target.value)}
                 placeholder="https://example.com/image.jpg"
               />
+              {urlWasTrimmed && (
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                  <span className="text-blue-600">✂️</span>
+                  <span>URL automatically trimmed to clean image format</span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2">
@@ -490,6 +573,53 @@ function ActressAssignmentItem({
   const [profilePicUrl, setProfilePicUrl] = useState(generationData?.profilePicture || '')
   const [isEditingPic, setIsEditingPic] = useState(false)
   const [isSavingPic, setIsSavingPic] = useState(false)
+  const [urlWasTrimmed, setUrlWasTrimmed] = useState(false)
+
+  // Function to auto-trim fandom.com URLs from the end
+  const autoTrimFandomUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return url
+    
+    // Check if it's a fandom.com URL
+    if (!url.includes('static.wikia.nocookie.net')) return url
+    
+    // Find the last occurrence of image extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    let trimmedUrl = url
+    
+    // Try each extension from the end
+    for (const ext of imageExtensions) {
+      const lastIndex = url.lastIndexOf(ext)
+      if (lastIndex !== -1) {
+        // Found the extension, trim everything after it
+        trimmedUrl = url.substring(0, lastIndex + ext.length)
+        break
+      }
+    }
+    
+    return trimmedUrl
+  }
+
+  // Debounce profile picture URL update with auto-trim
+  useEffect(() => {
+    if (!profilePicUrl.trim()) {
+      setUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(profilePicUrl.trim())
+      const wasTrimmed = trimmedUrl !== profilePicUrl.trim()
+      
+      setUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setProfilePicUrl(trimmedUrl)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [profilePicUrl])
   
   const displayName = generationData?.alias || actress.name
   const displayPicture = profilePicUrl || actress.profilePicture
@@ -547,19 +677,26 @@ function ActressAssignmentItem({
         
         {/* Profile Picture Input Field */}
         <div className="flex-1 mx-4">
-          <Input
-            value={profilePicUrl}
-            onChange={(e) => setProfilePicUrl(e.target.value)}
-            onBlur={() => handleProfilePicChange(profilePicUrl)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleProfilePicChange(profilePicUrl)
-              }
-            }}
-            placeholder="Profile picture URL..."
-            className="h-7 text-xs"
-            disabled={isSavingPic}
-          />
+          <div className="relative">
+            <Input
+              value={profilePicUrl}
+              onChange={(e) => setProfilePicUrl(e.target.value)}
+              onBlur={() => handleProfilePicChange(profilePicUrl)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleProfilePicChange(profilePicUrl)
+                }
+              }}
+              placeholder="Profile picture URL..."
+              className="h-7 text-xs"
+              disabled={isSavingPic}
+            />
+            {urlWasTrimmed && (
+              <div className="absolute -bottom-6 left-0 right-0 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-2 py-1 text-xs text-blue-600">
+                ✂️ URL trimmed
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex gap-1">

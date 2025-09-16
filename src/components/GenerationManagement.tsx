@@ -44,6 +44,7 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
     description: '',
     profilePicture: ''
   })
+  const [dateInputMode, setDateInputMode] = useState<'date' | 'year'>('year')
 
   useEffect(() => {
     if (groupId && accessToken) {
@@ -91,6 +92,22 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
     e?.preventDefault()
     e?.stopPropagation()
     setEditingGeneration(generation)
+    
+    // Determine date input mode based on existing data
+    let mode: 'date' | 'year' = 'year' // default to year mode
+    
+    if (generation.startDate || generation.endDate) {
+      // If dates exist and are in YYYY-MM-DD format, use date mode
+      if ((generation.startDate && generation.startDate.includes('-')) || 
+          (generation.endDate && generation.endDate.includes('-'))) {
+        mode = 'date'
+      } else {
+        // If dates are just years (4 digits), use year mode
+        mode = 'year'
+      }
+    }
+    
+    setDateInputMode(mode)
     setFormData({
       name: generation.name || '',
       estimatedYears: generation.estimatedYears || '',
@@ -117,15 +134,28 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
         return
       }
 
+      // Format and validate dates
+      let formattedStartDate: string | undefined
+      let formattedEndDate: string | undefined
+      
+      try {
+        formattedStartDate = formatDateInput(formData.startDate, dateInputMode === 'year')
+        formattedEndDate = formatDateInput(formData.endDate, dateInputMode === 'year')
+      } catch (dateError) {
+        setError(dateError instanceof Error ? dateError.message : 'Invalid date format')
+        return
+      }
+
       console.log('Submitting generation data:', {
         name: formData.name,
         groupId,
         groupName,
         estimatedYears: formData.estimatedYears,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
         description: formData.description,
-        profilePicture: formData.profilePicture
+        profilePicture: formData.profilePicture,
+        dateInputMode
       })
       
       console.log('GenerationManagement - groupId:', groupId, 'groupName:', groupName, 'accessToken:', accessToken ? 'present' : 'missing')
@@ -138,8 +168,8 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
           groupName,
           accessToken,
           formData.estimatedYears || undefined,
-          formData.startDate || undefined,
-          formData.endDate || undefined,
+          formattedStartDate,
+          formattedEndDate,
           formData.description || undefined,
           formData.profilePicture || undefined
         )
@@ -151,8 +181,8 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
           groupName,
           accessToken,
           formData.estimatedYears || undefined,
-          formData.startDate || undefined,
-          formData.endDate || undefined,
+          formattedStartDate,
+          formattedEndDate,
           formData.description || undefined,
           formData.profilePicture || undefined
         )
@@ -188,6 +218,74 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
 
   const handleInputChange = (field: keyof GenerationFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleDateModeChange = (mode: 'date' | 'year') => {
+    setDateInputMode(mode)
+    
+    // Convert existing date values when switching modes
+    if (mode === 'year' && formData.startDate) {
+      // Convert YYYY-MM-DD to YYYY
+      const startYear = formData.startDate.split('-')[0]
+      if (startYear && /^\d{4}$/.test(startYear)) {
+        setFormData(prev => ({ ...prev, startDate: startYear }))
+      } else {
+        setFormData(prev => ({ ...prev, startDate: '' }))
+      }
+    }
+    
+    if (mode === 'year' && formData.endDate) {
+      // Convert YYYY-MM-DD to YYYY
+      const endYear = formData.endDate.split('-')[0]
+      if (endYear && /^\d{4}$/.test(endYear)) {
+        setFormData(prev => ({ ...prev, endDate: endYear }))
+      } else {
+        setFormData(prev => ({ ...prev, endDate: '' }))
+      }
+    }
+    
+    if (mode === 'date' && formData.startDate) {
+      // Convert YYYY to YYYY-01-01
+      if (/^\d{4}$/.test(formData.startDate)) {
+        setFormData(prev => ({ ...prev, startDate: `${formData.startDate}-01-01` }))
+      }
+    }
+    
+    if (mode === 'date' && formData.endDate) {
+      // Convert YYYY to YYYY-12-31
+      if (/^\d{4}$/.test(formData.endDate)) {
+        setFormData(prev => ({ ...prev, endDate: `${formData.endDate}-12-31` }))
+      }
+    }
+  }
+
+  // Helper function to validate and format date input
+  const formatDateInput = (dateInput: string, isYearMode: boolean): string | undefined => {
+    if (!dateInput.trim()) return undefined
+    
+    if (isYearMode) {
+      // Validate year format (4 digits)
+      const yearMatch = dateInput.trim().match(/^\d{4}$/)
+      if (!yearMatch) {
+        throw new Error('Year must be 4 digits (e.g., 2020)')
+      }
+      const year = parseInt(dateInput.trim())
+      if (year < 1900 || year > 2100) {
+        throw new Error('Year must be between 1900 and 2100')
+      }
+      return dateInput.trim()
+    } else {
+      // Validate date format (YYYY-MM-DD)
+      const dateMatch = dateInput.trim().match(/^\d{4}-\d{2}-\d{2}$/)
+      if (!dateMatch) {
+        throw new Error('Date must be in YYYY-MM-DD format')
+      }
+      const date = new Date(dateInput.trim())
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format')
+      }
+      return dateInput.trim()
+    }
   }
 
   if (!groupId || !accessToken) {
@@ -418,14 +516,46 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
                </p>
              </div>
 
+             {/* Date Input Mode Toggle */}
+             <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+               <Label className="text-base font-medium">📅 Date Input Format</Label>
+               <div className="flex gap-3">
+                 <Button
+                   type="button"
+                   variant={dateInputMode === 'year' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => handleDateModeChange('year')}
+                   className={`px-3 py-1 ${dateInputMode === 'year' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border-gray-300'}`}
+                 >
+                   📆 Year Only
+                 </Button>
+                 <Button
+                   type="button"
+                   variant={dateInputMode === 'date' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => handleDateModeChange('date')}
+                   className={`px-3 py-1 ${dateInputMode === 'date' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border-gray-300'}`}
+                 >
+                   📅 Full Date
+                 </Button>
+               </div>
+               <div className="text-sm text-gray-600 dark:text-gray-400">
+                 {dateInputMode === 'year' 
+                   ? '💡 Enter year only (e.g., 2020, 2023) - simpler and faster!' 
+                   : '💡 Select full date with day, month, and year - more precise!'
+                 }
+               </div>
+             </div>
+
              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">Start Date</Label>
                 <Input
                   id="startDate"
-                  type="date"
+                  type={dateInputMode === 'date' ? 'date' : 'text'}
                   value={formData.startDate}
                   onChange={(e) => handleInputChange('startDate', e.target.value)}
+                  placeholder={dateInputMode === 'year' ? 'e.g., 2020' : ''}
                 />
               </div>
 
@@ -433,9 +563,10 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
                 <Label htmlFor="endDate">End Date</Label>
                 <Input
                   id="endDate"
-                  type="date"
+                  type={dateInputMode === 'date' ? 'date' : 'text'}
                   value={formData.endDate}
                   onChange={(e) => handleInputChange('endDate', e.target.value)}
+                  placeholder={dateInputMode === 'year' ? 'e.g., 2023' : ''}
                 />
               </div>
             </div>
