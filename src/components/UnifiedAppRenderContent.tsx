@@ -192,6 +192,7 @@
         onMovieSelect={handleMovieSelect}
         onPhotobookSelect={handlePhotobookSelect}
         onProfileSelect={handleProfileSelect}
+        onGroupSelect={handleGroupSelect}
         onEdit={handleEditProfile}
         accessToken={accessToken}
         actresses={actresses}

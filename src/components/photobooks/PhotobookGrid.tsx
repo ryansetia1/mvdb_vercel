@@ -4,6 +4,7 @@ import { Camera, Plus } from 'lucide-react'
 import { Photobook } from '../../utils/photobookApi'
 import { MasterDataItem } from '../../utils/masterDataApi'
 import { PhotobookCard } from './PhotobookCard'
+import { VirtualizedPhotobookGrid } from './VirtualizedPhotobookGrid'
 
 interface PhotobookGridProps {
   photobooks: Photobook[]
@@ -49,14 +50,14 @@ export const PhotobookGrid = React.memo(function PhotobookGrid({
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {Array.from({ length: Math.min(photobooks.length || 8, 12) }).map((_, i) => (
+        {Array.from({ length: Math.min(photobooks?.length || 8, 12) }).map((_, i) => (
           <div key={i} className="w-40 h-60 bg-gray-200 animate-pulse rounded-lg" />
         ))}
       </div>
     )
   }
 
-  if (photobooks.length === 0) {
+  if ((photobooks?.length || 0) === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Camera className="h-16 w-16 text-gray-400 mb-4" />
@@ -77,8 +78,17 @@ export const PhotobookGrid = React.memo(function PhotobookGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {photobookCards}
-    </div>
+    <VirtualizedPhotobookGrid
+      photobooks={photobooks}
+      onPhotobookClick={onPhotobookClick}
+      onUnlinkPhotobook={onUnlinkPhotobook}
+      showUnlinkButtons={showUnlinkButtons}
+      isLoading={isLoading}
+      emptyStateMessage={emptyStateMessage}
+      onLinkPhotobooks={onLinkPhotobooks}
+      generations={generations}
+      lineups={lineups}
+      members={members}
+    />
   )
 })

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { Badge } from '../../ui/badge'
 import { Users, Calendar, Users2, User, Plus } from 'lucide-react'
@@ -7,6 +7,7 @@ import { Photobook, photobookApi } from '../../../utils/photobookApi'
 import { PhotobookGrid } from '../../photobooks/PhotobookGrid'
 import { PhotobookLinkingDialog } from '../../photobooks/PhotobookLinkingDialog'
 import { useCachedData } from '../../../hooks/useCachedData'
+import { useBatchedUpdates } from '../../../hooks/useBatchedState'
 import { toast } from 'sonner'
 
 interface PhotobooksTabContentProps {
@@ -37,6 +38,7 @@ export function PhotobooksTabContent({
   onCacheUpdate 
 }: PhotobooksTabContentProps) {
   const { loadData: loadCachedData } = useCachedData()
+  const { batchUpdate } = useBatchedUpdates()
   const [activeSubTab, setActiveSubTab] = useState('group')
   const [photobooks, setPhotobooks] = useState<{
     group: Photobook[]
@@ -71,26 +73,93 @@ export function PhotobooksTabContent({
     member: false
   })
 
+  // Check if we have any data loaded to prevent unnecessary reloading
+  const hasAnyData = useMemo(() => {
+    return (photobooks.group?.length || 0) > 0 || 
+           (photobooks.generation?.length || 0) > 0 || 
+           (photobooks.lineup?.length || 0) > 0 || 
+           (photobooks.member?.length || 0) > 0 ||
+           generations.length > 0 || 
+           lineups.length > 0 || 
+           members.length > 0
+  }, [photobooks, generations, lineups, members])
+
   // Load photobooks and hierarchy data when component mounts
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && !hasAnyData) {
       // Check if we have cached data from parent component
       const hasParentCache = cachedPhotobooks && cachedHierarchy
       
       if (hasParentCache) {
-        // Use cached data immediately without logging to reduce console spam
-        setGenerations(cachedHierarchy!.generations)
-        setLineups(cachedHierarchy!.lineups)
-        setMembers(cachedHierarchy!.members)
-        setPhotobooks(cachedPhotobooks!)
-        setIsLoading(false)
+        // Use cached data immediately with batched updates
+        batchUpdate(() => {
+          setGenerations(cachedHierarchy!.generations)
+          setLineups(cachedHierarchy!.lineups)
+          setMembers(cachedHierarchy!.members)
+          setPhotobooks(cachedPhotobooks!)
+          setIsLoading(false)
+        })
+        
+        // Start background loading for other tabs if not cached
+        startBackgroundLoading(cachedHierarchy!)
       } else {
         // Start loading immediately without waiting for hierarchy data
         setIsLoading(false) // Show UI immediately
         loadPhotobooks() // Load photobooks in background
       }
+    } else if (accessToken && hasAnyData) {
+      // Data already exists, just ensure loading state is false
+      setIsLoading(false)
+      console.log('Data already exists, skipping initial load')
     }
-  }, [accessToken, group.id, cachedPhotobooks, cachedHierarchy])
+  }, [accessToken, group.id, hasAnyData, cachedPhotobooks, cachedHierarchy])
+
+  // Separate effect to handle cached data updates without triggering reload
+  useEffect(() => {
+    if (cachedPhotobooks && cachedHierarchy && !isLoading && !hasAnyData) {
+      console.log('Updating with cached data from parent')
+      batchUpdate(() => {
+        setGenerations(cachedHierarchy!.generations)
+        setLineups(cachedHierarchy!.lineups)
+        setMembers(cachedHierarchy!.members)
+        setPhotobooks(cachedPhotobooks!)
+      })
+    }
+  }, [cachedPhotobooks, cachedHierarchy, isLoading, hasAnyData])
+
+  // Effect to update parent cache when data changes
+  useEffect(() => {
+    if (onCacheUpdate && hasAnyData) {
+      const currentHierarchy = {
+        generations,
+        lineups,
+        members
+      }
+      
+      // Only update cache if data has actually changed
+      const hasHierarchyChanged = 
+        JSON.stringify(currentHierarchy) !== JSON.stringify(cachedHierarchy) ||
+        JSON.stringify(photobooks) !== JSON.stringify(cachedPhotobooks)
+      
+      if (hasHierarchyChanged) {
+        console.log('Updating parent cache with current data')
+        onCacheUpdate(photobooks, currentHierarchy)
+      }
+    }
+  }, [photobooks, generations, lineups, members, onCacheUpdate, cachedPhotobooks, cachedHierarchy, hasAnyData])
+
+  // Effect to prevent unnecessary reloading when component re-mounts
+  useEffect(() => {
+    if (hasAnyData && !isLoading) {
+      console.log('Component re-mounted with existing data, preventing reload')
+      // Ensure all loading states are false
+      setLoadingStates({
+        generation: false,
+        lineup: false,
+        member: false
+      })
+    }
+  }, [hasAnyData, isLoading])
 
   const loadPhotobooks = async (hierarchyData?: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
     try {
@@ -110,7 +179,14 @@ export function PhotobooksTabContent({
       
       // Load hierarchy data if not provided (but don't wait for it)
       if (!hierarchyData) {
-        loadHierarchyData() // Load in background, don't await
+        const hierarchyResult = await loadHierarchyData()
+        if (hierarchyResult) {
+          // Start background loading for all tabs
+          startBackgroundLoading(hierarchyResult)
+        }
+      } else {
+        // Start background loading for all tabs
+        startBackgroundLoading(hierarchyData)
       }
       
     } catch (error) {
@@ -118,25 +194,72 @@ export function PhotobooksTabContent({
       toast.error('Failed to load photobooks')
     }
   }
+
+  // Background loading function for all sub tabs
+  const startBackgroundLoading = async (hierarchyData: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
+    // Only load tabs that don't have data yet
+    const loadPromises: Promise<void>[] = []
+    
+    if ((photobooks.generation?.length || 0) === 0 && !loadingStates.generation) {
+      loadPromises.push(loadSubTabPhotobooks('generation', hierarchyData))
+    }
+    
+    if ((photobooks.lineup?.length || 0) === 0 && !loadingStates.lineup) {
+      loadPromises.push(loadSubTabPhotobooks('lineup', hierarchyData))
+    }
+    
+    if ((photobooks.member?.length || 0) === 0 && !loadingStates.member) {
+      loadPromises.push(loadSubTabPhotobooks('member', hierarchyData))
+    }
+    
+    if (loadPromises.length > 0) {
+      console.log(`Starting background loading for ${loadPromises.length} tabs`)
+      
+      // Execute background loading in parallel
+      Promise.allSettled(loadPromises).then(results => {
+        const successCount = results.filter(result => result.status === 'fulfilled').length
+        console.log(`Background loading completed: ${successCount}/${loadPromises.length} tabs loaded successfully`)
+      })
+    } else {
+      console.log('All tabs already have data, skipping background loading')
+    }
+  }
   
-  // Load photobooks for specific sub tab when user clicks on it
-  const loadSubTabPhotobooks = async (tabType: 'generation' | 'lineup' | 'member') => {
+  // Load photobooks for specific sub tab
+  const loadSubTabPhotobooks = async (tabType: 'generation' | 'lineup' | 'member', hierarchyData?: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
     if (loadingStates[tabType]) return // Already loading
+    
+    // Check if data already exists
+    const currentData = photobooks[tabType]
+    if (currentData && currentData.length > 0) {
+      console.log(`${tabType} data already exists, skipping load`)
+      return
+    }
+    
+    // Check if we have any data at all to prevent unnecessary loading
+    if (hasAnyData && (currentData?.length || 0) === 0) {
+      console.log(`${tabType} data is empty but other data exists, skipping load to prevent unnecessary reloading`)
+      return
+    }
     
     setLoadingStates(prev => ({ ...prev, [tabType]: true }))
     
     try {
-      // Load hierarchy data if not already loaded
+      // Use provided hierarchy data or load if not available
       let currentGenerations = generations
       let currentLineups = lineups
       let currentMembers = members
       
-      if (currentGenerations.length === 0 || currentLineups.length === 0 || currentMembers.length === 0) {
+      if (hierarchyData) {
+        currentGenerations = hierarchyData.generations || []
+        currentLineups = hierarchyData.lineups || []
+        currentMembers = hierarchyData.members || []
+      } else if (currentGenerations.length === 0 || currentLineups.length === 0 || currentMembers.length === 0) {
         const hierarchyResult = await loadHierarchyData()
         if (hierarchyResult) {
-          currentGenerations = hierarchyResult.generations
-          currentLineups = hierarchyResult.lineups
-          currentMembers = hierarchyResult.members
+          currentGenerations = hierarchyResult.generations || []
+          currentLineups = hierarchyResult.lineups || []
+          currentMembers = hierarchyResult.members || []
         }
       }
       
@@ -163,6 +286,8 @@ export function PhotobooksTabContent({
         [tabType]: photobooks
       }))
       
+      console.log(`Successfully loaded ${photobooks.length} ${tabType} photobooks`)
+      
     } catch (error) {
       console.error(`Error loading ${tabType} photobooks:`, error)
       toast.error(`Failed to load ${tabType} photobooks`)
@@ -181,17 +306,22 @@ export function PhotobooksTabContent({
       ])
       
       // Filter lineups and members based on generations
-      const groupLineups = allLineups.filter(lineup => 
+      const groupLineups = (allLineups || []).filter(lineup => 
         generationsData.some(gen => gen.id === lineup.generationId)
       )
       
-      const groupMembers = allActresses.filter(actress => 
+      const groupMembers = (allActresses || []).filter(actress => 
         actress.selectedGroups && actress.selectedGroups.includes(group.name || '')
       )
       
-      setGenerations(generationsData)
-      setLineups(groupLineups)
-      setMembers(groupMembers)
+      // Batch hierarchy data updates
+      batchUpdate(() => {
+        setGenerations(generationsData)
+        setLineups(groupLineups)
+        setMembers(groupMembers)
+      })
+      
+      console.log(`Hierarchy data loaded: ${generationsData.length} generations, ${groupLineups.length} lineups, ${groupMembers.length} members`)
       
       // Return hierarchy data for immediate use
       return {
@@ -206,7 +336,7 @@ export function PhotobooksTabContent({
     }
   }
 
-  const handleLinkPhotobook = async (photobookId: string, targetType: string, targetId: string) => {
+  const handleLinkPhotobook = useCallback(async (photobookId: string, targetType: string, targetId: string) => {
     setIsLinking(true)
     try {
       console.log('PhotobooksTabContent: Linking photobook:', {
@@ -237,9 +367,9 @@ export function PhotobooksTabContent({
     } finally {
       setIsLinking(false)
     }
-  }
+  }, [group.id, group.name, accessToken])
 
-  const handleUnlinkPhotobook = async (photobook: Photobook, targetType: string, targetId: string) => {
+  const handleUnlinkPhotobook = useCallback(async (photobook: Photobook, targetType: string, targetId: string) => {
     setIsUnlinking(true)
     try {
       await photobookApi.unlinkPhotobook(
@@ -261,70 +391,111 @@ export function PhotobooksTabContent({
     } finally {
       setIsUnlinking(false)
     }
-  }
+  }, [accessToken])
 
-  const openLinkingDialog = (targetType: 'group' | 'generation' | 'lineup' | 'member') => {
+  const openLinkingDialog = useCallback((targetType: 'group' | 'generation' | 'lineup' | 'member') => {
     setLinkingTarget({ 
       type: targetType, 
       id: targetType === 'group' ? group.id : '', 
       name: targetType === 'group' ? group.name : targetType 
     })
     setLinkingDialogOpen(true)
-  }
+  }, [group.id, group.name])
+
+  // Memoize tab change handler to prevent unnecessary re-renders
+  const handleTabChange = useCallback((value: string) => {
+    setActiveSubTab(value)
+    // Data is now loaded in background, so no need to load on tab change
+    // Just switch to the tab - data should already be available
+    console.log(`Switching to ${value} tab - data should already be available`)
+  }, [])
+
+  // Memoize photobook counts to prevent unnecessary badge re-renders
+  const photobookCounts = useMemo(() => ({
+    group: photobooks.group?.length || 0,
+    generation: photobooks.generation?.length || 0,
+    lineup: photobooks.lineup?.length || 0,
+    member: photobooks.member?.length || 0
+  }), [photobooks])
+
+  // Memoize dynamic tab labels based on loading states
+  const tabLabels = useMemo(() => ({
+    group: isLoading ? 'Loading Group...' : 'Group',
+    generation: loadingStates.generation ? 'Loading Generation...' : 'Generation',
+    lineup: loadingStates.lineup ? 'Loading Lineup...' : 'Lineup',
+    member: loadingStates.member ? 'Loading Member...' : 'Member'
+  }), [isLoading, loadingStates])
+
+  // Memoize tab descriptions for better UX
+  const tabDescriptions = useMemo(() => ({
+    group: isLoading ? 'Fetching group photobooks...' : `${photobookCounts.group} photobooks linked to group`,
+    generation: loadingStates.generation ? 'Fetching generation photobooks...' : `${photobookCounts.generation} photobooks linked to generations`,
+    lineup: loadingStates.lineup ? 'Fetching lineup photobooks...' : `${photobookCounts.lineup} photobooks linked to lineups`,
+    member: loadingStates.member ? 'Fetching member photobooks...' : `${photobookCounts.member} photobooks linked to members`
+  }), [isLoading, loadingStates, photobookCounts])
+
 
   return (
     <div className="space-y-6">
       {/* Sub-tabs */}
-      <Tabs value={activeSubTab} onValueChange={(value) => {
-        setActiveSubTab(value)
-        // Load photobooks for the selected tab if not already loaded
-        if (value !== 'group' && photobooks[value as keyof typeof photobooks].length === 0) {
-          loadSubTabPhotobooks(value as 'generation' | 'lineup' | 'member')
-        }
-      }}>
+      <Tabs value={activeSubTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="group" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Group
-            {photobooks.group.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {photobooks.group.length}
-              </Badge>
-            )}
+          <TabsTrigger value="group" className="flex flex-col items-center gap-1 py-2" title={tabDescriptions.group}>
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="truncate text-sm font-medium">{tabLabels.group}</span>
+              {!isLoading && photobookCounts.group > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {photobookCounts.group}
+                </Badge>
+              )}
+            </div>
           </TabsTrigger>
-          <TabsTrigger value="generation" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Generation
-            {photobooks.generation.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {photobooks.generation.length}
-              </Badge>
-            )}
+          <TabsTrigger value="generation" className="flex flex-col items-center gap-1 py-2" title={tabDescriptions.generation}>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="truncate text-sm font-medium">{tabLabels.generation}</span>
+              {loadingStates.generation ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+              ) : photobookCounts.generation > 0 ? (
+                <Badge variant="secondary" className="text-xs">
+                  {photobookCounts.generation}
+                </Badge>
+              ) : null}
+            </div>
           </TabsTrigger>
-          <TabsTrigger value="lineup" className="flex items-center gap-2">
-            <Users2 className="h-4 w-4" />
-            Lineup
-            {photobooks.lineup.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {photobooks.lineup.length}
-              </Badge>
-            )}
+          <TabsTrigger value="lineup" className="flex flex-col items-center gap-1 py-2" title={tabDescriptions.lineup}>
+            <div className="flex items-center gap-2">
+              <Users2 className="h-4 w-4" />
+              <span className="truncate text-sm font-medium">{tabLabels.lineup}</span>
+              {loadingStates.lineup ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+              ) : photobookCounts.lineup > 0 ? (
+                <Badge variant="secondary" className="text-xs">
+                  {photobookCounts.lineup}
+                </Badge>
+              ) : null}
+            </div>
           </TabsTrigger>
-          <TabsTrigger value="member" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Member
-            {photobooks.member.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {photobooks.member.length}
-              </Badge>
-            )}
+          <TabsTrigger value="member" className="flex flex-col items-center gap-1 py-2" title={tabDescriptions.member}>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span className="truncate text-sm font-medium">{tabLabels.member}</span>
+              {loadingStates.member ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+              ) : photobookCounts.member > 0 ? (
+                <Badge variant="secondary" className="text-xs">
+                  {photobookCounts.member}
+                </Badge>
+              ) : null}
+            </div>
           </TabsTrigger>
         </TabsList>
 
         {/* Sub-tab Contents */}
         <TabsContent value="group" className="mt-6">
           <PhotobookSubTabContent
-            photobooks={photobooks.group}
+            photobooks={photobooks.group || []}
             targetType="group"
             targetId={group.id}
             targetName={group.name || 'Group'}
@@ -341,7 +512,7 @@ export function PhotobooksTabContent({
 
         <TabsContent value="generation" className="mt-6">
           <PhotobookSubTabContent
-            photobooks={photobooks.generation}
+            photobooks={photobooks.generation || []}
             targetType="generation"
             targetId=""
             targetName="Generation"
@@ -358,7 +529,7 @@ export function PhotobooksTabContent({
 
         <TabsContent value="lineup" className="mt-6">
           <PhotobookSubTabContent
-            photobooks={photobooks.lineup}
+            photobooks={photobooks.lineup || []}
             targetType="lineup"
             targetId=""
             targetName="Lineup"
@@ -375,7 +546,7 @@ export function PhotobooksTabContent({
 
         <TabsContent value="member" className="mt-6">
           <PhotobookSubTabContent
-            photobooks={photobooks.member}
+            photobooks={photobooks.member || []}
             targetType="member"
             targetId=""
             targetName="Member"
@@ -436,7 +607,7 @@ interface PhotobookSubTabContentProps {
   members: MasterDataItem[]
 }
 
-function PhotobookSubTabContent({
+const PhotobookSubTabContent = memo(function PhotobookSubTabContent({
   photobooks,
   targetType,
   targetId,
@@ -450,9 +621,9 @@ function PhotobookSubTabContent({
   lineups,
   members
 }: PhotobookSubTabContentProps) {
-  const handleUnlink = (photobook: Photobook) => {
+  const handleUnlink = useCallback((photobook: Photobook) => {
     onUnlinkPhotobook(photobook, targetType, targetId)
-  }
+  }, [onUnlinkPhotobook, targetType, targetId])
 
   return (
     <div className="space-y-4">
@@ -463,11 +634,11 @@ function PhotobookSubTabContent({
             {targetName} Photobooks
           </h2>
           <p className="text-gray-500 text-sm">
-            {photobooks.length} photobook{photobooks.length !== 1 ? 's' : ''} linked
+            {photobooks?.length || 0} photobook{(photobooks?.length || 0) !== 1 ? 's' : ''} linked
           </p>
         </div>
         
-        {photobooks.length > 0 && (
+        {(photobooks?.length || 0) > 0 && (
           <button
             onClick={onLinkPhotobooks}
             className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
@@ -479,7 +650,7 @@ function PhotobookSubTabContent({
       </div>
 
       {/* Photobook Grid */}
-      {isLoading && photobooks.length === 0 ? (
+      {isLoading && (photobooks?.length || 0) === 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="animate-pulse">
@@ -505,4 +676,4 @@ function PhotobookSubTabContent({
       )}
     </div>
   )
-}
+})

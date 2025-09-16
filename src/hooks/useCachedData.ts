@@ -233,7 +233,7 @@ export function useCachedData() {
 
   const isDataFresh = useCallback((type: keyof CacheState): boolean => {
     const cached = cache[type]
-    return cached && cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
+    return cached && cached.data && cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
   }, [cache])
 
   const setData = useCallback(<T>(type: keyof CacheState, data: T[]) => {
@@ -257,6 +257,7 @@ export function useCachedData() {
       ...prev,
       [type]: {
         ...prev[type],
+        data: prev[type]?.data || [],
         loading
       }
     }))

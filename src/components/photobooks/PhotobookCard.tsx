@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge'
 import { Camera, X, Users, Calendar, Users2, User } from 'lucide-react'
 import { Photobook } from '../../utils/photobookApi'
 import { MasterDataItem } from '../../utils/masterDataApi'
+import { LazyImage } from '../ui/LazyImage'
 
 interface PhotobookCardProps {
   photobook: Photobook
@@ -18,7 +19,7 @@ interface PhotobookCardProps {
   members?: MasterDataItem[]
 }
 
-export function PhotobookCard({ 
+export const PhotobookCard = React.memo(function PhotobookCard({ 
   photobook, 
   onCardClick, 
   onUnlink, 
@@ -28,8 +29,6 @@ export function PhotobookCard({
   lineups = [],
   members = []
 }: PhotobookCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false)
-  const [imageError, setImageError] = useState(false)
   
   const sizeClasses = {
     sm: 'w-32 h-48',
@@ -78,12 +77,11 @@ export function PhotobookCard({
   }, [photobook.linkedTo, generations, lineups, members])
 
   const handleImageLoad = () => {
-    setImageLoaded(true)
+    // Image loaded successfully
   }
 
   const handleImageError = () => {
-    setImageError(true)
-    setImageLoaded(true)
+    // Image failed to load
   }
 
   return (
@@ -94,24 +92,16 @@ export function PhotobookCard({
       <CardContent className="p-0 h-full">
         {/* Cover Image */}
         <div className="relative h-3/4 overflow-hidden rounded-t-lg">
-          {photobook.cover && !imageError ? (
-            <>
-              {!imageLoaded && (
-                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
-                  <Camera className="h-8 w-8 text-gray-400" />
-                </div>
-              )}
-              <img
-                src={photobook.cover}
-                alt={photobook.titleEn}
-                className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ${
-                  imageLoaded ? 'opacity-100' : 'opacity-0 absolute'
-                }`}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                loading="lazy"
-              />
-            </>
+          {photobook.cover ? (
+            <LazyImage
+              src={photobook.cover}
+              alt={photobook.titleEn}
+              className="w-full h-full group-hover:scale-105 transition-transform duration-200"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              threshold={0.1}
+              rootMargin="100px"
+            />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
               <Camera className="h-12 w-12 text-gray-400" />
@@ -162,4 +152,4 @@ export function PhotobookCard({
       </CardContent>
     </Card>
   )
-}
+})

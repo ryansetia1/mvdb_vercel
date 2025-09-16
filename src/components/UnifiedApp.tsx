@@ -1667,7 +1667,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onMovieSelect={handleMovieSelect}
                 onSCMovieSelect={undefined}
                 onPhotobookSelect={handlePhotobookSelectProfile}
-                onGroupSelect={undefined}
+                onGroupSelect={handleGroupSelect}
                 onEditProfile={handleEditProfile}
               />
             )}
