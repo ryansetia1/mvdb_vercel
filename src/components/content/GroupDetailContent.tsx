@@ -387,10 +387,16 @@ export function GroupDetailContent({
     
     // Check groupData structure
     if (actress.groupData && typeof actress.groupData === 'object') {
-      const groupInfo = actress.groupData[groupName]
+      const groupInfo = actress.groupData[groupName] as any
       console.log('Group info:', groupInfo)
       
-      // Check for photos array (groupData only has photos, not profilePicture)
+      // Check for profilePicture field (saved from ActorForm)
+      if (groupInfo?.profilePicture && groupInfo.profilePicture.trim()) {
+        console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
+        return groupInfo.profilePicture.trim()
+      }
+      
+      // Check for photos array (alternative structure)
       if (groupInfo?.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
         const firstPhoto = groupInfo.photos[0]?.trim()
         if (firstPhoto) {
