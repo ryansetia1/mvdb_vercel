@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -17,7 +17,8 @@ import {
   Maximize,
   Plus,
   ChevronDown,
-  Camera
+  Camera,
+  BookOpen
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -28,6 +29,8 @@ import { ModernLightbox } from '../ModernLightbox'
 import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { toast } from 'sonner'
+import { PhotobooksTabContent } from './photobooks/PhotobooksTabContent'
+import { Photobook } from '../../utils/photobookApi'
 
 interface GroupDetailContentProps {
   group: MasterDataItem
@@ -35,6 +38,7 @@ interface GroupDetailContentProps {
   searchQuery?: string
   onBack: () => void
   onProfileSelect: (type: 'actress' | 'actor', name: string) => void
+  onPhotobookSelect?: (photobook: Photobook) => void
 }
 
 const sortOptions = [
@@ -69,7 +73,8 @@ export function GroupDetailContent({
   accessToken, 
   searchQuery = '', 
   onBack, 
-  onProfileSelect 
+  onProfileSelect,
+  onPhotobookSelect
 }: GroupDetailContentProps) {
   const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
@@ -92,6 +97,30 @@ export function GroupDetailContent({
   const [lineupData, setLineupData] = useState<{lineups: MasterDataItem[], actresses: MasterDataItem[]} | null>(null)
   const [lineupDataLoaded, setLineupDataLoaded] = useState(false)
   const [expandedGenerations, setExpandedGenerations] = useState<Set<string>>(new Set())
+  
+  // Cache state for photobooks persistence across main tabs
+  const [photobooksCache, setPhotobooksCache] = useState<{
+    group: Photobook[]
+    generation: Photobook[]
+    lineup: Photobook[]
+    member: Photobook[]
+  } | null>(null)
+  
+  const [hierarchyCache, setHierarchyCache] = useState<{
+    generations: MasterDataItem[]
+    lineups: MasterDataItem[]
+    members: MasterDataItem[]
+  } | null>(null)
+  
+  // Handler untuk update cache dari PhotobooksTabContent
+  const handlePhotobooksCacheUpdate = useCallback((photobooks: any, hierarchy: any) => {
+    console.log('Updating photobooks cache in GroupDetailContent:', {
+      photobooks: Object.keys(photobooks).map(key => ({ [key]: photobooks[key].length })),
+      hierarchy: Object.keys(hierarchy).map(key => ({ [key]: hierarchy[key].length }))
+    })
+    setPhotobooksCache(photobooks)
+    setHierarchyCache(hierarchy)
+  }, [])
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
@@ -546,28 +575,25 @@ export function GroupDetailContent({
       if (lineupDataLoaded && lineupData) {
         return
       }
-
-      console.log('Loading lineup data for generation:', generationId)
       
-      // Load lineups for this generation
-      const allLineups = await masterDataApi.getByType('lineup', accessToken)
+      // Load all data in parallel to avoid multiple API calls
+      const [allLineups, generations, allActresses] = await Promise.all([
+        masterDataApi.getByType('lineup', accessToken),
+        masterDataApi.getByType('generation', accessToken),
+        masterDataApi.getByType('actress', accessToken)
+      ])
+      
+      // Filter and process data
       const generationLineups = allLineups.filter(lineup => lineup.generationId === generationId)
-      
-      // Sort by lineupOrder
       generationLineups.sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
       
-      // Load actresses for this generation's group
-      const generations = await masterDataApi.getByType('generation', accessToken)
       const generation = generations.find(g => g.id === generationId)
-      const allActresses = await masterDataApi.getByType('actress', accessToken)
       const groupActresses = allActresses.filter(actress => 
         actress.selectedGroups && actress.selectedGroups.includes(generation?.groupName || '')
       )
       
       setLineupData({ lineups: generationLineups, actresses: groupActresses })
       setLineupDataLoaded(true)
-      
-      console.log('Lineup data loaded successfully:', { lineups: generationLineups.length, actresses: groupActresses.length })
       
     } catch (err) {
       console.error('Error loading lineup data:', err)
@@ -606,35 +632,44 @@ export function GroupDetailContent({
     })
   }
 
-  const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
-    console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
+  // Memoized profile picture cache to avoid repeated processing
+  const profilePictureCache = useRef<Map<string, string | null>>(new Map())
+  
+  const getGroupProfilePicture = useCallback((actress: MasterDataItem, groupName: string) => {
+    const cacheKey = `${actress.id}-${groupName}`
+    
+    // Check cache first
+    if (profilePictureCache.current.has(cacheKey)) {
+      return profilePictureCache.current.get(cacheKey)
+    }
+    
+    // No logging to improve performance
+    
+    let result: string | null = null
     
     // Check groupData structure
     if (actress.groupData && typeof actress.groupData === 'object') {
       const groupInfo = actress.groupData[groupName] as any
-      console.log('Group info:', groupInfo)
       
       // Check for profilePicture field (saved from ActorForm)
       if (groupInfo?.profilePicture && groupInfo.profilePicture.trim()) {
-        console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
-        return groupInfo.profilePicture.trim()
+        result = groupInfo.profilePicture.trim()
       }
       
       // Check for photos array (alternative structure)
-      if (groupInfo?.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
+      if (!result && groupInfo?.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
         const firstPhoto = groupInfo.photos[0]?.trim()
         if (firstPhoto) {
-          console.log('✅ Found groupData photos array:', firstPhoto)
-          return firstPhoto
+          result = firstPhoto
         }
       }
     }
     
-    // Legacy structure removed - groupProfilePictures is not part of MasterDataItem type
+    // Cache the result
+    profilePictureCache.current.set(cacheKey, result)
     
-    console.log('❌ No group-specific photo found')
-    return null
-  }
+    return result
+  }, [])
 
   const getGroupAlias = (actress: MasterDataItem, groupName: string) => {
     // Check groupData structure
@@ -1365,7 +1400,7 @@ export function GroupDetailContent({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Members
@@ -1392,6 +1427,10 @@ export function GroupDetailContent({
                 {groupGalleryPhotos.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="photobooks" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Photobooks
           </TabsTrigger>
         </TabsList>
 
@@ -2298,6 +2337,28 @@ export function GroupDetailContent({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Photobooks Tab */}
+        <TabsContent value="photobooks" className="mt-6">
+          {onPhotobookSelect ? (
+            <PhotobooksTabContent
+              group={group}
+              accessToken={accessToken}
+              onPhotobookSelect={onPhotobookSelect}
+              cachedPhotobooks={photobooksCache}
+              cachedHierarchy={hierarchyCache}
+              onCacheUpdate={handlePhotobooksCacheUpdate}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Photobooks feature not available</h3>
+              <p className="text-muted-foreground">
+                Photobook selection handler is not configured.
+              </p>
             </div>
           )}
         </TabsContent>

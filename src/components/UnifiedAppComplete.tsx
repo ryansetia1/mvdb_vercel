@@ -45,6 +45,7 @@ import { ActressesContent } from './content/ActressesContent'
 import { SeriesContent } from './content/SeriesContent'
 import { StudiosContent } from './content/StudiosContent'
 import { GroupsContent } from './content/GroupsContent'
+import { GroupDetailContent } from './content/GroupDetailContent'
 import { TagsContent } from './content/TagsContent'
 import { MovieDetailContent } from './content/MovieDetailContent'
 import { ProfileContent } from './content/ProfileContent'
@@ -572,14 +573,38 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
     })
   }
 
-  const handleGroupSelect = (groupName: string) => {
-    // Navigate to groups page and show selected group
-    setContentState({
-      mode: 'groups',
-      title: 'Groups',
-      data: { selectedGroup: groupName }
-    })
-    setActiveNavItem('groups')
+  const handleGroupSelect = async (groupName: string) => {
+    try {
+      // Find the group data first
+      const groupData = groups.find(group => group.name === groupName)
+      
+      if (groupData) {
+        // Navigate directly to group detail page
+        setContentState({
+          mode: 'groupDetail',
+          title: groupData.name || groupName,
+          data: groupData
+        })
+        setActiveNavItem('groups')
+      } else {
+        // Fallback to groups page if group not found
+        setContentState({
+          mode: 'groups',
+          title: 'Groups',
+          data: { selectedGroup: groupName }
+        })
+        setActiveNavItem('groups')
+      }
+    } catch (error) {
+      console.error('Error navigating to group detail:', error)
+      // Fallback to groups page
+      setContentState({
+        mode: 'groups',
+        title: 'Groups',
+        data: { selectedGroup: groupName }
+      })
+      setActiveNavItem('groups')
+    }
   }
 
   const handleBack = () => {
@@ -1086,6 +1111,17 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
             />
           )}
 
+          {contentState.mode === 'groupDetail' && contentState.data && (
+            <GroupDetailContent
+              group={contentState.data}
+              accessToken={accessToken}
+              searchQuery={searchQuery}
+              onBack={handleBack}
+              onProfileSelect={handleProfileSelect}
+              onPhotobookSelect={handlePhotobookSelect}
+            />
+          )}
+
           {contentState.mode === 'movieDetail' && contentState.data && (
             <MovieDetailContent
               movie={contentState.data}
@@ -1132,6 +1168,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               onMovieSelect={handleMovieSelect}
               onPhotobookSelect={handlePhotobookSelect}
               onProfileSelect={handleProfileSelect}
+              onGroupSelect={handleGroupSelect}
               onEdit={handleEditProfile}
               accessToken={accessToken}
               actresses={actresses}

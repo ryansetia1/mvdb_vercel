@@ -3149,6 +3149,233 @@ app.delete('/make-server-e0516fcf/photobooks/:id', async (c) => {
   }
 })
 
+// NEW: GET /photobooks/by-group/:groupId - Get photobooks linked to group
+app.get('/make-server-e0516fcf/photobooks/by-group/:groupId', async (c) => {
+  try {
+    const groupId = c.req.param('groupId')
+    console.log('Server: GET /photobooks/by-group - Group ID:', groupId)
+    
+    if (!groupId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = photobooks
+      .map(item => item.value)
+      .filter(photobook => photobook.linkedTo?.groupId === groupId)
+    
+    console.log(`Server: Found ${filtered.length} photobooks for group ${groupId}`)
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Server: Get photobooks by group error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by group' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-generation/:generationId - Get photobooks linked to generation
+app.get('/make-server-e0516fcf/photobooks/by-generation/:generationId', async (c) => {
+  try {
+    const generationId = c.req.param('generationId')
+    console.log('Server: GET /photobooks/by-generation - Generation ID:', generationId)
+    
+    if (!generationId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = photobooks
+      .map(item => item.value)
+      .filter(photobook => photobook.linkedTo?.generationId === generationId)
+    
+    console.log(`Server: Found ${filtered.length} photobooks for generation ${generationId}`)
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Server: Get photobooks by generation error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by generation' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-lineup/:lineupId - Get photobooks linked to lineup
+app.get('/make-server-e0516fcf/photobooks/by-lineup/:lineupId', async (c) => {
+  try {
+    const lineupId = c.req.param('lineupId')
+    console.log('Server: GET /photobooks/by-lineup - Lineup ID:', lineupId)
+    
+    if (!lineupId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = photobooks
+      .map(item => item.value)
+      .filter(photobook => photobook.linkedTo?.lineupId === lineupId)
+    
+    console.log(`Server: Found ${filtered.length} photobooks for lineup ${lineupId}`)
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Server: Get photobooks by lineup error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by lineup' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-member/:memberId - Get photobooks linked to member
+app.get('/make-server-e0516fcf/photobooks/by-member/:memberId', async (c) => {
+  try {
+    const memberId = c.req.param('memberId')
+    console.log('Server: GET /photobooks/by-member - Member ID:', memberId)
+    
+    if (!memberId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = photobooks
+      .map(item => item.value)
+      .filter(photobook => photobook.linkedTo?.memberId === memberId)
+    
+    console.log(`Server: Found ${filtered.length} photobooks for member ${memberId}`)
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Server: Get photobooks by member error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by member' }, 500)
+  }
+})
+
+// NEW: POST /photobooks/:id/link - Link photobook to hierarchy level
+app.post('/make-server-e0516fcf/photobooks/:id/link', async (c) => {
+  try {
+    const photobookId = c.req.param('id')
+    const { targetType, targetId } = await c.req.json()
+    console.log('Server: POST /photobooks/:id/link - Photobook ID:', photobookId, 'Target:', targetType, targetId)
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      console.log('Server: Unauthorized access to link photobook')
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+    
+    // Validate input
+    if (!targetType || !targetId) {
+      return c.json({ error: 'targetType and targetId are required' }, 400)
+    }
+    
+    if (!['group', 'generation', 'lineup', 'member'].includes(targetType)) {
+      return c.json({ error: 'Invalid targetType' }, 400)
+    }
+    
+    // Get existing photobook
+    const existingPhotobook = await kv.get(`photobook_${photobookId}`)
+    if (!existingPhotobook) {
+      console.log('Server: Photobook not found for linking, ID:', photobookId)
+      return c.json({ error: 'Photobook not found' }, 404)
+    }
+    
+    // Update photobook with new link
+    const updatedPhotobook = {
+      ...existingPhotobook,
+      linkedTo: {
+        ...existingPhotobook.linkedTo,
+        [targetType + 'Id']: targetId
+      },
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Save updated photobook
+    await kv.set(`photobook_${photobookId}`, updatedPhotobook)
+    console.log('Server: Photobook linked successfully')
+    
+    return c.json(updatedPhotobook)
+  } catch (error) {
+    console.error('Server: Link photobook error:', error)
+    return c.json({ error: 'Failed to link photobook' }, 500)
+  }
+})
+
+// NEW: DELETE /photobooks/:id/unlink - Unlink photobook from hierarchy level
+app.delete('/make-server-e0516fcf/photobooks/:id/unlink', async (c) => {
+  try {
+    const photobookId = c.req.param('id')
+    const { targetType } = await c.req.json()
+    console.log('Server: DELETE /photobooks/:id/unlink - Photobook ID:', photobookId, 'Target:', targetType)
+    
+    const accessToken = c.req.header('Authorization')?.split(' ')[1]
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    
+    if (!user?.id || authError) {
+      console.log('Server: Unauthorized access to unlink photobook')
+      return c.json({ error: 'Unauthorized - admin access required' }, 401)
+    }
+    
+    // Validate input
+    if (!targetType) {
+      return c.json({ error: 'targetType is required' }, 400)
+    }
+    
+    if (!['group', 'generation', 'lineup', 'member'].includes(targetType)) {
+      return c.json({ error: 'Invalid targetType' }, 400)
+    }
+    
+    // Get existing photobook
+    const existingPhotobook = await kv.get(`photobook_${photobookId}`)
+    if (!existingPhotobook) {
+      console.log('Server: Photobook not found for unlinking, ID:', photobookId)
+      return c.json({ error: 'Photobook not found' }, 404)
+    }
+    
+    // Update photobook to remove link
+    const updatedPhotobook = {
+      ...existingPhotobook,
+      linkedTo: {
+        ...existingPhotobook.linkedTo,
+        [targetType + 'Id']: undefined
+      },
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Save updated photobook
+    await kv.set(`photobook_${photobookId}`, updatedPhotobook)
+    console.log('Server: Photobook unlinked successfully')
+    
+    return c.json(updatedPhotobook)
+  } catch (error) {
+    console.error('Server: Unlink photobook error:', error)
+    return c.json({ error: 'Failed to unlink photobook' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/test-available - Simple test endpoint (PUBLIC ACCESS)
+app.get('/make-server-e0516fcf/photobooks/test-available', async (c) => {
+  try {
+    console.log('Server: GET /photobooks/test-available - Request received')
+    return c.json({ message: 'Test endpoint works', timestamp: new Date().toISOString() })
+  } catch (error) {
+    console.error('Server: Test endpoint error:', error)
+    return c.json({ error: 'Test endpoint failed' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/available-for-linking - Get available photobooks for linking (PUBLIC ACCESS)
+app.get('/make-server-e0516fcf/photobooks/available-for-linking', async (c) => {
+  try {
+    console.log('Server: GET /photobooks/available-for-linking - Request received')
+    console.log('Server: Headers:', Object.fromEntries(c.req.raw.headers.entries()))
+    
+    const photobooks = await kv.getByPrefix('photobook_')
+    console.log(`Server: Raw photobooks from KV:`, photobooks.length)
+    
+    const allPhotobooks = photobooks.map(item => item.value)
+    console.log(`Server: Processed photobooks:`, allPhotobooks.length)
+    
+    console.log(`Server: Found ${allPhotobooks.length} available photobooks for linking`)
+    return c.json(allPhotobooks)
+  } catch (error) {
+    console.error('Server: Get available photobooks error:', error)
+    return c.json({ error: 'Failed to fetch available photobooks' }, 500)
+  }
+})
+
 // BULK ASSIGNMENT ROUTES
 // ==================================================================================
 

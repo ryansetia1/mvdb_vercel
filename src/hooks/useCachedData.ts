@@ -122,11 +122,10 @@ function saveToLocalStorage(cache: CacheState): void {
     }
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(compressedCache))
-    console.log('Cache saved to localStorage (FRESH DATA)')
-    console.log('Actresses count saved:', compressedCache.actresses.data?.length || 0)
-    console.log('Sample actress selectedGroups saved:', compressedCache.actresses.data?.[0]?.selectedGroups)
-    console.log('Sample actress groupId saved:', compressedCache.actresses.data?.[0]?.groupId)
-    console.log('Sample actress groupName saved:', compressedCache.actresses.data?.[0]?.groupName)
+    // Only log in development mode to reduce console spam
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Cache saved to localStorage (FRESH DATA)')
+    }
   } catch (error) {
     console.warn('Failed to save cache to localStorage:', error)
   }
@@ -146,9 +145,10 @@ function loadFromLocalStorage(): CacheState | null {
       const parsed = JSON.parse(stored)
       // Validate the structure
       if (parsed.movies && parsed.photobooks && parsed.actors && parsed.actresses) {
-        console.log('Cache loaded from localStorage')
-        console.log('Actresses count:', parsed.actresses.data?.length || 0)
-        console.log('Sample actress selectedGroups:', parsed.actresses.data?.[0]?.selectedGroups)
+        // Only log in development mode to reduce console spam
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Cache loaded from localStorage')
+        }
         return parsed
       }
     }
@@ -233,7 +233,7 @@ export function useCachedData() {
 
   const isDataFresh = useCallback((type: keyof CacheState): boolean => {
     const cached = cache[type]
-    return cached && cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
+    return cached && cached.data && cached.data.length > 0 && (Date.now() - cached.timestamp) < CACHE_DURATION
   }, [cache])
 
   const setData = useCallback(<T>(type: keyof CacheState, data: T[]) => {
@@ -257,6 +257,7 @@ export function useCachedData() {
       ...prev,
       [type]: {
         ...prev[type],
+        data: prev[type]?.data || [],
         loading
       }
     }))
