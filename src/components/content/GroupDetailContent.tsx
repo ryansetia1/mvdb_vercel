@@ -72,6 +72,7 @@ export function GroupDetailContent({
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
+  const [showLineups, setShowLineups] = useState(false)
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
   const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
@@ -497,6 +498,7 @@ export function GroupDetailContent({
       setGenerationActresses(actressesInGeneration)
       setSelectedGenerationId(generation.id)
       setLastGenerationId(generation.id)
+      setShowLineups(false) // Reset to show actresses by default
       // Refresh lineup data when generation changes
       setLineupRefreshKey(prev => prev + 1)
     } catch (error) {
@@ -1824,6 +1826,20 @@ export function GroupDetailContent({
                               {generation.description}
                             </p>
                           )}
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleGenerationClick(generation)
+                                setShowLineups(true)
+                              }}
+                              className="h-8 px-3 text-xs"
+                            >
+                              View Lineups
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -1832,8 +1848,21 @@ export function GroupDetailContent({
               </div>
 
               {/* Lineup Display */}
-              {selectedGenerationId && (
+              {selectedGenerationId && showLineups && (
                 <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">
+                      Lineups in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
+                    </h4>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLineups(false)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Hide Lineups
+                    </Button>
+                  </div>
                   <LineupDisplay
                     generationId={selectedGenerationId}
                     generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
@@ -1853,7 +1882,7 @@ export function GroupDetailContent({
               )}
 
               {/* Selected Generation Actresses */}
-              {selectedGenerationId && (
+              {selectedGenerationId && !showLineups && (
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -1896,10 +1925,27 @@ export function GroupDetailContent({
                                 ))}
                               </SelectContent>
                             </Select>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowLineups(true)}
+                              className="h-8 px-3 text-xs"
+                            >
+                              View Lineups
+                            </Button>
                           </div>
                         )
                       }
-                      return null
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowLineups(true)}
+                          className="h-8 px-3 text-xs"
+                        >
+                          View Lineups
+                        </Button>
+                      )
                     })()}
                   </div>
                   
