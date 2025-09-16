@@ -1624,6 +1624,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 onBack={handleBack}
                 onProfileSelect={handleProfileSelect}
+                onPhotobookSelect={handlePhotobookSelect}
               />
             )}
 

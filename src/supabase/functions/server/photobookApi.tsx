@@ -18,6 +18,18 @@ interface Photobook {
   actress?: string
   imageLinks?: string
   imageTags?: ImageTag[]
+  
+  // NEW: Linking system fields
+  linkedTo?: {
+    groupId?: string
+    generationId?: string
+    lineupId?: string
+    memberId?: string
+  }
+  
+  // NEW: Metadata fields
+  createdAt?: string
+  updatedAt?: string
 }
 
 const photobookApi = new Hono()
@@ -67,6 +79,29 @@ function containsActress(photobook: Photobook, actressName: string): boolean {
   }
   
   return false
+}
+
+// Helper to check if photobook is linked to target
+function isLinkedTo(photobook: Photobook, targetType: string, targetId: string): boolean {
+  if (!photobook.linkedTo) return false
+  
+  switch (targetType) {
+    case 'group':
+      return photobook.linkedTo.groupId === targetId
+    case 'generation':
+      return photobook.linkedTo.generationId === targetId
+    case 'lineup':
+      return photobook.linkedTo.lineupId === targetId
+    case 'member':
+      return photobook.linkedTo.memberId === targetId
+    default:
+      return false
+  }
+}
+
+// Helper to get photobooks linked to specific target
+function getPhotobooksByTarget(photobooks: Photobook[], targetType: string, targetId: string): Photobook[] {
+  return photobooks.filter(photobook => isLinkedTo(photobook, targetType, targetId))
 }
 
 // GET /photobooks - List all photobooks
@@ -173,7 +208,10 @@ photobookApi.post('/photobooks', async (c) => {
       releaseDate: photobookData.releaseDate?.trim() || '',
       actress: photobookData.actress?.trim() || '',
       imageLinks: photobookData.imageLinks?.trim() || '',
-      imageTags: photobookData.imageTags || []
+      imageTags: photobookData.imageTags || [],
+      linkedTo: photobookData.linkedTo || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
     
     console.log('Saving photobook with releaseDate:', photobook.releaseDate)
@@ -220,7 +258,10 @@ photobookApi.put('/photobooks/:id', async (c) => {
       releaseDate: updates.releaseDate?.trim() ?? existing.releaseDate,
       actress: updates.actress?.trim() ?? existing.actress,
       imageLinks: updates.imageLinks?.trim() ?? existing.imageLinks,
-      imageTags: updates.imageTags ?? existing.imageTags
+      imageTags: updates.imageTags ?? existing.imageTags,
+      linkedTo: updates.linkedTo ?? existing.linkedTo,
+      createdAt: existing.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
     
     console.log('Saving updated photobook with releaseDate:', photobook.releaseDate)
@@ -251,6 +292,190 @@ photobookApi.delete('/photobooks/:id', async (c) => {
   } catch (error) {
     console.error('Delete photobook error:', error)
     return c.json({ error: 'Failed to delete photobook' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-group/:groupId - Get photobooks linked to group
+photobookApi.get('/photobooks/by-group/:groupId', async (c) => {
+  try {
+    const groupId = c.req.param('groupId')
+    if (!groupId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = getPhotobooksByTarget(
+      photobooks.map(item => item.value as Photobook),
+      'group',
+      groupId
+    )
+    
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Get photobooks by group error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by group' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-generation/:generationId - Get photobooks linked to generation
+photobookApi.get('/photobooks/by-generation/:generationId', async (c) => {
+  try {
+    const generationId = c.req.param('generationId')
+    if (!generationId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = getPhotobooksByTarget(
+      photobooks.map(item => item.value as Photobook),
+      'generation',
+      generationId
+    )
+    
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Get photobooks by generation error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by generation' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-lineup/:lineupId - Get photobooks linked to lineup
+photobookApi.get('/photobooks/by-lineup/:lineupId', async (c) => {
+  try {
+    const lineupId = c.req.param('lineupId')
+    if (!lineupId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = getPhotobooksByTarget(
+      photobooks.map(item => item.value as Photobook),
+      'lineup',
+      lineupId
+    )
+    
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Get photobooks by lineup error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by lineup' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/by-member/:memberId - Get photobooks linked to member
+photobookApi.get('/photobooks/by-member/:memberId', async (c) => {
+  try {
+    const memberId = c.req.param('memberId')
+    if (!memberId) {
+      return c.json([])
+    }
+
+    const photobooks = await kv.getByPrefix('photobook_')
+    const filtered = getPhotobooksByTarget(
+      photobooks.map(item => item.value as Photobook),
+      'member',
+      memberId
+    )
+    
+    return c.json(filtered)
+  } catch (error) {
+    console.error('Get photobooks by member error:', error)
+    return c.json({ error: 'Failed to fetch photobooks by member' }, 500)
+  }
+})
+
+// NEW: POST /photobooks/:id/link - Link photobook to hierarchy level
+photobookApi.post('/photobooks/:id/link', async (c) => {
+  try {
+    const photobookId = c.req.param('id')
+    const { targetType, targetId } = await c.req.json()
+    
+    // Validate input
+    if (!targetType || !targetId) {
+      return c.json({ error: 'targetType and targetId are required' }, 400)
+    }
+    
+    if (!['group', 'generation', 'lineup', 'member'].includes(targetType)) {
+      return c.json({ error: 'Invalid targetType' }, 400)
+    }
+    
+    // Get existing photobook
+    const existingPhotobook = await kv.get(`photobook_${photobookId}`)
+    if (!existingPhotobook) {
+      return c.json({ error: 'Photobook not found' }, 404)
+    }
+    
+    // Update photobook with new link
+    const updatedPhotobook: Photobook = {
+      ...existingPhotobook,
+      linkedTo: {
+        ...existingPhotobook.linkedTo,
+        [targetType + 'Id']: targetId
+      },
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Save updated photobook
+    await kv.set(`photobook_${photobookId}`, updatedPhotobook)
+    
+    return c.json(updatedPhotobook)
+  } catch (error) {
+    console.error('Link photobook error:', error)
+    return c.json({ error: 'Failed to link photobook' }, 500)
+  }
+})
+
+// NEW: DELETE /photobooks/:id/unlink - Unlink photobook from hierarchy level
+photobookApi.delete('/photobooks/:id/unlink', async (c) => {
+  try {
+    const photobookId = c.req.param('id')
+    const { targetType } = await c.req.json()
+    
+    // Validate input
+    if (!targetType) {
+      return c.json({ error: 'targetType is required' }, 400)
+    }
+    
+    if (!['group', 'generation', 'lineup', 'member'].includes(targetType)) {
+      return c.json({ error: 'Invalid targetType' }, 400)
+    }
+    
+    // Get existing photobook
+    const existingPhotobook = await kv.get(`photobook_${photobookId}`)
+    if (!existingPhotobook) {
+      return c.json({ error: 'Photobook not found' }, 404)
+    }
+    
+    // Update photobook to remove link
+    const updatedPhotobook: Photobook = {
+      ...existingPhotobook,
+      linkedTo: {
+        ...existingPhotobook.linkedTo,
+        [targetType + 'Id']: undefined
+      },
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Save updated photobook
+    await kv.set(`photobook_${photobookId}`, updatedPhotobook)
+    
+    return c.json(updatedPhotobook)
+  } catch (error) {
+    console.error('Unlink photobook error:', error)
+    return c.json({ error: 'Failed to unlink photobook' }, 500)
+  }
+})
+
+// NEW: GET /photobooks/available-for-linking - Get available photobooks for linking
+photobookApi.get('/photobooks/available-for-linking', async (c) => {
+  try {
+    const photobooks = await kv.getByPrefix('photobook_')
+    const allPhotobooks = photobooks.map(item => item.value as Photobook)
+    
+    // Return all photobooks (can be linked to multiple levels)
+    return c.json(allPhotobooks)
+  } catch (error) {
+    console.error('Get available photobooks error:', error)
+    return c.json({ error: 'Failed to fetch available photobooks' }, 500)
   }
 })
 

@@ -17,7 +17,8 @@ import {
   Maximize,
   Plus,
   ChevronDown,
-  Camera
+  Camera,
+  BookOpen
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -28,6 +29,8 @@ import { ModernLightbox } from '../ModernLightbox'
 import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { toast } from 'sonner'
+import { PhotobooksTabContent } from './photobooks/PhotobooksTabContent'
+import { Photobook } from '../../utils/photobookApi'
 
 interface GroupDetailContentProps {
   group: MasterDataItem
@@ -35,6 +38,7 @@ interface GroupDetailContentProps {
   searchQuery?: string
   onBack: () => void
   onProfileSelect: (type: 'actress' | 'actor', name: string) => void
+  onPhotobookSelect?: (photobook: Photobook) => void
 }
 
 const sortOptions = [
@@ -69,7 +73,8 @@ export function GroupDetailContent({
   accessToken, 
   searchQuery = '', 
   onBack, 
-  onProfileSelect 
+  onProfileSelect,
+  onPhotobookSelect
 }: GroupDetailContentProps) {
   const { loadData: loadCachedData } = useCachedData()
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
@@ -1365,7 +1370,7 @@ export function GroupDetailContent({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="members" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Members
@@ -1392,6 +1397,10 @@ export function GroupDetailContent({
                 {groupGalleryPhotos.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="photobooks" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Photobooks
           </TabsTrigger>
         </TabsList>
 
@@ -2298,6 +2307,25 @@ export function GroupDetailContent({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Photobooks Tab */}
+        <TabsContent value="photobooks" className="mt-6">
+          {onPhotobookSelect ? (
+            <PhotobooksTabContent
+              group={group}
+              accessToken={accessToken}
+              onPhotobookSelect={onPhotobookSelect}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Photobooks feature not available</h3>
+              <p className="text-muted-foreground">
+                Photobook selection handler is not configured.
+              </p>
             </div>
           )}
         </TabsContent>

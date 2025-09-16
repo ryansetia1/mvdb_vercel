@@ -17,6 +17,18 @@ export interface Photobook {
   actress?: string // Main actress (for backward compatibility)
   imageLinks?: string // Raw image links string
   imageTags?: ImageTag[] // New: Individual image tagging
+  
+  // NEW: Linking system fields
+  linkedTo?: {
+    groupId?: string
+    generationId?: string
+    lineupId?: string
+    memberId?: string
+  }
+  
+  // NEW: Metadata fields
+  createdAt?: string
+  updatedAt?: string
 }
 
 export const photobookApi = {
@@ -131,6 +143,162 @@ export const photobookApi = {
     if (!response.ok) {
       const errorText = await response.text()
       throw new Error(`Failed to fetch photobooks by actress: ${response.status} - ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  // NEW: Get photobooks linked to group
+  async getPhotobooksByGroup(groupId: string, accessToken: string): Promise<Photobook[]> {
+    // Get all photobooks and filter client-side as workaround
+    const authToken = accessToken || publicAnonKey
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch photobooks by group: ${response.status} - ${errorText}`)
+    }
+
+    const allPhotobooks: Photobook[] = await response.json()
+    return allPhotobooks.filter(photobook => photobook.linkedTo?.groupId === groupId)
+  },
+
+  // NEW: Get photobooks linked to generation (using existing endpoint + filtering as workaround)
+  async getPhotobooksByGeneration(generationId: string, accessToken: string): Promise<Photobook[]> {
+    // Get all photobooks and filter client-side as workaround
+    const authToken = accessToken || publicAnonKey
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch photobooks by generation: ${response.status} - ${errorText}`)
+    }
+
+    const allPhotobooks: Photobook[] = await response.json()
+    return allPhotobooks.filter(photobook => photobook.linkedTo?.generationId === generationId)
+  },
+
+  // NEW: Get photobooks linked to lineup (using existing endpoint + filtering as workaround)
+  async getPhotobooksByLineup(lineupId: string, accessToken: string): Promise<Photobook[]> {
+    // Get all photobooks and filter client-side as workaround
+    const authToken = accessToken || publicAnonKey
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch photobooks by lineup: ${response.status} - ${errorText}`)
+    }
+
+    const allPhotobooks: Photobook[] = await response.json()
+    return allPhotobooks.filter(photobook => photobook.linkedTo?.lineupId === lineupId)
+  },
+
+  // NEW: Get photobooks linked to member (using existing endpoint + filtering as workaround)
+  async getPhotobooksByMember(memberId: string, accessToken: string): Promise<Photobook[]> {
+    // Get all photobooks and filter client-side as workaround
+    const authToken = accessToken || publicAnonKey
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch photobooks by member: ${response.status} - ${errorText}`)
+    }
+
+    const allPhotobooks: Photobook[] = await response.json()
+    return allPhotobooks.filter(photobook => photobook.linkedTo?.memberId === memberId)
+  },
+
+  // NEW: Link photobook to hierarchy level
+  async linkPhotobook(
+    photobookId: string,
+    targetType: 'group' | 'generation' | 'lineup' | 'member',
+    targetId: string,
+    accessToken: string
+  ): Promise<Photobook> {
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks/${photobookId}/link`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetType,
+        targetId
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to link photobook: ${response.status} - ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  // NEW: Unlink photobook from hierarchy level
+  async unlinkPhotobook(
+    photobookId: string,
+    targetType: 'group' | 'generation' | 'lineup' | 'member',
+    accessToken: string
+  ): Promise<Photobook> {
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks/${photobookId}/unlink`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetType
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to unlink photobook: ${response.status} - ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  // NEW: Get available photobooks for linking (using existing endpoint as workaround)
+  async getAvailablePhotobooksForLinking(accessToken: string): Promise<Photobook[]> {
+    console.log('Client: getAvailablePhotobooksForLinking called with token:', accessToken ? 'present' : 'missing')
+    
+    // Use existing /photobooks endpoint with publicAnonKey as workaround
+    const authToken = accessToken || publicAnonKey
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log('Client: Response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Client: Error response:', errorText)
+      throw new Error(`Failed to fetch available photobooks: ${response.status} - ${errorText}`)
     }
 
     return response.json()
