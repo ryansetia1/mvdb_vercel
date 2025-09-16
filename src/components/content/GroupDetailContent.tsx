@@ -46,6 +46,24 @@ const sortOptions = [
   { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
 ]
 
+const generationSortOptions = [
+  { key: 'name', label: 'Name (A-Z)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'name-desc', label: 'Name (Z-A)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'age', label: 'Age (Young)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 999 },
+  { key: 'age-desc', label: 'Age (Old)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 0 },
+  { key: 'movieCount', label: 'Movies (Few)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+  { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+]
+
+const lineupSortOptions = [
+  { key: 'name', label: 'Name (A-Z)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'name-desc', label: 'Name (Z-A)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'age', label: 'Age (Young)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 999 },
+  { key: 'age-desc', label: 'Age (Old)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 0 },
+  { key: 'movieCount', label: 'Movies (Few)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+  { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+]
+
 export function GroupDetailContent({ 
   group, 
   accessToken, 
@@ -59,6 +77,8 @@ export function GroupDetailContent({
   const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [movies, setMovies] = useState<Movie[]>([])
   const [sortBy, setSortBy] = useState('name')
+  const [generationSortBy, setGenerationSortBy] = useState('name')
+  const [lineupSortBy, setLineupSortBy] = useState('name')
   const [isLoading, setIsLoading] = useState(true)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxImages, setLightboxImages] = useState<string[]>([])
@@ -69,6 +89,8 @@ export function GroupDetailContent({
   const [generationActresses, setGenerationActresses] = useState<MasterDataItem[]>([])
   const [lineupRefreshKey, setLineupRefreshKey] = useState(0)
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false)
+  const [lineupData, setLineupData] = useState<{lineups: MasterDataItem[], actresses: MasterDataItem[]} | null>(null)
+  const [lineupDataLoaded, setLineupDataLoaded] = useState(false)
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
@@ -451,6 +473,12 @@ export function GroupDetailContent({
 
   const handleGenerationClick = async (generation: MasterDataItem) => {
     try {
+      // Early return if this generation is already selected and we have data
+      if (selectedGenerationId === generation.id && generationActresses.length > 0) {
+        console.log(`[DEBUG] Generation ${generation.id} already selected, skipping reload`)
+        return
+      }
+      
       // Only show loading if we don't have cached data or it's a different generation
       const needsLoading = cachedActresses.length === 0 || lastGenerationId !== generation.id
       
@@ -499,13 +527,68 @@ export function GroupDetailContent({
       setSelectedGenerationId(generation.id)
       setLastGenerationId(generation.id)
       setShowLineups(false) // Reset to show actresses by default
-      // Refresh lineup data when generation changes
-      setLineupRefreshKey(prev => prev + 1)
+      // Only refresh lineup data if generation actually changed
+      if (selectedGenerationId !== generation.id) {
+        setLineupRefreshKey(prev => prev + 1)
+      }
     } catch (error) {
       console.error('Error loading generation actresses:', error)
     } finally {
       setIsLoadingGeneration(false)
     }
+  }
+
+  // Load lineup data for a specific generation
+  const loadLineupData = async (generationId: string) => {
+    try {
+      // Only load if we don't have data for this generation yet
+      if (lineupDataLoaded && lineupData) {
+        return
+      }
+
+      console.log('Loading lineup data for generation:', generationId)
+      
+      // Load lineups for this generation
+      const allLineups = await masterDataApi.getByType('lineup', accessToken)
+      const generationLineups = allLineups.filter(lineup => lineup.generationId === generationId)
+      
+      // Sort by lineupOrder
+      generationLineups.sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
+      
+      // Load actresses for this generation's group
+      const generations = await masterDataApi.getByType('generation', accessToken)
+      const generation = generations.find(g => g.id === generationId)
+      const allActresses = await masterDataApi.getByType('actress', accessToken)
+      const groupActresses = allActresses.filter(actress => 
+        actress.selectedGroups && actress.selectedGroups.includes(generation?.groupName || '')
+      )
+      
+      setLineupData({ lineups: generationLineups, actresses: groupActresses })
+      setLineupDataLoaded(true)
+      
+      console.log('Lineup data loaded successfully:', { lineups: generationLineups.length, actresses: groupActresses.length })
+      
+    } catch (err) {
+      console.error('Error loading lineup data:', err)
+    }
+  }
+
+  // Optimized function to handle lineup view switching without unnecessary loading
+  const handleViewLineups = async (generation: MasterDataItem) => {
+    // If generation is already selected, just switch to lineup view
+    if (selectedGenerationId === generation.id) {
+      // Load lineup data if not already loaded
+      if (!lineupDataLoaded) {
+        await loadLineupData(generation.id)
+      }
+      setShowLineups(true)
+      return
+    }
+    
+    // If generation is not selected, load it first then switch to lineup view
+    await handleGenerationClick(generation)
+    await loadLineupData(generation.id)
+    setShowLineups(true)
   }
 
   const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
@@ -593,19 +676,39 @@ export function GroupDetailContent({
 
   // Memoize generation actresses data to prevent unnecessary re-renders
   const memoizedGenerationActresses = useMemo(() => {
-    return generationActresses
+    const sortOption = generationSortOptions.find(option => option.key === generationSortBy)
+    console.log('Generation actresses sorting:', { generationSortBy, sortOption, actressesCount: generationActresses.length })
+    
+    let sortedActresses = generationActresses
       .map(actress => ({
         ...actress,
         imageUrl: getGenerationProfilePicture(actress, selectedGenerationId || '', selectedVersion === 'default' ? undefined : selectedVersion),
         generationAlias: getGenerationAlias(actress, selectedGenerationId || '')
       }))
-      .sort((a, b) => {
-        // Sort by generation alias first, then by original name
-        const aliasA = a.generationAlias || a.name || ''
-        const aliasB = b.generationAlias || b.name || ''
-        return aliasA.localeCompare(aliasB)
+    
+    if (sortOption) {
+      const isDesc = generationSortBy.endsWith('-desc')
+      sortedActresses = sortedActresses.sort((a, b) => {
+        const aVal = sortOption.getValue(a)
+        const bVal = sortOption.getValue(b)
+        
+        console.log('Generation actresses sorting comparison:', { 
+          aName: a.name, aVal, 
+          bName: b.name, bVal, 
+          isDesc, 
+          result: aVal < bVal ? (isDesc ? 1 : -1) : (aVal > bVal ? (isDesc ? -1 : 1) : 0)
+        })
+        
+        if (aVal < bVal) return isDesc ? 1 : -1
+        if (aVal > bVal) return isDesc ? -1 : 1
+        return 0
       })
-  }, [generationActresses, selectedGenerationId, selectedVersion, getGenerationProfilePicture, getGenerationAlias])
+      
+      console.log('Sorted generation actresses:', sortedActresses.map(a => ({ name: a.name, value: sortOption.getValue(a) })))
+    }
+    
+    return sortedActresses
+  }, [generationActresses, selectedGenerationId, selectedVersion, generationSortBy, getGenerationProfilePicture, getGenerationAlias])
 
   const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string, selectedVersion?: string) => {
     // Check lineupData for profile picture
@@ -1139,6 +1242,11 @@ export function GroupDetailContent({
     }
     return []
   }, [group.gallery])
+
+  // Sort generations by lineupOrder (default order for generations)
+  const sortedGenerations = useMemo(() => {
+    return [...generations].sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
+  }, [generations])
 
   if (isLoading) {
     return (
@@ -1783,63 +1891,80 @@ export function GroupDetailContent({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {generations.map((generation) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {sortedGenerations.map((generation) => (
                   <Card 
                     key={generation.id} 
-                    className={`hover:shadow-md transition-shadow cursor-pointer ${
+                    className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${
                       selectedGenerationId === generation.id ? 'ring-2 ring-primary' : ''
                     }`}
                     onClick={() => handleGenerationClick(generation)}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
+                    <CardContent className="p-0">
+                      {/* Profile Picture */}
+                      <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
                         {generation.profilePicture ? (
                           <img
                             src={generation.profilePicture}
                             alt={generation.name || 'Generation'}
-                            className="w-12 h-12 rounded-lg object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                        ) : null}
-                        <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center ${generation.profilePicture ? 'hidden' : ''}`}>
-                          <Calendar className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-lg truncate">{generation.name}</h4>
-                          {(generation.estimatedYears || generation.startDate || generation.endDate) && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>
-                                {generation.estimatedYears || 
-                                 (generation.startDate && generation.endDate
-                                   ? `${generation.startDate} - ${generation.endDate}`
-                                   : generation.startDate || generation.endDate)}
-                              </span>
-                            </div>
-                          )}
-                          {generation.description && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              {generation.description}
-                            </p>
-                          )}
-                          <div className="mt-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleGenerationClick(generation)
-                                setShowLineups(true)
-                              }}
-                              className="h-8 px-3 text-xs"
-                            >
-                              View Lineups
-                            </Button>
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
+                            <Calendar className="h-12 w-12 mb-2" />
+                            <span className="text-xs text-center px-2">No generation photo</span>
                           </div>
+                        )}
+                      </div>
+                      
+                      {/* Info */}
+                      <div className="p-3 space-y-1">
+                        <h3 className="font-medium text-sm truncate" title={generation.name}>
+                          {generation.name || 'Unnamed'}
+                        </h3>
+                        
+                        {/* Show alias if available */}
+                        {generation.alias && (
+                          <p className="text-xs text-blue-600 truncate" title={`Alias: ${generation.alias}`}>
+                            {generation.alias}
+                          </p>
+                        )}
+                        
+                        {/* Show Japanese name if available */}
+                        {generation.jpname && (
+                          <p className="text-xs text-muted-foreground truncate" title={generation.jpname}>
+                            {generation.jpname}
+                          </p>
+                        )}
+                        
+                        {/* Show age if available */}
+                        {generation.birthdate && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>{calculateAge(generation.birthdate)} years</span>
+                          </div>
+                        )}
+                        
+                        {/* Movie count badge */}
+                        {(generation as any).movieCount !== undefined && (generation as any).movieCount > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            🎬 {(generation as any).movieCount} movies
+                          </p>
+                        )}
+                        
+                        {/* View Lineups Button */}
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewLineups(generation)
+                            }}
+                            className="h-6 px-2 text-xs w-full"
+                          >
+                            View Lineups
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -1847,21 +1972,132 @@ export function GroupDetailContent({
                 ))}
               </div>
 
+              {/* Unified Sort Controls */}
+              {selectedGenerationId && (
+                <Card className="mb-6">
+                  <CardContent className="p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          <span className="text-sm font-medium">Sort:</span>
+                        </div>
+                        
+                        <Select 
+                          value={showLineups ? lineupSortBy : generationSortBy} 
+                          onValueChange={showLineups ? setLineupSortBy : setGenerationSortBy}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(showLineups ? lineupSortOptions : generationSortOptions).map(option => (
+                              <SelectItem key={option.key} value={option.key}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <div className="text-sm text-muted-foreground">
+                          Sort actresses by: {(showLineups ? lineupSortOptions : generationSortOptions).find(opt => opt.key === (showLineups ? lineupSortBy : generationSortBy))?.label || 'Name (A-Z)'}
+                        </div>
+                      </div>
+
+                      {/* Version Selector and Action Button */}
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          // Get all available versions based on context
+                          const availableVersions = new Set<string>()
+                          
+                          if (showLineups) {
+                            // For lineups context
+                            actresses.forEach(actress => {
+                              if (actress.lineupData) {
+                                Object.values(actress.lineupData).forEach(lineupData => {
+                                  if (lineupData?.photoVersions) {
+                                    Object.keys(lineupData.photoVersions).forEach(version => availableVersions.add(version))
+                                  }
+                                })
+                              }
+                            })
+                          } else {
+                            // For generation context
+                            generationActresses.forEach(actress => {
+                              const generationData = actress.generationData?.[selectedGenerationId || '']
+                              if (generationData?.photoVersions) {
+                                Object.keys(generationData.photoVersions).forEach(version => availableVersions.add(version))
+                              }
+                            })
+                          }
+                          
+                          const versionOptions = Array.from(availableVersions).sort()
+                          
+                          if (versionOptions.length > 0) {
+                            return (
+                              <>
+                                <span className="text-sm text-muted-foreground">Version:</span>
+                                <Select 
+                                  value={showLineups ? selectedLineupVersion : selectedVersion} 
+                                  onValueChange={showLineups ? setSelectedLineupVersion : setSelectedVersion}
+                                >
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="default">Default</SelectItem>
+                                    {versionOptions.map(version => (
+                                      <SelectItem key={version} value={version}>{version}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </>
+                            )
+                          }
+                          return null
+                        })()}
+                        
+                        {/* Action Button - changes based on context */}
+                        {showLineups ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowLineups(false)}
+                            className="h-8 px-3 text-xs"
+                          >
+                            Hide Lineups
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              // If we have a selected generation, load lineup data and switch to lineup view
+                              if (selectedGenerationId) {
+                                if (!lineupDataLoaded) {
+                                  await loadLineupData(selectedGenerationId)
+                                }
+                                setShowLineups(true)
+                              }
+                            }}
+                            className="h-8 px-3 text-xs"
+                          >
+                            View Lineups
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Lineup Display */}
-              {selectedGenerationId && showLineups && (
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
+              {selectedGenerationId && (
+                <div className={`transition-all duration-300 ${showLineups ? 'opacity-100 mt-6' : 'opacity-0 mt-0 hidden'}`}>
+                  <div className="mb-4">
                     <h4 className="text-lg font-medium">
                       Lineups in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
                     </h4>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowLineups(false)}
-                      className="h-8 px-3 text-xs"
-                    >
-                      Hide Lineups
-                    </Button>
                   </div>
                   <LineupDisplay
                     generationId={selectedGenerationId}
@@ -1870,9 +2106,12 @@ export function GroupDetailContent({
                     onProfileSelect={(type: string, name: string) => onProfileSelect(type as 'actress' | 'actor', name)}
                     getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId, selectedLineupVersion === 'default' ? undefined : selectedLineupVersion) || null}
                     getLineupAlias={(actress, lineupId) => getLineupAlias(actress, lineupId) || null}
-                    refreshKey={lineupRefreshKey}
                     selectedLineupVersion={selectedLineupVersion}
                     onLineupVersionChange={setSelectedLineupVersion}
+                    sortBy={lineupSortBy}
+                    onSortChange={setLineupSortBy}
+                    lineups={lineupData?.lineups || []}
+                    actresses={lineupData?.actresses || []}
                     onDataChange={() => {
                       // Don't trigger refresh loop - data is already fresh
                       console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')
@@ -1882,9 +2121,9 @@ export function GroupDetailContent({
               )}
 
               {/* Selected Generation Actresses */}
-              {selectedGenerationId && !showLineups && (
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
+              {selectedGenerationId && (
+                <div className={`transition-all duration-300 ${!showLineups ? 'opacity-100 mt-6' : 'opacity-0 mt-0 hidden'}`}>
+                  <div className="mb-4">
                     <div className="flex items-center gap-2">
                       <h4 className="text-lg font-medium">
                         Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
@@ -1896,57 +2135,6 @@ export function GroupDetailContent({
                         {generationActresses.length} actresses
                       </Badge>
                     </div>
-                    
-                    {/* Version Selector */}
-                    {(() => {
-                      // Get all available versions from generation actresses
-                      const availableVersions = new Set<string>()
-                      generationActresses.forEach(actress => {
-                        const generationData = actress.generationData?.[selectedGenerationId || '']
-                        if (generationData?.photoVersions) {
-                          Object.keys(generationData.photoVersions).forEach(version => availableVersions.add(version))
-                        }
-                      })
-                      
-                      const versionOptions = Array.from(availableVersions).sort()
-                      
-                      if (versionOptions.length > 0) {
-                        return (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">Version:</span>
-                            <Select value={selectedVersion} onValueChange={setSelectedVersion}>
-                              <SelectTrigger className="w-40">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="default">Default</SelectItem>
-                                {versionOptions.map(version => (
-                                  <SelectItem key={version} value={version}>{version}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowLineups(true)}
-                              className="h-8 px-3 text-xs"
-                            >
-                              View Lineups
-                            </Button>
-                          </div>
-                        )
-                      }
-                      return (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowLineups(true)}
-                          className="h-8 px-3 text-xs"
-                        >
-                          View Lineups
-                        </Button>
-                      )
-                    })()}
                   </div>
                   
                   {generationActresses.length === 0 ? (
