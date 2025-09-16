@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { Badge } from '../../ui/badge'
-import { Button } from '../../ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Users, Calendar, Users2, User, Plus } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../../../utils/masterDataApi'
 import { Photobook, photobookApi } from '../../../utils/photobookApi'
@@ -30,96 +28,75 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
     member: []
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [isLinking, setIsLinking] = useState(false)
+  const [isUnlinking, setIsUnlinking] = useState(false)
   const [linkingDialogOpen, setLinkingDialogOpen] = useState(false)
   const [linkingTarget, setLinkingTarget] = useState<{
     type: 'group' | 'generation' | 'lineup' | 'member'
     id: string
     name: string
   } | null>(null)
-  
-  // NEW: State for hierarchy data
+
+  // New state for hierarchy data
   const [generations, setGenerations] = useState<MasterDataItem[]>([])
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [members, setMembers] = useState<MasterDataItem[]>([])
-  const [selectedGenerationId, setSelectedGenerationId] = useState<string>('')
-  const [selectedLineupId, setSelectedLineupId] = useState<string>('')
-  const [selectedMemberId, setSelectedMemberId] = useState<string>('')
 
-  // Load data when component mounts
+  // Load photobooks and hierarchy data when component mounts
   useEffect(() => {
     if (accessToken) {
-      loadHierarchyData()
-      loadPhotobooks()
-    }
-  }, [accessToken])
-
-  // Load photobooks when selections change
-  useEffect(() => {
-    if (accessToken && (selectedGenerationId || selectedLineupId || selectedMemberId)) {
-      loadPhotobooks()
-    }
-  }, [selectedGenerationId, selectedLineupId, selectedMemberId])
-
-  const loadHierarchyData = async () => {
-    try {
-      // Load generations for this group
-      const generationsData = await masterDataApi.getGenerationsByGroup(group.id, accessToken)
-      setGenerations(generationsData)
-      
-      // Load lineups for this group
-      const allLineups = await masterDataApi.getByType('lineup', accessToken)
-      const groupLineups = allLineups.filter(lineup => 
-        generationsData.some(gen => gen.id === lineup.generationId)
-      )
-      setLineups(groupLineups)
-      
-      // Load members (actresses) for this group
-      const allActresses = await masterDataApi.getByType('actress', accessToken)
-      const groupMembers = allActresses.filter(actress => 
-        actress.selectedGroups?.includes(group.name || '') || actress.groupId === group.id
-      )
-      setMembers(groupMembers)
-      
-      console.log('Loaded hierarchy data:', {
-        generations: generationsData.length,
-        lineups: groupLineups.length,
-        members: groupMembers.length
+      // Load hierarchy data first, then photobooks
+      loadHierarchyData().then(() => {
+        loadPhotobooks()
       })
-    } catch (error) {
-      console.error('Error loading hierarchy data:', error)
-      toast.error('Failed to load hierarchy data')
     }
-  }
+  }, [accessToken, group.id])
 
   const loadPhotobooks = async () => {
     setIsLoading(true)
     try {
+      console.log('Loading photobooks for group:', group.name, 'ID:', group.id)
+      
       // Load group photobooks
       const groupPhotobooks = await photobookApi.getPhotobooksByGroup(group.id, accessToken)
+      console.log('Loaded group photobooks:', groupPhotobooks.length)
       
-      // Load generation photobooks if selected
-      let generationPhotobooks: Photobook[] = []
-      if (selectedGenerationId) {
-        generationPhotobooks = await photobookApi.getPhotobooksByGeneration(selectedGenerationId, accessToken)
+      // Load generation photobooks
+      const generationPhotobooks = []
+      for (const generation of generations) {
+        const genPhotobooks = await photobookApi.getPhotobooksByGeneration(generation.id, accessToken)
+        generationPhotobooks.push(...genPhotobooks)
       }
+      console.log('Loaded generation photobooks:', generationPhotobooks.length)
       
-      // Load lineup photobooks if selected
-      let lineupPhotobooks: Photobook[] = []
-      if (selectedLineupId) {
-        lineupPhotobooks = await photobookApi.getPhotobooksByLineup(selectedLineupId, accessToken)
+      // Load lineup photobooks
+      const lineupPhotobooks = []
+      for (const lineup of lineups) {
+        const lineupPhotobooksData = await photobookApi.getPhotobooksByLineup(lineup.id, accessToken)
+        lineupPhotobooks.push(...lineupPhotobooksData)
       }
+      console.log('Loaded lineup photobooks:', lineupPhotobooks.length)
       
-      // Load member photobooks if selected
-      let memberPhotobooks: Photobook[] = []
-      if (selectedMemberId) {
-        memberPhotobooks = await photobookApi.getPhotobooksByMember(selectedMemberId, accessToken)
+      // Load member photobooks
+      const memberPhotobooks = []
+      for (const member of members) {
+        const memberPhotobooksData = await photobookApi.getPhotobooksByMember(member.id, accessToken)
+        memberPhotobooks.push(...memberPhotobooksData)
       }
+      console.log('Loaded member photobooks:', memberPhotobooks.length)
       
       setPhotobooks({
         group: groupPhotobooks,
         generation: generationPhotobooks,
         lineup: lineupPhotobooks,
         member: memberPhotobooks
+      })
+      
+      console.log('All photobooks loaded:', {
+        group: groupPhotobooks.length,
+        generation: generationPhotobooks.length,
+        lineup: lineupPhotobooks.length,
+        member: memberPhotobooks.length
       })
     } catch (error) {
       console.error('Error loading photobooks:', error)
@@ -129,28 +106,70 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
     }
   }
 
-  const handleLinkPhotobook = async (photobookId: string) => {
-    if (!linkingTarget) return
-
+  const loadHierarchyData = async () => {
     try {
+      console.log('Loading hierarchy data for group:', group.name, 'ID:', group.id)
+      
+      // Load generations for this group
+      const generationsData = await masterDataApi.getGenerationsByGroup(group.id, accessToken)
+      setGenerations(generationsData)
+      console.log('Loaded generations:', generationsData.length, generationsData.map(g => ({ id: g.id, name: g.name })))
+      
+      // Load lineups for all generations
+      const allLineups = await masterDataApi.getByType('lineup', accessToken)
+      const groupLineups = allLineups.filter(lineup => 
+        generationsData.some(gen => gen.id === lineup.generationId)
+      )
+      setLineups(groupLineups)
+      console.log('Loaded lineups:', groupLineups.length, groupLineups.map(l => ({ id: l.id, name: l.name, generationId: l.generationId })))
+      
+      // Load members (actresses) for this group
+      const allActresses = await masterDataApi.getByType('actress', accessToken)
+      const groupMembers = allActresses.filter(actress => 
+        actress.selectedGroups && actress.selectedGroups.includes(group.name || '')
+      )
+      setMembers(groupMembers)
+      console.log('Loaded members:', groupMembers.length, groupMembers.map(m => ({ id: m.id, name: m.name, selectedGroups: m.selectedGroups })))
+      
+    } catch (error) {
+      console.error('Error loading hierarchy data:', error)
+      toast.error('Failed to load hierarchy data')
+    }
+  }
+
+  const handleLinkPhotobook = async (photobookId: string, targetType: string, targetId: string) => {
+    setIsLinking(true)
+    try {
+      console.log('PhotobooksTabContent: Linking photobook:', {
+        photobookId,
+        targetType,
+        targetId,
+        groupId: group.id,
+        groupName: group.name
+      })
+
       await photobookApi.linkPhotobook(
         photobookId,
-        linkingTarget.type,
-        linkingTarget.id,
+        targetType as 'group' | 'generation' | 'lineup' | 'member',
+        targetId,
         accessToken
       )
       
-      // Reload photobooks to reflect the new link
+      // Reload hierarchy data first, then photobooks to reflect the new link
+      await loadHierarchyData()
       await loadPhotobooks()
       
       toast.success('Photobook linked successfully')
     } catch (error) {
       console.error('Error linking photobook:', error)
       toast.error('Failed to link photobook')
+    } finally {
+      setIsLinking(false)
     }
   }
 
   const handleUnlinkPhotobook = async (photobook: Photobook, targetType: string, targetId: string) => {
+    setIsUnlinking(true)
     try {
       await photobookApi.unlinkPhotobook(
         photobook.id!,
@@ -158,55 +177,25 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
         accessToken
       )
       
-      // Reload photobooks to reflect the unlink
+      // Reload hierarchy data first, then photobooks to reflect the unlink
+      await loadHierarchyData()
       await loadPhotobooks()
       
       toast.success('Photobook unlinked successfully')
     } catch (error) {
       console.error('Error unlinking photobook:', error)
       toast.error('Failed to unlink photobook')
+    } finally {
+      setIsUnlinking(false)
     }
   }
 
   const openLinkingDialog = (targetType: 'group' | 'generation' | 'lineup' | 'member') => {
-    let targetId = ''
-    let targetName = ''
-    
-    switch (targetType) {
-      case 'group':
-        targetId = group.id
-        targetName = group.name || 'Group'
-        break
-      case 'generation':
-        if (!selectedGenerationId) {
-          toast.error('Please select a generation first')
-          return
-        }
-        const selectedGen = generations.find(g => g.id === selectedGenerationId)
-        targetId = selectedGenerationId
-        targetName = selectedGen?.name || 'Generation'
-        break
-      case 'lineup':
-        if (!selectedLineupId) {
-          toast.error('Please select a lineup first')
-          return
-        }
-        const selectedLineup = lineups.find(l => l.id === selectedLineupId)
-        targetId = selectedLineupId
-        targetName = selectedLineup?.name || 'Lineup'
-        break
-      case 'member':
-        if (!selectedMemberId) {
-          toast.error('Please select a member first')
-          return
-        }
-        const selectedMember = members.find(m => m.id === selectedMemberId)
-        targetId = selectedMemberId
-        targetName = selectedMember?.name || 'Member'
-        break
-    }
-    
-    setLinkingTarget({ type: targetType, id: targetId, name: targetName })
+    setLinkingTarget({ 
+      type: targetType, 
+      id: targetType === 'group' ? group.id : '', 
+      name: targetType === 'group' ? group.name : targetType 
+    })
     setLinkingDialogOpen(true)
   }
 
@@ -260,133 +249,80 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
             targetType="group"
             targetId={group.id}
             targetName={group.name || 'Group'}
-            isLoading={isLoading}
-            onLinkPhotobooks={() => openLinkingDialog('group', group.id, group.name || 'Group')}
+            isLoading={isLoading || isLinking || isUnlinking}
+            onLinkPhotobooks={() => openLinkingDialog('group')}
             onPhotobookSelect={onPhotobookSelect}
             onUnlinkPhotobook={handleUnlinkPhotobook}
+            group={group}
+            generations={generations}
+            lineups={lineups}
+            members={members}
           />
         </TabsContent>
 
         <TabsContent value="generation" className="mt-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Select Generation:</label>
-              <Select value={selectedGenerationId} onValueChange={setSelectedGenerationId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Choose a generation..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {generations.map((generation) => (
-                    <SelectItem key={generation.id} value={generation.id}>
-                      {generation.name || 'Unnamed Generation'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedGenerationId && (
-              <PhotobookSubTabContent
-                photobooks={photobooks.generation}
-                targetType="generation"
-                targetId={selectedGenerationId}
-                targetName={generations.find(g => g.id === selectedGenerationId)?.name || 'Generation'}
-                isLoading={isLoading}
-                onLinkPhotobooks={() => openLinkingDialog('generation')}
-                onPhotobookSelect={onPhotobookSelect}
-                onUnlinkPhotobook={handleUnlinkPhotobook}
-              />
-            )}
-            
-            {!selectedGenerationId && (
-              <div className="text-center py-12 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-4" />
-                <p>Select a generation to view linked photobooks</p>
-              </div>
-            )}
-          </div>
+          <PhotobookSubTabContent
+            photobooks={photobooks.generation}
+            targetType="generation"
+            targetId=""
+            targetName="Generation"
+            isLoading={isLoading || isLinking || isUnlinking}
+            onLinkPhotobooks={() => openLinkingDialog('generation')}
+            onPhotobookSelect={onPhotobookSelect}
+            onUnlinkPhotobook={handleUnlinkPhotobook}
+            group={group}
+            generations={generations}
+            lineups={lineups}
+            members={members}
+          />
         </TabsContent>
 
         <TabsContent value="lineup" className="mt-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Select Lineup:</label>
-              <Select value={selectedLineupId} onValueChange={setSelectedLineupId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Choose a lineup..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {lineups.map((lineup) => (
-                    <SelectItem key={lineup.id} value={lineup.id}>
-                      {lineup.name || 'Unnamed Lineup'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedLineupId && (
-              <PhotobookSubTabContent
-                photobooks={photobooks.lineup}
-                targetType="lineup"
-                targetId={selectedLineupId}
-                targetName={lineups.find(l => l.id === selectedLineupId)?.name || 'Lineup'}
-                isLoading={isLoading}
-                onLinkPhotobooks={() => openLinkingDialog('lineup')}
-                onPhotobookSelect={onPhotobookSelect}
-                onUnlinkPhotobook={handleUnlinkPhotobook}
-              />
-            )}
-            
-            {!selectedLineupId && (
-              <div className="text-center py-12 text-muted-foreground">
-                <Users2 className="h-12 w-12 mx-auto mb-4" />
-                <p>Select a lineup to view linked photobooks</p>
-              </div>
-            )}
-          </div>
+          <PhotobookSubTabContent
+            photobooks={photobooks.lineup}
+            targetType="lineup"
+            targetId=""
+            targetName="Lineup"
+            isLoading={isLoading || isLinking || isUnlinking}
+            onLinkPhotobooks={() => openLinkingDialog('lineup')}
+            onPhotobookSelect={onPhotobookSelect}
+            onUnlinkPhotobook={handleUnlinkPhotobook}
+            group={group}
+            generations={generations}
+            lineups={lineups}
+            members={members}
+          />
         </TabsContent>
 
         <TabsContent value="member" className="mt-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Select Member:</label>
-              <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Choose a member..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name || 'Unnamed Member'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedMemberId && (
-              <PhotobookSubTabContent
-                photobooks={photobooks.member}
-                targetType="member"
-                targetId={selectedMemberId}
-                targetName={members.find(m => m.id === selectedMemberId)?.name || 'Member'}
-                isLoading={isLoading}
-                onLinkPhotobooks={() => openLinkingDialog('member')}
-                onPhotobookSelect={onPhotobookSelect}
-                onUnlinkPhotobook={handleUnlinkPhotobook}
-              />
-            )}
-            
-            {!selectedMemberId && (
-              <div className="text-center py-12 text-muted-foreground">
-                <User className="h-12 w-12 mx-auto mb-4" />
-                <p>Select a member to view linked photobooks</p>
-              </div>
-            )}
-          </div>
+          <PhotobookSubTabContent
+            photobooks={photobooks.member}
+            targetType="member"
+            targetId=""
+            targetName="Member"
+            isLoading={isLoading || isLinking || isUnlinking}
+            onLinkPhotobooks={() => openLinkingDialog('member')}
+            onPhotobookSelect={onPhotobookSelect}
+            onUnlinkPhotobook={handleUnlinkPhotobook}
+            group={group}
+            generations={generations}
+            lineups={lineups}
+            members={members}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* Loading Overlay for Linking/Unlinking Operations */}
+      {(isLinking || isUnlinking) && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-3 shadow-lg">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-700 font-medium">
+              {isLinking ? 'Linking photobook...' : 'Unlinking photobook...'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Linking Dialog */}
       <PhotobookLinkingDialog
@@ -397,6 +333,9 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
         targetName={linkingTarget?.name}
         onLink={handleLinkPhotobook}
         accessToken={accessToken}
+        generations={generations}
+        lineups={lineups}
+        members={members}
       />
     </div>
   )
@@ -412,6 +351,10 @@ interface PhotobookSubTabContentProps {
   onLinkPhotobooks: () => void
   onPhotobookSelect: (photobook: Photobook) => void
   onUnlinkPhotobook: (photobook: Photobook, targetType: string, targetId: string) => void
+  group: MasterDataItem
+  generations: MasterDataItem[]
+  lineups: MasterDataItem[]
+  members: MasterDataItem[]
 }
 
 function PhotobookSubTabContent({
@@ -422,7 +365,11 @@ function PhotobookSubTabContent({
   isLoading,
   onLinkPhotobooks,
   onPhotobookSelect,
-  onUnlinkPhotobook
+  onUnlinkPhotobook,
+  group,
+  generations,
+  lineups,
+  members
 }: PhotobookSubTabContentProps) {
   const handleUnlink = (photobook: Photobook) => {
     onUnlinkPhotobook(photobook, targetType, targetId)
@@ -461,6 +408,9 @@ function PhotobookSubTabContent({
         isLoading={isLoading}
         emptyStateMessage={`No photobooks linked to ${targetName.toLowerCase()}`}
         onLinkPhotobooks={onLinkPhotobooks}
+        generations={generations}
+        lineups={lineups}
+        members={members}
       />
     </div>
   )

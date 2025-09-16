@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Search, Link, Check, Loader2, Camera } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Search, Link, Check, Loader2, Camera, Users, Calendar, Users2, User } from 'lucide-react'
 import { Photobook, photobookApi } from '../../utils/photobookApi'
+import { MasterDataItem } from '../../utils/masterDataApi'
 import { toast } from 'sonner'
 
 interface PhotobookLinkingDialogProps {
@@ -12,8 +14,12 @@ interface PhotobookLinkingDialogProps {
   targetType?: 'group' | 'generation' | 'lineup' | 'member'
   targetId?: string
   targetName?: string
-  onLink: (photobookId: string) => void
+  onLink: (photobookId: string, selectedTargetType: string, selectedTargetId: string) => void
   accessToken: string
+  // New props for hierarchy data
+  generations?: MasterDataItem[]
+  lineups?: MasterDataItem[]
+  members?: MasterDataItem[]
 }
 
 export function PhotobookLinkingDialog({
@@ -23,13 +29,20 @@ export function PhotobookLinkingDialog({
   targetId,
   targetName,
   onLink,
-  accessToken
+  accessToken,
+  generations = [],
+  lineups = [],
+  members = []
 }: PhotobookLinkingDialogProps) {
   const [availablePhotobooks, setAvailablePhotobooks] = useState<Photobook[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedPhotobooks, setSelectedPhotobooks] = useState<string[]>([])
   const [linkingInProgress, setLinkingInProgress] = useState(false)
+  
+  // New state for selected target
+  const [selectedTargetType, setSelectedTargetType] = useState<string>('')
+  const [selectedTargetId, setSelectedTargetId] = useState<string>('')
 
   // Load available photobooks when dialog opens
   useEffect(() => {
@@ -37,6 +50,20 @@ export function PhotobookLinkingDialog({
       loadAvailablePhotobooks()
     }
   }, [open, accessToken])
+
+  // Initialize selected target when dialog opens
+  useEffect(() => {
+    if (open && targetType) {
+      setSelectedTargetType(targetType)
+      // For group, use the provided targetId
+      // For generation/lineup/member, we'll let user select from dropdown
+      if (targetType === 'group' && targetId) {
+        setSelectedTargetId(targetId)
+      } else {
+        setSelectedTargetId('') // Reset for user selection
+      }
+    }
+  }, [open, targetType, targetId])
 
   const loadAvailablePhotobooks = async () => {
     setIsLoading(true)
@@ -58,11 +85,25 @@ export function PhotobookLinkingDialog({
 
   const handleLinkSelected = async () => {
     if (selectedPhotobooks.length === 0) return
+    if (!selectedTargetType || !selectedTargetId) {
+      toast.error(`Please select a ${selectedTargetType} to link to`)
+      return
+    }
+
+    console.log('Linking photobooks:', {
+      selectedPhotobooks,
+      selectedTargetType,
+      selectedTargetId,
+      generations: generations.length,
+      lineups: lineups.length,
+      members: members.length
+    })
 
     setLinkingInProgress(true)
     try {
       for (const photobookId of selectedPhotobooks) {
-        await onLink(photobookId)
+        console.log(`Linking photobook ${photobookId} to ${selectedTargetType}:${selectedTargetId}`)
+        await onLink(photobookId, selectedTargetType, selectedTargetId)
       }
       setSelectedPhotobooks([])
       onOpenChange(false)
@@ -83,20 +124,83 @@ export function PhotobookLinkingDialog({
     )
   }
 
+  // Helper functions for getting target data
+  const getTargetIcon = (type: string) => {
+    switch (type) {
+      case 'group': return <Users className="h-4 w-4" />
+      case 'generation': return <Calendar className="h-4 w-4" />
+      case 'lineup': return <Users2 className="h-4 w-4" />
+      case 'member': return <User className="h-4 w-4" />
+      default: return <Users className="h-4 w-4" />
+    }
+  }
+
+  const getTargetOptions = () => {
+    switch (selectedTargetType) {
+      case 'generation':
+        return generations.map(gen => ({ id: gen.id, name: gen.name }))
+      case 'lineup':
+        return lineups.map(lineup => ({ id: lineup.id, name: lineup.name }))
+      case 'member':
+        return members.map(member => ({ id: member.id, name: member.name }))
+      default:
+        return []
+    }
+  }
+
+  const getTargetName = () => {
+    if (selectedTargetType === 'group') return targetName || 'Group'
+    
+    if (!selectedTargetId) {
+      return `Select a ${selectedTargetType}`
+    }
+    
+    const options = getTargetOptions()
+    const selected = options.find(opt => opt.id === selectedTargetId)
+    return selected?.name || `Select a ${selectedTargetType}`
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link className="h-5 w-5" />
-            Link Photobooks to {targetName}
+            Link Photobooks to {getTargetName()}
           </DialogTitle>
           <DialogDescription>
-            Select photobooks to link to this {targetType}
+            {selectedTargetType === 'group' 
+              ? `Select photobooks to link to this ${selectedTargetType}`
+              : `Select a ${selectedTargetType} and photobooks to link`
+            }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Target Selection */}
+          {selectedTargetType !== 'group' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Select {selectedTargetType} to link to:
+              </label>
+              <Select value={selectedTargetId} onValueChange={setSelectedTargetId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={`Select a ${selectedTargetType}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getTargetOptions().map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <div className="flex items-center gap-2">
+                        {getTargetIcon(selectedTargetType)}
+                        {option.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

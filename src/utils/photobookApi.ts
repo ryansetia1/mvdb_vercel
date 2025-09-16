@@ -235,24 +235,53 @@ export const photobookApi = {
     targetId: string,
     accessToken: string
   ): Promise<Photobook> {
-    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks/${photobookId}/link`, {
+    console.log('photobookApi.linkPhotobook called:', {
+      photobookId,
+      targetType,
+      targetId,
+      accessToken: accessToken ? 'present' : 'missing'
+    })
+
+    const url = `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/photobooks/${photobookId}/link`
+    const body = JSON.stringify({
+      targetType,
+      targetId
+    })
+
+    console.log('photobookApi.linkPhotobook request:', {
+      url,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        targetType,
-        targetId
-      }),
+      body
+    })
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body,
+    })
+
+    console.log('photobookApi.linkPhotobook response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
     })
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('photobookApi.linkPhotobook error:', errorText)
       throw new Error(`Failed to link photobook: ${response.status} - ${errorText}`)
     }
 
-    return response.json()
+    const result = await response.json()
+    console.log('photobookApi.linkPhotobook success:', result)
+    return result
   },
 
   // NEW: Unlink photobook from hierarchy level

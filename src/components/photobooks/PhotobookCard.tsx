@@ -1,8 +1,10 @@
 import React from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
-import { Camera, X } from 'lucide-react'
+import { Badge } from '../ui/badge'
+import { Camera, X, Users, Calendar, Users2, User } from 'lucide-react'
 import { Photobook } from '../../utils/photobookApi'
+import { MasterDataItem } from '../../utils/masterDataApi'
 
 interface PhotobookCardProps {
   photobook: Photobook
@@ -10,6 +12,10 @@ interface PhotobookCardProps {
   onUnlink?: (photobook: Photobook) => void
   showUnlinkButton?: boolean
   size?: 'sm' | 'md' | 'lg'
+  // New props for hierarchy data
+  generations?: MasterDataItem[]
+  lineups?: MasterDataItem[]
+  members?: MasterDataItem[]
 }
 
 export function PhotobookCard({ 
@@ -17,12 +23,55 @@ export function PhotobookCard({
   onCardClick, 
   onUnlink, 
   showUnlinkButton = false,
-  size = 'md'
+  size = 'md',
+  generations = [],
+  lineups = [],
+  members = []
 }: PhotobookCardProps) {
   const sizeClasses = {
     sm: 'w-32 h-48',
     md: 'w-40 h-60',
     lg: 'w-48 h-72'
+  }
+
+  // Helper functions for badge display
+  const getLinkedItems = () => {
+    const linkedItems: Array<{ type: string, name: string, icon: React.ReactNode }> = []
+    
+    if (photobook.linkedTo?.generationId) {
+      const generation = generations.find(g => g.id === photobook.linkedTo?.generationId)
+      if (generation) {
+        linkedItems.push({
+          type: 'generation',
+          name: generation.name,
+          icon: <Calendar className="h-3 w-3" />
+        })
+      }
+    }
+    
+    if (photobook.linkedTo?.lineupId) {
+      const lineup = lineups.find(l => l.id === photobook.linkedTo?.lineupId)
+      if (lineup) {
+        linkedItems.push({
+          type: 'lineup',
+          name: lineup.name,
+          icon: <Users2 className="h-3 w-3" />
+        })
+      }
+    }
+    
+    if (photobook.linkedTo?.memberId) {
+      const member = members.find(m => m.id === photobook.linkedTo?.memberId)
+      if (member) {
+        linkedItems.push({
+          type: 'member',
+          name: member.name,
+          icon: <User className="h-3 w-3" />
+        })
+      }
+    }
+    
+    return linkedItems
   }
 
   return (
@@ -73,6 +122,20 @@ export function PhotobookCard({
             <p className="text-xs text-gray-500 text-center mt-1 line-clamp-1">
               {photobook.titleJp}
             </p>
+          )}
+          
+          {/* Ownership Badges */}
+          {getLinkedItems().length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2 justify-center">
+              {getLinkedItems().map((item, index) => (
+                <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
+                  <div className="flex items-center gap-1">
+                    {item.icon}
+                    <span className="truncate max-w-16">{item.name}</span>
+                  </div>
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
       </CardContent>

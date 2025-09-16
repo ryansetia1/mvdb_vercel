@@ -60,6 +60,10 @@ export interface MasterDataItem {
   description?: string // For actress groups
   gallery?: string[] // Array of gallery photo URLs for groups
   // Generation-specific fields (when type = 'generation')
+  groupId?: string // Reference to parent group (legacy field)
+  groupName?: string // Denormalized group name for easier display (legacy field)
+  generationGroupId?: string // Reference to parent group (new field)
+  generationGroupName?: string // Denormalized group name for easier display (new field)
   estimatedYears?: string // Estimated years range (e.g., "2020-2023", "2021-present")
   startDate?: string // Generation start date
   endDate?: string // Generation end date (optional)
@@ -529,7 +533,15 @@ export const masterDataApi = {
   // Helper method to get generations by group
   async getGenerationsByGroup(groupId: string, accessToken: string): Promise<MasterDataItem[]> {
     const generations = await this.getByType('generation', accessToken)
-    return generations.filter(gen => gen.groupId === groupId)
+    console.log('getGenerationsByGroup: All generations:', generations.map(g => ({ id: g.id, name: g.name, groupId: g.groupId, generationGroupId: g.generationGroupId })))
+    console.log('getGenerationsByGroup: Filtering for groupId:', groupId)
+    
+    // Try both fields for compatibility
+    const filtered = generations.filter(gen => 
+      gen.groupId === groupId || gen.generationGroupId === groupId
+    )
+    console.log('getGenerationsByGroup: Filtered generations:', filtered.length)
+    return filtered
   },
 
   // Helper method to assign actress to generation

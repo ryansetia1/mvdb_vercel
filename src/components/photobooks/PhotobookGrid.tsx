@@ -2,6 +2,7 @@ import React from 'react'
 import { Button } from '../ui/button'
 import { Camera, Plus } from 'lucide-react'
 import { Photobook } from '../../utils/photobookApi'
+import { MasterDataItem } from '../../utils/masterDataApi'
 import { PhotobookCard } from './PhotobookCard'
 
 interface PhotobookGridProps {
@@ -12,6 +13,10 @@ interface PhotobookGridProps {
   isLoading?: boolean
   emptyStateMessage?: string
   onLinkPhotobooks?: () => void
+  // New props for hierarchy data
+  generations?: MasterDataItem[]
+  lineups?: MasterDataItem[]
+  members?: MasterDataItem[]
 }
 
 export function PhotobookGrid({
@@ -21,7 +26,10 @@ export function PhotobookGrid({
   showUnlinkButtons = false,
   isLoading = false,
   emptyStateMessage = "No photobooks linked",
-  onLinkPhotobooks
+  onLinkPhotobooks,
+  generations = [],
+  lineups = [],
+  members = []
 }: PhotobookGridProps) {
   if (isLoading) {
     return (
@@ -62,6 +70,9 @@ export function PhotobookGrid({
           onCardClick={onPhotobookClick}
           onUnlink={onUnlinkPhotobook}
           showUnlinkButton={showUnlinkButtons}
+          generations={generations}
+          lineups={lineups}
+          members={members}
         />
       ))}
     </div>
