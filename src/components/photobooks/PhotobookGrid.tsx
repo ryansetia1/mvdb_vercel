@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Button } from '../ui/button'
 import { Camera, Plus } from 'lucide-react'
 import { Photobook } from '../../utils/photobookApi'
@@ -19,7 +19,7 @@ interface PhotobookGridProps {
   members?: MasterDataItem[]
 }
 
-export function PhotobookGrid({
+export const PhotobookGrid = React.memo(function PhotobookGrid({
   photobooks,
   onPhotobookClick,
   onUnlinkPhotobook,
@@ -31,10 +31,25 @@ export function PhotobookGrid({
   lineups = [],
   members = []
 }: PhotobookGridProps) {
+  // Memoize photobook cards to prevent unnecessary re-renders
+  const photobookCards = useMemo(() => {
+    return photobooks.map((photobook) => (
+      <PhotobookCard
+        key={photobook.id}
+        photobook={photobook}
+        onCardClick={onPhotobookClick}
+        onUnlink={onUnlinkPhotobook}
+        showUnlinkButton={showUnlinkButtons}
+        generations={generations}
+        lineups={lineups}
+        members={members}
+      />
+    ))
+  }, [photobooks, onPhotobookClick, onUnlinkPhotobook, showUnlinkButtons, generations, lineups, members])
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: Math.min(photobooks.length || 8, 12) }).map((_, i) => (
           <div key={i} className="w-40 h-60 bg-gray-200 animate-pulse rounded-lg" />
         ))}
       </div>
@@ -63,18 +78,7 @@ export function PhotobookGrid({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {photobooks.map((photobook) => (
-        <PhotobookCard
-          key={photobook.id}
-          photobook={photobook}
-          onCardClick={onPhotobookClick}
-          onUnlink={onUnlinkPhotobook}
-          showUnlinkButton={showUnlinkButtons}
-          generations={generations}
-          lineups={lineups}
-          members={members}
-        />
-      ))}
+      {photobookCards}
     </div>
   )
-}
+})

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -28,20 +28,23 @@ export function PhotobookCard({
   lineups = [],
   members = []
 }: PhotobookCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  
   const sizeClasses = {
     sm: 'w-32 h-48',
     md: 'w-40 h-60',
     lg: 'w-48 h-72'
   }
 
-  // Helper functions for badge display
-  const getLinkedItems = () => {
-    const linkedItems: Array<{ type: string, name: string, icon: React.ReactNode }> = []
+  // Memoize linked items calculation to prevent recalculation on every render
+  const linkedItems = useMemo(() => {
+    const items: Array<{ type: string, name: string, icon: React.ReactNode }> = []
     
     if (photobook.linkedTo?.generationId) {
       const generation = generations.find(g => g.id === photobook.linkedTo?.generationId)
       if (generation) {
-        linkedItems.push({
+        items.push({
           type: 'generation',
           name: generation.name,
           icon: <Calendar className="h-3 w-3" />
@@ -52,7 +55,7 @@ export function PhotobookCard({
     if (photobook.linkedTo?.lineupId) {
       const lineup = lineups.find(l => l.id === photobook.linkedTo?.lineupId)
       if (lineup) {
-        linkedItems.push({
+        items.push({
           type: 'lineup',
           name: lineup.name,
           icon: <Users2 className="h-3 w-3" />
@@ -63,7 +66,7 @@ export function PhotobookCard({
     if (photobook.linkedTo?.memberId) {
       const member = members.find(m => m.id === photobook.linkedTo?.memberId)
       if (member) {
-        linkedItems.push({
+        items.push({
           type: 'member',
           name: member.name,
           icon: <User className="h-3 w-3" />
@@ -71,7 +74,16 @@ export function PhotobookCard({
       }
     }
     
-    return linkedItems
+    return items
+  }, [photobook.linkedTo, generations, lineups, members])
+
+  const handleImageLoad = () => {
+    setImageLoaded(true)
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
+    setImageLoaded(true)
   }
 
   return (
@@ -82,15 +94,24 @@ export function PhotobookCard({
       <CardContent className="p-0 h-full">
         {/* Cover Image */}
         <div className="relative h-3/4 overflow-hidden rounded-t-lg">
-          {photobook.cover ? (
-            <img
-              src={photobook.cover}
-              alt={photobook.titleEn}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-photobook.jpg'
-              }}
-            />
+          {photobook.cover && !imageError ? (
+            <>
+              {!imageLoaded && (
+                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
+                  <Camera className="h-8 w-8 text-gray-400" />
+                </div>
+              )}
+              <img
+                src={photobook.cover}
+                alt={photobook.titleEn}
+                className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0 absolute'
+                }`}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                loading="lazy"
+              />
+            </>
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
               <Camera className="h-12 w-12 text-gray-400" />
@@ -125,9 +146,9 @@ export function PhotobookCard({
           )}
           
           {/* Ownership Badges */}
-          {getLinkedItems().length > 0 && (
+          {linkedItems.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2 justify-center">
-              {getLinkedItems().map((item, index) => (
+              {linkedItems.map((item, index) => (
                 <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
                   <div className="flex items-center gap-1">
                     {item.icon}
