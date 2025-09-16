@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -62,14 +62,30 @@ export function GroupDetailContent({
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
   const [generationActresses, setGenerationActresses] = useState<MasterDataItem[]>([])
   const [lineupRefreshKey, setLineupRefreshKey] = useState(0)
+  const [isLoadingGeneration, setIsLoadingGeneration] = useState(false)
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
+  const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
+  const [lastGenerationId, setLastGenerationId] = useState<string | null>(null)
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
     localStorage.removeItem('mvdb_cached_data')
     console.log('Cache cleared for fresh data')
+    
+    // Preload actresses data for better performance
+    const preloadActresses = async () => {
+      try {
+        const allActresses = await masterDataApi.getByType('actress', accessToken)
+        setCachedActresses(allActresses)
+        console.log('Actresses data preloaded:', allActresses.length)
+      } catch (error) {
+        console.error('Error preloading actresses:', error)
+      }
+    }
+    
+    preloadActresses()
     loadActresses()
   }, [accessToken, group.id]) // Use group.id instead of group.name to prevent unnecessary re-renders
 
@@ -310,12 +326,20 @@ export function GroupDetailContent({
 
   const handleGenerationClick = async (generation: MasterDataItem) => {
     try {
-      setSelectedGenerationId(generation.id)
-      // Refresh lineup data when generation changes
-      setLineupRefreshKey(prev => prev + 1)
+      // Only show loading if we don't have cached data or it's a different generation
+      const needsLoading = cachedActresses.length === 0 || lastGenerationId !== generation.id
       
-      // Use fresh API call like GenerationActressManagement does
-      const allActresses = await masterDataApi.getByType('actress', accessToken)
+      if (needsLoading) {
+        setIsLoadingGeneration(true)
+      }
+      
+      let allActresses = cachedActresses
+      
+      // Only fetch from API if we don't have cached data
+      if (cachedActresses.length === 0) {
+        allActresses = await masterDataApi.getByType('actress', accessToken)
+        setCachedActresses(allActresses)
+      }
       
       // Filter actresses that are assigned to this group (same logic as GenerationActressManagement)
       const actressesInGroup = allActresses.filter(actress => {
@@ -336,10 +360,25 @@ export function GroupDetailContent({
         return hasGeneration
       })
       
+      // Sort actresses by name (alphabetically)
+      actressesInGeneration.sort((a, b) => {
+        const nameA = a.name || ''
+        const nameB = b.name || ''
+        return nameA.localeCompare(nameB)
+      })
+      
       console.log(`[DEBUG] Found ${actressesInGeneration.length} actresses in generation ${generation.id}`)
+      
+      // Update state atomically to prevent UI flicker
       setGenerationActresses(actressesInGeneration)
+      setSelectedGenerationId(generation.id)
+      setLastGenerationId(generation.id)
+      // Refresh lineup data when generation changes
+      setLineupRefreshKey(prev => prev + 1)
     } catch (error) {
       console.error('Error loading generation actresses:', error)
+    } finally {
+      setIsLoadingGeneration(false)
     }
   }
 
@@ -351,13 +390,7 @@ export function GroupDetailContent({
       const groupInfo = actress.groupData[groupName]
       console.log('Group info:', groupInfo)
       
-      // Check for profilePicture field (saved from ActorForm)
-      if (groupInfo?.profilePicture && groupInfo.profilePicture.trim()) {
-        console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
-        return groupInfo.profilePicture.trim()
-      }
-      
-      // Check for photos array (alternative structure)
+      // Check for photos array (groupData only has photos, not profilePicture)
       if (groupInfo?.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
         const firstPhoto = groupInfo.photos[0]?.trim()
         if (firstPhoto) {
@@ -367,16 +400,7 @@ export function GroupDetailContent({
       }
     }
     
-    // Check groupProfilePictures structure (legacy)
-    if (actress.groupProfilePictures && typeof actress.groupProfilePictures === 'object') {
-      if (actress.groupProfilePictures[groupName]) {
-        const groupPic = actress.groupProfilePictures[groupName].trim()
-        if (groupPic) {
-          console.log('✅ Found groupProfilePictures photo:', groupPic)
-          return groupPic
-        }
-      }
-    }
+    // Legacy structure removed - groupProfilePictures is not part of MasterDataItem type
     
     console.log('❌ No group-specific photo found')
     return null
@@ -391,7 +415,7 @@ export function GroupDetailContent({
     return null
   }
 
-  const getGenerationProfilePicture = (actress: MasterDataItem, generationId: string) => {
+  const getGenerationProfilePicture = useCallback((actress: MasterDataItem, generationId: string) => {
     // Check generationData for profile picture
     if (actress.generationData && typeof actress.generationData === 'object') {
       const generationData = actress.generationData[generationId]
@@ -411,9 +435,9 @@ export function GroupDetailContent({
     
     // Fallback to group profile picture, then regular profile picture
     return getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
-  }
+  }, [group.name])
 
-  const getGenerationAlias = (actress: MasterDataItem, generationId: string) => {
+  const getGenerationAlias = useCallback((actress: MasterDataItem, generationId: string) => {
     // Check generationData for alias
     if (actress.generationData && typeof actress.generationData === 'object') {
       const generationData = actress.generationData[generationId]
@@ -424,7 +448,23 @@ export function GroupDetailContent({
     
     // Fallback to group alias, then regular name
     return getGroupAlias(actress, group.name || '') || actress.name
-  }
+  }, [group.name])
+
+  // Memoize generation actresses data to prevent unnecessary re-renders
+  const memoizedGenerationActresses = useMemo(() => {
+    return generationActresses
+      .map(actress => ({
+        ...actress,
+        imageUrl: getGenerationProfilePicture(actress, selectedGenerationId || ''),
+        generationAlias: getGenerationAlias(actress, selectedGenerationId || '')
+      }))
+      .sort((a, b) => {
+        // Sort by generation alias first, then by original name
+        const aliasA = a.generationAlias || a.name || ''
+        const aliasB = b.generationAlias || b.name || ''
+        return aliasA.localeCompare(aliasB)
+      })
+  }, [generationActresses, selectedGenerationId, getGenerationProfilePicture, getGenerationAlias])
 
   const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
     // Check lineupData for profile picture
@@ -747,7 +787,7 @@ export function GroupDetailContent({
             {group.profilePicture && (
               <div 
                 className="aspect-square w-full rounded-lg overflow-hidden bg-muted relative group cursor-pointer" 
-                onClick={() => openImageViewer([group.profilePicture], 0, `${group.name} Profile Picture`)}
+                onClick={() => openImageViewer([group.profilePicture!], 0, `${group.name} Profile Picture`)}
               >
                 <img
                   src={group.profilePicture}
@@ -1222,6 +1262,9 @@ export function GroupDetailContent({
                   <div className="flex items-center gap-2 mb-4">
                     <h4 className="text-lg font-medium">
                       Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
+                      {isLoadingGeneration && cachedActresses.length === 0 && (
+                        <span className="ml-2 text-sm text-gray-500">(Loading...)</span>
+                      )}
                     </h4>
                     <Badge variant="secondary">
                       {generationActresses.length} actresses
@@ -1235,10 +1278,10 @@ export function GroupDetailContent({
                       <p className="text-sm text-gray-500">No actresses have been assigned to this generation yet.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {generationActresses.map((actress) => {
-                        const imageUrl = getGenerationProfilePicture(actress, selectedGenerationId)
-                        const generationAlias = getGenerationAlias(actress, selectedGenerationId)
+                    <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-opacity duration-300 ${isLoadingGeneration ? 'opacity-50' : 'opacity-100'}`}>
+                      {memoizedGenerationActresses.map((actress) => {
+                        const imageUrl = actress.imageUrl
+                        const generationAlias = actress.generationAlias
                         
                         return (
                           <Card 
@@ -1303,9 +1346,9 @@ export function GroupDetailContent({
                     generationId={selectedGenerationId}
                     generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
                     accessToken={accessToken}
-                    onProfileSelect={onProfileSelect}
-                    getLineupProfilePicture={getLineupProfilePicture}
-                    getLineupAlias={getLineupAlias}
+                    onProfileSelect={(type: string, name: string) => onProfileSelect(type as 'actress' | 'actor', name)}
+                    getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId) || null}
+                    getLineupAlias={(actress, lineupId) => getLineupAlias(actress, lineupId) || null}
                     refreshKey={lineupRefreshKey}
                     onDataChange={() => {
                       // Don't trigger refresh loop - data is already fresh
