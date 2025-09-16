@@ -16,7 +16,8 @@ import {
   Globe,
   Maximize,
   Plus,
-  ChevronDown
+  ChevronDown,
+  Camera
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -25,6 +26,7 @@ import { LineupDisplay } from '../LineupDisplay'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
 import { ModernLightbox } from '../ModernLightbox'
 import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { toast } from 'sonner'
 
 interface GroupDetailContentProps {
@@ -78,6 +80,10 @@ export function GroupDetailContent({
   const [newActressJpName, setNewActressJpName] = useState<string>('')
   const [isCreatingActress, setIsCreatingActress] = useState(false)
   const [isAddMemberSectionOpen, setIsAddMemberSectionOpen] = useState(false)
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
+  const [selectedActressForEdit, setSelectedActressForEdit] = useState<MasterDataItem | null>(null)
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string>('')
+  const [isUpdatingProfilePicture, setIsUpdatingProfilePicture] = useState(false)
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -793,6 +799,60 @@ export function GroupDetailContent({
     }
   }
 
+  // Function to open edit profile picture modal
+  const handleEditProfilePicture = (actress: MasterDataItem) => {
+    setSelectedActressForEdit(actress)
+    setProfilePictureUrl(actress.profilePicture || '')
+    setEditProfileModalOpen(true)
+  }
+
+  // Function to close edit profile picture modal
+  const handleCloseEditModal = () => {
+    setEditProfileModalOpen(false)
+    setSelectedActressForEdit(null)
+    setProfilePictureUrl('')
+  }
+
+  // Function to update profile picture
+  const handleUpdateProfilePicture = async () => {
+    if (!selectedActressForEdit || !profilePictureUrl.trim()) return
+    
+    try {
+      setIsUpdatingProfilePicture(true)
+      
+      const updateData = {
+        name: selectedActressForEdit.name,
+        jpname: selectedActressForEdit.jpname,
+        birthdate: selectedActressForEdit.birthdate,
+        alias: selectedActressForEdit.alias,
+        links: selectedActressForEdit.links,
+        takulinks: selectedActressForEdit.takulinks,
+        tags: selectedActressForEdit.tags,
+        photo: selectedActressForEdit.photo,
+        profilePicture: profilePictureUrl.trim(),
+        groupId: selectedActressForEdit.groupId,
+        groupData: selectedActressForEdit.groupData,
+        selectedGroups: selectedActressForEdit.selectedGroups
+      }
+
+      console.log('Updating profile picture with data:', updateData)
+
+      await masterDataApi.updateExtended('actress', selectedActressForEdit.id, updateData, accessToken)
+
+      toast.success('Profile picture updated successfully!')
+      handleCloseEditModal()
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error updating profile picture:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile picture'
+      toast.error(errorMessage)
+    } finally {
+      setIsUpdatingProfilePicture(false)
+    }
+  }
+
   // Prepare options for searchable combobox - only show actresses not already in group
   const actressOptions = useComboBoxOptions(
     cachedActresses.filter(actress => 
@@ -1356,9 +1416,21 @@ export function GroupDetailContent({
                           </div>
                         )}
 
-                        {/* Favorite Button */}
+                        {/* Action Buttons */}
                         {accessToken && (
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="bg-black/20 hover:bg-black/40 backdrop-blur-sm h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditProfilePicture(actress)
+                              }}
+                              title="Edit Profile Picture"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
                             <SimpleFavoriteButton
                               type="cast"
                               itemId={actress.name || ''}
@@ -1659,6 +1731,98 @@ export function GroupDetailContent({
           sourceTitle: lightboxTitle
         }}
       />
+
+      {/* Edit Profile Picture Modal */}
+      <Dialog open={editProfileModalOpen} onOpenChange={setEditProfileModalOpen}>
+        <DialogContent 
+          className="!max-w-none !max-h-[95vh] !w-[80vw] !h-[80vh] flex flex-col"
+          style={{ 
+            maxWidth: 'none !important',
+            width: '80vw !important',
+            maxHeight: '95vh !important',
+            height: '80vh !important'
+          }}
+          data-custom-dialog="true"
+        >
+          <DialogHeader className="flex-shrink-0 p-6 pb-4">
+            <DialogTitle className="text-xl font-semibold">Edit Profile Picture</DialogTitle>
+            <DialogDescription className="text-base">
+              Update profile picture for {selectedActressForEdit?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedActressForEdit && (
+            <div className="flex-1 overflow-auto p-6 pt-0 space-y-6">
+              {/* Current Profile Picture */}
+              <div className="space-y-4">
+                <Label className="text-lg font-medium">Current Profile Picture</Label>
+                <div className="flex justify-center">
+                  <div className="w-[400px] h-[500px] rounded-lg overflow-hidden bg-muted shadow-lg">
+                    {selectedActressForEdit.profilePicture ? (
+                      <img
+                        src={selectedActressForEdit.profilePicture}
+                        alt={selectedActressForEdit.name || 'Actress'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <User className="h-24 w-24 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* URL Input */}
+              <div className="space-y-4">
+                <Label htmlFor="profilePictureUrl" className="text-lg font-medium">Profile Picture URL</Label>
+                <Input
+                  id="profilePictureUrl"
+                  value={profilePictureUrl}
+                  onChange={(e) => setProfilePictureUrl(e.target.value)}
+                  placeholder="Enter image URL..."
+                  className="h-12 text-lg"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-6 pt-8 border-t border-border/50">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseEditModal} 
+                  className="!h-16 !px-16 !text-xl !font-semibold !min-w-[160px] !border-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  style={{
+                    height: '64px !important',
+                    paddingLeft: '64px !important',
+                    paddingRight: '64px !important',
+                    fontSize: '20px !important',
+                    fontWeight: '600 !important',
+                    minWidth: '160px !important',
+                    borderWidth: '2px !important'
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleUpdateProfilePicture}
+                  disabled={!profilePictureUrl.trim() || isUpdatingProfilePicture}
+                  className="!h-16 !px-16 !text-xl !font-semibold !min-w-[280px] bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  style={{
+                    height: '64px !important',
+                    paddingLeft: '64px !important',
+                    paddingRight: '64px !important',
+                    fontSize: '20px !important',
+                    fontWeight: '600 !important',
+                    minWidth: '280px !important'
+                  }}
+                >
+                  {isUpdatingProfilePicture ? 'Updating...' : 'Update Profile Picture'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
