@@ -553,9 +553,12 @@ export function GenerationActressManagement({
             
             if (versionOptions.length > 0) {
               return (
-                <Select onValueChange={handleDeleteVersionFromAll}>
+                <Select 
+                  onValueChange={handleDeleteVersionFromAll}
+                  disabled={isDeletingVersion}
+                >
                   <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Delete Version" />
+                    <SelectValue placeholder={isDeletingVersion ? "Deleting..." : "Delete Version"} />
                   </SelectTrigger>
                   <SelectContent>
                     {versionOptions.map(version => (
@@ -939,46 +942,6 @@ function ActressAssignmentItem({
     }
   }
 
-  const handleDeleteVersion = async (versionName: string) => {
-    if (!confirm(`Are you sure you want to delete version "${versionName}"? This will remove the version from all actresses in this generation.`)) {
-      return
-    }
-
-    setIsSavingPic(true)
-    try {
-      // Remove the version from photoVersions
-      const currentPhotoVersions = generationData?.photoVersions || {}
-      const updatedPhotoVersions = { ...currentPhotoVersions }
-      delete updatedPhotoVersions[versionName]
-
-      // Update the version photo URLs state
-      setVersionPhotoUrls(prev => {
-        const newUrls = { ...prev }
-        delete newUrls[versionName]
-        return newUrls
-      })
-
-      // Call API to remove version
-      await masterDataApi.assignActressToGeneration(
-        actress.id,
-        generationId,
-        accessToken,
-        generationData?.alias || undefined,
-        generationData?.profilePicture || undefined,
-        generationData?.photos || undefined,
-        updatedPhotoVersions
-      )
-    } catch (err) {
-      console.error('Failed to delete version:', err)
-      // Reset to original value on error
-      setVersionPhotoUrls(prev => ({ 
-        ...prev, 
-        [versionName]: generationData?.photoVersions?.[versionName]?.photos?.[0] || '' 
-      }))
-    } finally {
-      setIsSavingPic(false)
-    }
-  }
 
   return (
     <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 hover:bg-gray-100 transition-colors">
@@ -1051,16 +1014,6 @@ function ActressAssignmentItem({
                       </div>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDeleteVersion(versionName)}
-                    disabled={isSavingPic}
-                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    title={`Delete version "${versionName}"`}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
                 </div>
               ))}
             </div>

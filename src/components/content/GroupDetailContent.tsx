@@ -71,6 +71,7 @@ export function GroupDetailContent({
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false)
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
+  const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
   const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
@@ -604,10 +605,20 @@ export function GroupDetailContent({
       })
   }, [generationActresses, selectedGenerationId, selectedVersion, getGenerationProfilePicture, getGenerationAlias])
 
-  const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
+  const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string, selectedVersion?: string) => {
     // Check lineupData for profile picture
     if (actress.lineupData && typeof actress.lineupData === 'object') {
       const lineupData = actress.lineupData[lineupId]
+      
+      // If version is selected and photoVersions exist, use version photo
+      if (selectedVersion && lineupData?.photoVersions?.[selectedVersion]?.photos?.length > 0) {
+        const versionPhoto = lineupData.photoVersions[selectedVersion].photos[0]?.trim()
+        if (versionPhoto) {
+          return versionPhoto
+        }
+      }
+      
+      // Check lineupData for profile picture (default)
       if (lineupData && lineupData.profilePicture) {
         return lineupData.profilePicture
       }
@@ -706,7 +717,7 @@ export function GroupDetailContent({
   const getLatestLineupProfilePicture = (actress: MasterDataItem): string | null => {
     const latestLineup = findLatestLineupWhereActressExists(actress)
     if (latestLineup) {
-      return getLineupProfilePicture(actress, latestLineup.id) || null
+      return getLineupProfilePicture(actress, latestLineup.id, undefined) || null
     }
     return null
   }
@@ -739,7 +750,7 @@ export function GroupDetailContent({
       return getGenerationProfilePicture(actress, filterId, undefined) || null
     }
     if (filterType === 'lineup') {
-      return getLineupProfilePicture(actress, filterId) || null
+      return getLineupProfilePicture(actress, filterId, undefined) || null
     }
     return getDefaultProfilePicture(actress)
   }
@@ -1946,9 +1957,11 @@ export function GroupDetailContent({
                     generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
                     accessToken={accessToken}
                     onProfileSelect={(type: string, name: string) => onProfileSelect(type as 'actress' | 'actor', name)}
-                    getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId) || null}
+                    getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId, selectedLineupVersion === 'default' ? undefined : selectedLineupVersion) || null}
                     getLineupAlias={(actress, lineupId) => getLineupAlias(actress, lineupId) || null}
                     refreshKey={lineupRefreshKey}
+                    selectedLineupVersion={selectedLineupVersion}
+                    onLineupVersionChange={setSelectedLineupVersion}
                     onDataChange={() => {
                       // Don't trigger refresh loop - data is already fresh
                       console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')

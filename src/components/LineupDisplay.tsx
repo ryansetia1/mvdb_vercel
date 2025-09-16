@@ -6,6 +6,7 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Users, ChevronDown, ChevronRight } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
 interface LineupDisplayProps {
@@ -17,6 +18,8 @@ interface LineupDisplayProps {
   getLineupAlias?: (actress: MasterDataItem, lineupId: string) => string | null
   refreshKey?: number // Add refresh trigger
   onDataChange?: () => void // Callback when data changes
+  selectedLineupVersion?: string // Add lineup version selector
+  onLineupVersionChange?: (version: string) => void // Callback for version change
 }
 
 export function LineupDisplay({ 
@@ -27,7 +30,9 @@ export function LineupDisplay({
   getLineupProfilePicture,
   getLineupAlias,
   refreshKey,
-  onDataChange
+  onDataChange,
+  selectedLineupVersion = 'default',
+  onLineupVersionChange
 }: LineupDisplayProps) {
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
@@ -170,6 +175,39 @@ export function LineupDisplay({
                 {lineup.description && (
                   <p className="text-sm text-gray-600">{lineup.description}</p>
                 )}
+                
+                {/* Version Selector */}
+                {(() => {
+                  // Get all available versions from lineup actresses
+                  const availableVersions = new Set<string>()
+                  lineupActresses.forEach(actress => {
+                    if (actress.lineupData?.[lineup.id]?.photoVersions) {
+                      Object.keys(actress.lineupData[lineup.id].photoVersions).forEach(version => availableVersions.add(version))
+                    }
+                  })
+                  
+                  const versionOptions = Array.from(availableVersions).sort()
+                  
+                  if (versionOptions.length > 0) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Version:</span>
+                        <Select value={selectedLineupVersion} onValueChange={onLineupVersionChange}>
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            {versionOptions.map(version => (
+                              <SelectItem key={version} value={version}>{version}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 
                 {lineupActresses.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

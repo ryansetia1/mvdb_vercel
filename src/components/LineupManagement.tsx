@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Plus, Loader2, X } from 'lucide-react'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { masterDataApi } from '../utils/masterDataApi'
 
@@ -17,6 +23,7 @@ interface LineupFormData {
   selectedActresses: string[]
   actressAliases: { [actressId: string]: string }
   actressProfilePictures: { [actressId: string]: string }
+  selectedLineupId?: string // For version creation
 }
 
 export function LineupManagement({ 
@@ -40,6 +47,28 @@ export function LineupManagement({
     actressAliases: {},
     actressProfilePictures: {}
   })
+  const [showVersionDialog, setShowVersionDialog] = useState(false)
+  const [versionName, setVersionName] = useState('')
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false)
+  const [isDeletingVersion, setIsDeletingVersion] = useState(false)
+  const [versionUrlWasTrimmed, setVersionUrlWasTrimmed] = useState<{ [actressId: string]: { [versionName: string]: boolean } }>({})
+  const [versionPhotoUrls, setVersionPhotoUrls] = useState<{ [actressId: string]: { [versionName: string]: string } }>({})
+
+  // Function to auto-trim fandom.com URLs from the end
+  const autoTrimFandomUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return url
+    
+    // Check if it's a fandom.com URL
+    if (!url.includes('static.wikia.nocookie.net')) return url
+    
+    // Remove everything after the last slash
+    const lastSlashIndex = url.lastIndexOf('/')
+    if (lastSlashIndex !== -1) {
+      return url.substring(0, lastSlashIndex)
+    }
+    
+    return url
+  }
 
   const lineupTypes = [
     { value: 'Main', label: 'Main Lineup' },
@@ -52,6 +81,57 @@ export function LineupManagement({
   useEffect(() => {
     loadData()
   }, [generationId])
+
+  // Auto-trim version photo URLs with debounce
+  useEffect(() => {
+    const timeouts: { [key: string]: NodeJS.Timeout } = {}
+    
+    Object.keys(versionPhotoUrls).forEach(actressId => {
+      Object.keys(versionPhotoUrls[actressId]).forEach(versionName => {
+        const url = versionPhotoUrls[actressId][versionName]
+        
+        if (!url.trim()) {
+          setVersionUrlWasTrimmed(prev => ({
+            ...prev,
+            [actressId]: {
+              ...prev[actressId],
+              [versionName]: false
+            }
+          }))
+          return
+        }
+
+        const key = `${actressId}-${versionName}`
+        timeouts[key] = setTimeout(() => {
+          const trimmedUrl = autoTrimFandomUrl(url.trim())
+          const wasTrimmed = trimmedUrl !== url.trim()
+          
+          setVersionUrlWasTrimmed(prev => ({
+            ...prev,
+            [actressId]: {
+              ...prev[actressId],
+              [versionName]: wasTrimmed
+            }
+          }))
+          
+          // Auto-update the input field if URL was trimmed
+          if (wasTrimmed) {
+            setVersionPhotoUrls(prev => ({
+              ...prev,
+              [actressId]: {
+                ...prev[actressId],
+                [versionName]: trimmedUrl
+              }
+            }))
+          }
+        }, 1000) // 1 second debounce
+      })
+    })
+
+    return () => {
+      Object.values(timeouts).forEach(timeout => clearTimeout(timeout))
+    }
+  }, [versionPhotoUrls])
 
   // Handle edit state changes
   useEffect(() => {
@@ -245,6 +325,226 @@ export function LineupManagement({
     }
   }
 
+  const handleAddVersion = (lineupId: string, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    setVersionName('')
+    setShowVersionDialog(true)
+    // Store lineupId for version creation
+    setFormData(prev => ({ ...prev, selectedLineupId: lineupId }))
+  }
+
+  const handleSubmitVersion = async () => {
+    try {
+      setError(null)
+      setIsCreatingVersion(true)
+
+      if (!versionName.trim()) {
+        setError('Version name is required')
+        return
+      }
+
+      if (!formData.selectedLineupId) {
+        setError('Lineup ID is required')
+        return
+      }
+
+      // Get lineup actresses for the selected lineup
+      const lineupActresses = getLineupActresses(formData.selectedLineupId)
+      
+      if (lineupActresses.length === 0) {
+        setError('No actresses found in this lineup')
+        return
+      }
+
+      // Create version for all actresses in the selected lineup
+      const versionData = {
+        photos: [],
+        createdAt: new Date().toISOString(),
+        description: `Version: ${versionName.trim()}`
+      }
+
+      console.log(`Creating version "${versionName.trim()}" for ${lineupActresses.length} actresses...`)
+
+      // Update each actress in the lineup with the new version
+      for (const actress of lineupActresses) {
+        console.log('Updating actress:', actress.name, 'for lineup:', formData.selectedLineupId)
+        console.log('Current lineupData:', actress.lineupData?.[formData.selectedLineupId])
+        
+        const currentLineupData = actress.lineupData?.[formData.selectedLineupId] || {}
+        const updatedLineupData = {
+          ...currentLineupData,
+          photoVersions: {
+            ...currentLineupData.photoVersions,
+            [versionName.trim()]: versionData
+          }
+        }
+
+        console.log('Updated lineupData:', updatedLineupData)
+
+        const updateData = {
+          name: actress.name,
+          jpname: actress.jpname,
+          birthdate: actress.birthdate,
+          alias: actress.alias,
+          links: actress.links,
+          takulinks: actress.takulinks,
+          tags: actress.tags,
+          photo: actress.photo,
+          profilePicture: actress.profilePicture,
+          groupId: actress.groupId,
+          groupData: actress.groupData,
+          selectedGroups: actress.selectedGroups,
+          generationData: actress.generationData,
+          lineupData: {
+            ...actress.lineupData,
+            [formData.selectedLineupId]: updatedLineupData
+          }
+        }
+
+        console.log('Update data for actress:', actress.name, updateData)
+        await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+        console.log('Actress updated successfully:', actress.name)
+      }
+
+      console.log(`Version "${versionName.trim()}" created successfully for all actresses!`)
+      setVersionName('')
+      setShowVersionDialog(false)
+      setFormData(prev => ({ ...prev, selectedLineupId: undefined }))
+      
+      // Reload data to show updated versions
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create version')
+    } finally {
+      setIsCreatingVersion(false)
+    }
+  }
+
+  const handleDeleteVersionFromAll = async (lineupId: string, versionName: string) => {
+    if (!confirm(`Are you sure you want to delete version "${versionName}" from ALL actresses in this lineup? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setError(null)
+      setIsDeletingVersion(true)
+
+      // Get lineup actresses for the selected lineup
+      const lineupActresses = getLineupActresses(lineupId)
+      
+      if (lineupActresses.length === 0) {
+        setError('No actresses found in this lineup')
+        return
+      }
+
+      console.log(`Deleting version "${versionName}" from ${lineupActresses.length} actresses...`)
+
+      // Remove version from all actresses in the lineup
+      for (const actress of lineupActresses) {
+        const currentLineupData = actress.lineupData?.[lineupId]
+        if (currentLineupData?.photoVersions?.[versionName]) {
+          const updatedPhotoVersions = { ...currentLineupData.photoVersions }
+          delete updatedPhotoVersions[versionName]
+
+          const updatedLineupData = {
+            ...currentLineupData,
+            photoVersions: updatedPhotoVersions
+          }
+
+          const updateData = {
+            name: actress.name,
+            jpname: actress.jpname,
+            birthdate: actress.birthdate,
+            alias: actress.alias,
+            links: actress.links,
+            takulinks: actress.takulinks,
+            tags: actress.tags,
+            photo: actress.photo,
+            profilePicture: actress.profilePicture,
+            groupId: actress.groupId,
+            groupData: actress.groupData,
+            selectedGroups: actress.selectedGroups,
+            generationData: actress.generationData,
+            lineupData: {
+              ...actress.lineupData,
+              [lineupId]: updatedLineupData
+            }
+          }
+
+          await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+          console.log(`Version "${versionName}" deleted from actress:`, actress.name)
+        }
+      }
+
+      console.log(`Version "${versionName}" deleted successfully from all actresses!`)
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete version')
+    } finally {
+      setIsDeletingVersion(false)
+    }
+  }
+
+  const handleVersionPhotoChange = async (actressId: string, lineupId: string, versionName: string, newUrl: string) => {
+    try {
+      // Find the actress
+      const actress = actresses.find(a => a.id === actressId)
+      if (!actress) {
+        setError('Actress not found')
+        return
+      }
+
+      const currentLineupData = actress.lineupData?.[lineupId]
+      if (!currentLineupData?.photoVersions?.[versionName]) {
+        setError('Version not found')
+        return
+      }
+
+      // Update the photoVersions data
+      const updatedPhotoVersions = {
+        ...currentLineupData.photoVersions,
+        [versionName]: {
+          ...currentLineupData.photoVersions[versionName],
+          photos: newUrl ? [newUrl] : []
+        }
+      }
+
+      const updatedLineupData = {
+        ...currentLineupData,
+        photoVersions: updatedPhotoVersions
+      }
+
+      const updateData = {
+        name: actress.name,
+        jpname: actress.jpname,
+        birthdate: actress.birthdate,
+        alias: actress.alias,
+        links: actress.links,
+        takulinks: actress.takulinks,
+        tags: actress.tags,
+        photo: actress.photo,
+        profilePicture: actress.profilePicture,
+        groupId: actress.groupId,
+        groupData: actress.groupData,
+        selectedGroups: actress.selectedGroups,
+        generationData: actress.generationData,
+        lineupData: {
+          ...actress.lineupData,
+          [lineupId]: updatedLineupData
+        }
+      }
+
+      await masterDataApi.updateExtended('actress', actressId, updateData, accessToken)
+      
+      // Reload data after update
+      setTimeout(() => loadData(), 500)
+    } catch (err) {
+      console.error('Error updating version photo:', err)
+      setError('Failed to update version photo')
+    }
+  }
+
   const handleEdit = (lineup: MasterDataItem) => {
     console.log('=== EDIT LINEUP START ===')
     console.log('Lineup to edit:', lineup)
@@ -353,9 +653,23 @@ export function LineupManagement({
   }
 
   const getLineupActresses = (lineupId: string) => {
-    return actresses.filter(actress => 
-      actress.lineupData && actress.lineupData[lineupId]
-    )
+    console.log('getLineupActresses called for lineupId:', lineupId)
+    console.log('Total actresses available:', actresses.length)
+    console.log('Actresses with lineupData:', actresses.filter(a => a.lineupData).length)
+    
+    const lineupActresses = actresses.filter(actress => {
+      const hasLineupData = actress.lineupData && actress.lineupData[lineupId]
+      console.log(`Actress ${actress.name}:`, {
+        hasLineupData: !!actress.lineupData,
+        hasSpecificLineup: !!actress.lineupData?.[lineupId],
+        lineupData: actress.lineupData?.[lineupId],
+        photoVersions: actress.lineupData?.[lineupId]?.photoVersions
+      })
+      return hasLineupData
+    })
+    
+    console.log('Lineup actresses found:', lineupActresses.length)
+    return lineupActresses
   }
 
   const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
@@ -388,12 +702,13 @@ export function LineupManagement({
           <h2 className="text-2xl font-bold text-gray-900">Lineup Management</h2>
           <p className="text-gray-600">Kelola lineup untuk {generationName}</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          size="sm"
         >
+          <Plus className="h-4 w-4 mr-1" />
           Tambah Lineup
-        </button>
+        </Button>
       </div>
 
       {/* Error Message */}
@@ -645,6 +960,35 @@ export function LineupManagement({
                       </span>
                       <span>Urutan: {lineup.lineupOrder}</span>
                       <span>{lineupActresses.length} member</span>
+                      {(() => {
+                        // Get all available versions from lineup actresses
+                        const availableVersions = new Set<string>()
+                        lineupActresses.forEach(actress => {
+                          if (actress.lineupData?.[lineup.id]?.photoVersions) {
+                            Object.keys(actress.lineupData[lineup.id].photoVersions).forEach(version => availableVersions.add(version))
+                          }
+                        })
+                        
+                        const versionOptions = Array.from(availableVersions).sort()
+                        
+                        if (versionOptions.length > 0) {
+                          return (
+                            <div className="flex items-center gap-1">
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                                {versionOptions.length} Version{versionOptions.length > 1 ? 's' : ''}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ({versionOptions.join(', ')})
+                              </span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                            No Versions
+                          </span>
+                        )
+                      })()}
                     </div>
                     {lineup.description && (
                       <p className="text-gray-600 mt-2">{lineup.description}</p>
@@ -652,6 +996,60 @@ export function LineupManagement({
                   </div>
                   
                   <div className="flex space-x-2">
+                    <Button
+                      onClick={(e) => handleAddVersion(lineup.id, e)}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      disabled={isCreatingVersion}
+                    >
+                      {isCreatingVersion ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Version
+                        </>
+                      )}
+                    </Button>
+                    {(() => {
+                      // Get all available versions from lineup actresses
+                      const availableVersions = new Set<string>()
+                      lineupActresses.forEach(actress => {
+                        if (actress.lineupData?.[lineup.id]?.photoVersions) {
+                          Object.keys(actress.lineupData[lineup.id].photoVersions).forEach(version => availableVersions.add(version))
+                        }
+                      })
+                      
+                      const versionOptions = Array.from(availableVersions).sort()
+                      
+                      if (versionOptions.length > 0) {
+                        return (
+                          <Select 
+                            onValueChange={(versionName) => handleDeleteVersionFromAll(lineup.id, versionName)}
+                            disabled={isDeletingVersion}
+                          >
+                            <SelectTrigger className="w-32 h-7 text-xs">
+                              <SelectValue placeholder={isDeletingVersion ? "Deleting..." : "Delete Version"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {versionOptions.map(version => (
+                                <SelectItem key={version} value={version} className="text-red-600">
+                                  <div className="flex items-center gap-2">
+                                    <X className="h-3 w-3" />
+                                    Delete {version}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )
+                      }
+                      return null
+                    })()}
                     <button
                       onClick={(e) => {
                         e.preventDefault()
@@ -677,33 +1075,102 @@ export function LineupManagement({
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Members:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {lineupActresses.map((actress) => (
-                        <div key={actress.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                          <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
-                            {getLineupProfilePicture(actress, lineup.id) ? (
-                              <img
-                                src={getLineupProfilePicture(actress, lineup.id)}
-                                alt={actress.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-gray-600 text-sm font-medium">
-                                {actress.name?.charAt(0)}
-                              </span>
-                            )}
+                      {lineupActresses.map((actress) => {
+                        const lineupData = actress.lineupData?.[lineup.id]
+                        
+                        return (
+                          <div key={actress.id} className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                            {/* Actress Info */}
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
+                                {getLineupProfilePicture(actress, lineup.id) ? (
+                                  <img
+                                    src={getLineupProfilePicture(actress, lineup.id)}
+                                    alt={actress.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-gray-600 text-sm font-medium">
+                                    {actress.name?.charAt(0)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {getLineupAlias(actress, lineup.id) || actress.name}
+                                </p>
+                                {getLineupAlias(actress, lineup.id) && (
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {actress.name}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Version Photo Input Fields */}
+                            {(() => {
+                              console.log('Debug lineupData for actress:', actress.name, lineupData)
+                              console.log('Debug photoVersions:', lineupData?.photoVersions)
+                              console.log('Debug photoVersions keys:', lineupData?.photoVersions ? Object.keys(lineupData.photoVersions) : 'No photoVersions')
+                              
+                              if (lineupData?.photoVersions && Object.keys(lineupData.photoVersions).length > 0) {
+                                return (
+                                  <div className="space-y-2">
+                                    <h5 className="text-xs font-medium text-gray-600">Version Photos:</h5>
+                                    {Object.keys(lineupData.photoVersions).map(versionName => (
+                                      <div key={versionName} className="space-y-1">
+                                        <label className="text-xs text-gray-500">{versionName}:</label>
+                                        <div className="relative">
+                                          <Input
+                                            value={versionPhotoUrls[actress.id]?.[versionName] || lineupData.photoVersions[versionName].photos?.[0] || ''}
+                                            onChange={(e) => {
+                                              // Update local state for immediate UI feedback
+                                              setVersionPhotoUrls(prev => ({
+                                                ...prev,
+                                                [actress.id]: {
+                                                  ...prev[actress.id],
+                                                  [versionName]: e.target.value
+                                                }
+                                              }))
+                                            }}
+                                            onBlur={() => {
+                                              const currentUrl = versionPhotoUrls[actress.id]?.[versionName] || lineupData.photoVersions[versionName].photos?.[0] || ''
+                                              if (currentUrl.trim()) {
+                                                handleVersionPhotoChange(actress.id, lineup.id, versionName, currentUrl)
+                                              }
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const currentUrl = versionPhotoUrls[actress.id]?.[versionName] || lineupData.photoVersions[versionName].photos?.[0] || ''
+                                                if (currentUrl.trim()) {
+                                                  handleVersionPhotoChange(actress.id, lineup.id, versionName, currentUrl)
+                                                }
+                                              }
+                                            }}
+                                            placeholder={`${versionName} photo URL...`}
+                                            className="h-7 text-xs"
+                                          />
+                                          {versionUrlWasTrimmed[actress.id]?.[versionName] && (
+                                            <div className="absolute -bottom-5 left-0 right-0 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-2 py-1 text-xs text-blue-600">
+                                              ✂️ URL trimmed
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              } else {
+                                return (
+                                  <div className="text-xs text-gray-400 italic">
+                                    No versions available
+                                  </div>
+                                )
+                              }
+                            })()}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {getLineupAlias(actress, lineup.id) || actress.name}
-                            </p>
-                            {getLineupAlias(actress, lineup.id) && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {actress.name}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 ) : (
@@ -716,6 +1183,52 @@ export function LineupManagement({
           })
         )}
       </div>
+
+      {/* Add Version Dialog */}
+      <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Photo Version</DialogTitle>
+            <DialogDescription>
+              Create a new photo version for all actresses in the "{lineups.find(l => l.id === formData.selectedLineupId)?.name || 'selected'}" lineup. Each actress will get a new photo input field for this version.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="versionName">Version Name *</Label>
+              <Input
+                id="versionName"
+                value={versionName}
+                onChange={(e) => setVersionName(e.target.value)}
+                placeholder="e.g., Version 1, Summer Look, etc."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleSubmitVersion()
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowVersionDialog(false)} disabled={isCreatingVersion}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSubmitVersion} disabled={loading || isCreatingVersion || !versionName.trim()}>
+                {isCreatingVersion ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Version...
+                  </>
+                ) : (
+                  'Create Version'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

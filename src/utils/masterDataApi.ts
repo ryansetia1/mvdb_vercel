@@ -54,7 +54,7 @@ export interface MasterDataItem {
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string, profilePicture?: string } } // Per-group data including photos, aliases, and profile pictures
   generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[], photoVersions?: { [versionName: string]: { photos: string[], createdAt: string, description?: string } } } } // Per-generation data including aliases and profile pictures
-  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
+  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[], photoVersions?: { [versionName: string]: { photos: string[], createdAt: string, description?: string } } } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
