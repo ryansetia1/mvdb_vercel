@@ -1831,6 +1831,27 @@ export function GroupDetailContent({
                 ))}
               </div>
 
+              {/* Lineup Display */}
+              {selectedGenerationId && (
+                <div className="mt-6">
+                  <LineupDisplay
+                    generationId={selectedGenerationId}
+                    generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
+                    accessToken={accessToken}
+                    onProfileSelect={(type: string, name: string) => onProfileSelect(type as 'actress' | 'actor', name)}
+                    getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId, selectedLineupVersion === 'default' ? undefined : selectedLineupVersion) || null}
+                    getLineupAlias={(actress, lineupId) => getLineupAlias(actress, lineupId) || null}
+                    refreshKey={lineupRefreshKey}
+                    selectedLineupVersion={selectedLineupVersion}
+                    onLineupVersionChange={setSelectedLineupVersion}
+                    onDataChange={() => {
+                      // Don't trigger refresh loop - data is already fresh
+                      console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Selected Generation Actresses */}
               {selectedGenerationId && (
                 <div className="mt-6">
@@ -1950,26 +1971,6 @@ export function GroupDetailContent({
                 </div>
               )}
 
-              {/* Lineup Display */}
-              {selectedGenerationId && (
-                <div className="mt-6">
-                  <LineupDisplay
-                    generationId={selectedGenerationId}
-                    generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
-                    accessToken={accessToken}
-                    onProfileSelect={(type: string, name: string) => onProfileSelect(type as 'actress' | 'actor', name)}
-                    getLineupProfilePicture={(actress, lineupId) => getLineupProfilePicture(actress, lineupId, selectedLineupVersion === 'default' ? undefined : selectedLineupVersion) || null}
-                    getLineupAlias={(actress, lineupId) => getLineupAlias(actress, lineupId) || null}
-                    refreshKey={lineupRefreshKey}
-                    selectedLineupVersion={selectedLineupVersion}
-                    onLineupVersionChange={setSelectedLineupVersion}
-                    onDataChange={() => {
-                      // Don't trigger refresh loop - data is already fresh
-                      console.log('LineupDisplay: Data changed, but not triggering refresh to avoid loop')
-                    }}
-                  />
-                </div>
-              )}
             </div>
           )}
         </TabsContent>
