@@ -91,6 +91,7 @@ export function GroupDetailContent({
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false)
   const [lineupData, setLineupData] = useState<{lineups: MasterDataItem[], actresses: MasterDataItem[]} | null>(null)
   const [lineupDataLoaded, setLineupDataLoaded] = useState(false)
+  const [expandedGenerations, setExpandedGenerations] = useState<Set<string>>(new Set())
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
@@ -589,6 +590,20 @@ export function GroupDetailContent({
     await handleGenerationClick(generation)
     await loadLineupData(generation.id)
     setShowLineups(true)
+  }
+
+  // Toggle description expansion for generation
+  const toggleGenerationDescription = (generationId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card click
+    setExpandedGenerations(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(generationId)) {
+        newSet.delete(generationId)
+      } else {
+        newSet.add(generationId)
+      }
+      return newSet
+    })
   }
 
   const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
@@ -1902,7 +1917,7 @@ export function GroupDetailContent({
                   >
                     <CardContent className="p-0">
                       {/* Profile Picture */}
-                      <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
+                      <div className="aspect-[3/2] overflow-hidden rounded-t-lg bg-muted relative">
                         {generation.profilePicture ? (
                           <img
                             src={generation.profilePicture}
@@ -1919,9 +1934,23 @@ export function GroupDetailContent({
                       
                       {/* Info */}
                       <div className="p-3 space-y-1">
-                        <h3 className="font-medium text-sm truncate" title={generation.name}>
-                          {generation.name || 'Unnamed'}
-                        </h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-sm truncate" title={generation.name}>
+                            {generation.name || 'Unnamed'}
+                          </h3>
+                          {generation.description && (
+                            <button
+                              onClick={(e) => toggleGenerationDescription(generation.id, e)}
+                              className="ml-2 p-1 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              <ChevronDown 
+                                className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
+                                  expandedGenerations.has(generation.id) ? 'rotate-180' : ''
+                                }`} 
+                              />
+                            </button>
+                          )}
+                        </div>
                         
                         {/* Show alias if available */}
                         {generation.alias && (
@@ -1952,6 +1981,13 @@ export function GroupDetailContent({
                           </p>
                         )}
                         
+                        {/* Description - expandable */}
+                        {generation.description && expandedGenerations.has(generation.id) && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-700">
+                            {generation.description}
+                          </div>
+                        )}
+
                         {/* View Lineups Button */}
                         <div className="mt-2">
                           <Button
@@ -1959,11 +1995,16 @@ export function GroupDetailContent({
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleViewLineups(generation)
+                              // Check if this generation is currently selected and lineups are showing
+                              if (selectedGenerationId === generation.id && showLineups) {
+                                setShowLineups(false) // Hide lineups
+                              } else {
+                                handleViewLineups(generation) // Show lineups for this generation
+                              }
                             }}
                             className="h-6 px-2 text-xs w-full"
                           >
-                            View Lineups
+                            {selectedGenerationId === generation.id && showLineups ? 'Hide Lineups' : 'View Lineups'}
                           </Button>
                         </div>
                       </div>
@@ -2058,20 +2099,13 @@ export function GroupDetailContent({
                         })()}
                         
                         {/* Action Button - changes based on context */}
-                        {showLineups ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowLineups(false)}
-                            className="h-8 px-3 text-xs"
-                          >
-                            Hide Lineups
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            if (showLineups) {
+                              setShowLineups(false)
+                            } else {
                               // If we have a selected generation, load lineup data and switch to lineup view
                               if (selectedGenerationId) {
                                 if (!lineupDataLoaded) {
@@ -2079,12 +2113,12 @@ export function GroupDetailContent({
                                 }
                                 setShowLineups(true)
                               }
-                            }}
-                            className="h-8 px-3 text-xs"
-                          >
-                            View Lineups
-                          </Button>
-                        )}
+                            }
+                          }}
+                          className="h-8 px-3 text-xs"
+                        >
+                          {showLineups ? 'Hide Lineups' : 'View Lineups'}
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
