@@ -84,6 +84,59 @@ export function GroupDetailContent({
   const [selectedActressForEdit, setSelectedActressForEdit] = useState<MasterDataItem | null>(null)
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>('')
   const [isUpdatingProfilePicture, setIsUpdatingProfilePicture] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string>('')
+  const [previewError, setPreviewError] = useState<boolean>(false)
+  const [urlWasTrimmed, setUrlWasTrimmed] = useState<boolean>(false)
+
+  // Function to auto-trim fandom.com URLs from the end
+  const autoTrimFandomUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return url
+    
+    // Check if it's a fandom.com URL
+    if (!url.includes('static.wikia.nocookie.net')) return url
+    
+    // Find the last occurrence of image extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    let trimmedUrl = url
+    
+    // Try each extension from the end
+    for (const ext of imageExtensions) {
+      const lastIndex = url.lastIndexOf(ext)
+      if (lastIndex !== -1) {
+        // Found the extension, trim everything after it
+        trimmedUrl = url.substring(0, lastIndex + ext.length)
+        break
+      }
+    }
+    
+    return trimmedUrl
+  }
+
+  // Debounce preview URL update with auto-trim
+  useEffect(() => {
+    if (!profilePictureUrl.trim()) {
+      setPreviewUrl('')
+      setPreviewError(false)
+      setUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(profilePictureUrl.trim())
+      const wasTrimmed = trimmedUrl !== profilePictureUrl.trim()
+      
+      setPreviewUrl(trimmedUrl)
+      setPreviewError(false)
+      setUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setProfilePictureUrl(trimmedUrl)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [profilePictureUrl])
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -802,7 +855,12 @@ export function GroupDetailContent({
   // Function to open edit profile picture modal
   const handleEditProfilePicture = (actress: MasterDataItem) => {
     setSelectedActressForEdit(actress)
-    setProfilePictureUrl(actress.profilePicture || '')
+    
+    // Get group-specific profile picture
+    const groupSpecificPhoto = actress.groupData?.[group.name]?.profilePicture || ''
+    setProfilePictureUrl(groupSpecificPhoto)
+    setPreviewUrl(groupSpecificPhoto)
+    setPreviewError(false)
     setEditProfileModalOpen(true)
   }
 
@@ -811,14 +869,26 @@ export function GroupDetailContent({
     setEditProfileModalOpen(false)
     setSelectedActressForEdit(null)
     setProfilePictureUrl('')
+    setPreviewUrl('')
+    setPreviewError(false)
+    setUrlWasTrimmed(false)
   }
 
-  // Function to update profile picture
+  // Function to update group-specific profile picture
   const handleUpdateProfilePicture = async () => {
-    if (!selectedActressForEdit || !profilePictureUrl.trim()) return
+    if (!selectedActressForEdit || !profilePictureUrl.trim() || !group.name) return
     
     try {
       setIsUpdatingProfilePicture(true)
+      
+      // Update groupData with new profile picture
+      const updatedGroupData = {
+        ...selectedActressForEdit.groupData,
+        [group.name]: {
+          ...selectedActressForEdit.groupData?.[group.name],
+          profilePicture: profilePictureUrl.trim()
+        }
+      }
       
       const updateData = {
         name: selectedActressForEdit.name,
@@ -829,24 +899,24 @@ export function GroupDetailContent({
         takulinks: selectedActressForEdit.takulinks,
         tags: selectedActressForEdit.tags,
         photo: selectedActressForEdit.photo,
-        profilePicture: profilePictureUrl.trim(),
+        profilePicture: selectedActressForEdit.profilePicture, // Keep original profile picture
         groupId: selectedActressForEdit.groupId,
-        groupData: selectedActressForEdit.groupData,
+        groupData: updatedGroupData, // Update group-specific data
         selectedGroups: selectedActressForEdit.selectedGroups
       }
 
-      console.log('Updating profile picture with data:', updateData)
+      console.log('Updating group-specific profile picture with data:', updateData)
 
       await masterDataApi.updateExtended('actress', selectedActressForEdit.id, updateData, accessToken)
 
-      toast.success('Profile picture updated successfully!')
+      toast.success('Group-specific profile picture updated successfully!')
       handleCloseEditModal()
       
       // Reload data to reflect changes
       await loadActresses()
     } catch (err) {
-      console.error('Error updating profile picture:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile picture'
+      console.error('Error updating group-specific profile picture:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update group-specific profile picture'
       toast.error(errorMessage)
     } finally {
       setIsUpdatingProfilePicture(false)
@@ -1745,44 +1815,78 @@ export function GroupDetailContent({
           data-custom-dialog="true"
         >
           <DialogHeader className="flex-shrink-0 p-6 pb-4">
-            <DialogTitle className="text-xl font-semibold">Edit Profile Picture</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Edit Group Profile Picture</DialogTitle>
             <DialogDescription className="text-base">
-              Update profile picture for {selectedActressForEdit?.name}
+              Update group-specific profile picture for {selectedActressForEdit?.name} in {group.name}
             </DialogDescription>
           </DialogHeader>
           
           {selectedActressForEdit && (
             <div className="flex-1 overflow-auto p-6 pt-0 space-y-6">
-              {/* Current Profile Picture */}
+              {/* Preview Group-Specific Profile Picture */}
               <div className="space-y-4">
-                <Label className="text-lg font-medium">Current Profile Picture</Label>
+                <Label className="text-lg font-medium">
+                  {previewUrl ? 'Preview Group Profile Picture' : 'Current Group Profile Picture'}
+                </Label>
                 <div className="flex justify-center">
-                  <div className="w-[400px] h-[500px] rounded-lg overflow-hidden bg-muted shadow-lg">
-                    {selectedActressForEdit.profilePicture ? (
+                  <div className="w-[250px] h-[312px] sm:w-[300px] sm:h-[375px] md:w-[350px] md:h-[437px] rounded-lg overflow-hidden bg-muted shadow-lg">
+                    {previewUrl ? (
                       <img
-                        src={selectedActressForEdit.profilePicture}
-                        alt={selectedActressForEdit.name || 'Actress'}
+                        src={previewUrl}
+                        alt={`${selectedActressForEdit.name} in ${group.name}`}
+                        className="w-full h-full object-cover"
+                        onError={() => setPreviewError(true)}
+                        onLoad={() => setPreviewError(false)}
+                      />
+                    ) : selectedActressForEdit.groupData?.[group.name]?.profilePicture ? (
+                      <img
+                        src={selectedActressForEdit.groupData[group.name].profilePicture}
+                        alt={`${selectedActressForEdit.name} in ${group.name}`}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <User className="h-24 w-24 text-muted-foreground" />
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        <User className="h-24 w-24 mb-4" />
+                        <span className="text-sm text-center px-4">
+                          No group-specific photo for {group.name}
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
+                {previewError && previewUrl && (
+                  <div className="text-center text-red-500 text-sm">
+                    ❌ Failed to load preview image. Please check the URL.
+                  </div>
+                )}
+                {previewUrl && !previewError && (
+                  <div className="text-center text-green-600 text-sm">
+                    ✅ Preview loaded successfully
+                  </div>
+                )}
               </div>
 
               {/* URL Input */}
               <div className="space-y-4">
-                <Label htmlFor="profilePictureUrl" className="text-lg font-medium">Profile Picture URL</Label>
+                <Label htmlFor="profilePictureUrl" className="text-lg font-medium">Group Profile Picture URL</Label>
                 <Input
                   id="profilePictureUrl"
                   value={profilePictureUrl}
                   onChange={(e) => setProfilePictureUrl(e.target.value)}
-                  placeholder="Enter image URL..."
+                  placeholder="Enter group-specific image URL..."
                   className="h-12 text-lg"
                 />
+                {urlWasTrimmed && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <span className="text-blue-600">✂️</span>
+                    <span>URL automatically trimmed to clean image format</span>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  This will set a specific profile picture for {selectedActressForEdit.name} when displayed in {group.name} context.
+                  <br />
+                  <span className="text-xs text-blue-600">💡 Tip: Fandom.com URLs will be automatically cleaned (removes parameters like ?cb=...)</span>
+                </p>
               </div>
 
               {/* Action Buttons */}
@@ -1816,7 +1920,7 @@ export function GroupDetailContent({
                     minWidth: '280px !important'
                   }}
                 >
-                  {isUpdatingProfilePicture ? 'Updating...' : 'Update Profile Picture'}
+                  {isUpdatingProfilePicture ? 'Updating...' : 'Update Group Profile Picture'}
                 </Button>
               </div>
             </div>
