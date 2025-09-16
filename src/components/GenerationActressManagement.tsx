@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -7,7 +7,7 @@ import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { SearchableComboBox, useComboBoxOptions } from './ui/searchable-combobox'
-import { Plus, Trash2, Edit, User, Users } from 'lucide-react'
+import { Plus, Trash2, Edit, User, Users, Loader2, X } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
@@ -38,6 +38,7 @@ export function GenerationActressManagement({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
+  const [showVersionDialog, setShowVersionDialog] = useState(false)
   const [editingAssignment, setEditingAssignment] = useState<{
     actress: MasterDataItem
     generationData: any
@@ -52,6 +53,9 @@ export function GenerationActressManagement({
   const [useCustomAlias, setUseCustomAlias] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'name-desc'>('name')
   const [urlWasTrimmed, setUrlWasTrimmed] = useState(false)
+  const [versionName, setVersionName] = useState('')
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false)
+  const [isDeletingVersion, setIsDeletingVersion] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -171,6 +175,13 @@ export function GenerationActressManagement({
     e?.stopPropagation()
     resetForm()
     setShowDialog(true)
+  }
+
+  const handleAddVersion = (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    setVersionName('')
+    setShowVersionDialog(true)
   }
 
   const handleAddAllActresses = async (e?: React.MouseEvent) => {
@@ -299,6 +310,114 @@ export function GenerationActressManagement({
     }
   }
 
+  const handleSubmitVersion = async () => {
+    try {
+      setError(null)
+      setSuccess(null)
+      setIsCreatingVersion(true)
+
+      if (!versionName.trim()) {
+        setError('Version name is required')
+        return
+      }
+
+      if (!generationId) {
+        setError('Generation ID is required')
+        return
+      }
+
+      if (!accessToken) {
+        setError('Access token is required')
+        return
+      }
+
+      // Create version for all actresses in this generation
+      const versionData = {
+        photos: [],
+        createdAt: new Date().toISOString(),
+        description: `Version: ${versionName.trim()}`
+      }
+
+      // Update each actress with the new version
+      for (const actress of generationActresses) {
+        const currentGenerationData = actress.generationData?.[generationId] || {}
+        const updatedGenerationData = {
+          ...currentGenerationData,
+          photoVersions: {
+            ...currentGenerationData.photoVersions,
+            [versionName.trim()]: versionData
+          }
+        }
+
+        await masterDataApi.assignActressToGeneration(
+          actress.id,
+          generationId,
+          accessToken,
+          currentGenerationData.alias || undefined,
+          currentGenerationData.profilePicture || undefined,
+          currentGenerationData.photos || undefined,
+          updatedGenerationData.photoVersions
+        )
+      }
+
+      setSuccess(`Version "${versionName.trim()}" created successfully for all actresses`)
+      await loadData()
+      setVersionName('')
+      setShowVersionDialog(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create version')
+      // Don't close dialog on error so user can see the error message
+    } finally {
+      setIsCreatingVersion(false)
+    }
+  }
+
+  const handleDeleteVersionFromAll = async (versionName: string) => {
+    if (!confirm(`Are you sure you want to delete version "${versionName}" from ALL actresses in this generation? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setError(null)
+      setSuccess(null)
+      setIsDeletingVersion(true)
+
+      if (!generationId) {
+        setError('Generation ID is required')
+        return
+      }
+
+      if (!accessToken) {
+        setError('Access token is required')
+        return
+      }
+
+      // Remove version from all actresses in this generation
+      for (const actress of generationActresses) {
+        const currentGenerationData = actress.generationData?.[generationId] || {}
+        const updatedPhotoVersions = { ...currentGenerationData.photoVersions }
+        delete updatedPhotoVersions[versionName]
+
+        await masterDataApi.assignActressToGeneration(
+          actress.id,
+          generationId,
+          accessToken,
+          currentGenerationData.alias || undefined,
+          currentGenerationData.profilePicture || undefined,
+          currentGenerationData.photos || undefined,
+          updatedPhotoVersions
+        )
+      }
+
+      setSuccess(`Version "${versionName}" deleted successfully from all actresses`)
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete version')
+    } finally {
+      setIsDeletingVersion(false)
+    }
+  }
+
   const handleRemoveActress = async (actress: MasterDataItem, e?: React.MouseEvent) => {
     e?.preventDefault()
     e?.stopPropagation()
@@ -416,6 +535,43 @@ export function GenerationActressManagement({
             <Plus className="h-4 w-4 mr-1" />
             Add Actress
           </Button>
+          <Button onClick={(e) => handleAddVersion(e)} disabled={isLoading} size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Version
+          </Button>
+          {(() => {
+            // Get all available versions from generation actresses
+            const availableVersions = new Set<string>()
+            generationActresses.forEach(actress => {
+              const generationData = actress.generationData?.[generationId]
+              if (generationData?.photoVersions) {
+                Object.keys(generationData.photoVersions).forEach(version => availableVersions.add(version))
+              }
+            })
+            
+            const versionOptions = Array.from(availableVersions).sort()
+            
+            if (versionOptions.length > 0) {
+              return (
+                <Select onValueChange={handleDeleteVersionFromAll}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Delete Version" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {versionOptions.map(version => (
+                      <SelectItem key={version} value={version} className="text-red-600">
+                        <div className="flex items-center gap-2">
+                          <X className="h-3 w-3" />
+                          Delete {version}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            }
+            return null
+          })()}
         </div>
       </div>
 
@@ -547,6 +703,52 @@ export function GenerationActressManagement({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Add Version Dialog */}
+      <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Photo Version</DialogTitle>
+            <DialogDescription>
+              Create a new photo version for all actresses in this generation. Each actress will get a new photo input field for this version.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="versionName">Version Name *</Label>
+              <Input
+                id="versionName"
+                value={versionName}
+                onChange={(e) => setVersionName(e.target.value)}
+                placeholder="e.g., Version 1, Summer Look, etc."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleSubmitVersion()
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowVersionDialog(false)} disabled={isCreatingVersion}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSubmitVersion} disabled={isLoading || isCreatingVersion || !versionName.trim()}>
+                {isCreatingVersion ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Version...
+                  </>
+                ) : (
+                  'Create Version'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -574,6 +776,51 @@ function ActressAssignmentItem({
   const [isEditingPic, setIsEditingPic] = useState(false)
   const [isSavingPic, setIsSavingPic] = useState(false)
   const [urlWasTrimmed, setUrlWasTrimmed] = useState(false)
+  const [versionPhotoUrls, setVersionPhotoUrls] = useState<{ [versionName: string]: string }>({})
+  const [versionUrlWasTrimmed, setVersionUrlWasTrimmed] = useState<{ [versionName: string]: boolean }>({})
+
+  // Initialize version photo URLs from generationData
+  useEffect(() => {
+    if (generationData?.photoVersions) {
+      const initialUrls: { [versionName: string]: string } = {}
+      Object.keys(generationData.photoVersions).forEach(versionName => {
+        const versionData = generationData.photoVersions[versionName]
+        // Use first photo as default URL for this version
+        initialUrls[versionName] = versionData.photos?.[0] || ''
+      })
+      setVersionPhotoUrls(initialUrls)
+    }
+  }, [generationData?.photoVersions])
+
+  // Auto-trim version photo URLs with debounce
+  useEffect(() => {
+    const timeouts: { [key: string]: NodeJS.Timeout } = {}
+    
+    Object.keys(versionPhotoUrls).forEach(versionName => {
+      const url = versionPhotoUrls[versionName]
+      
+      if (!url.trim()) {
+        setVersionUrlWasTrimmed(prev => ({ ...prev, [versionName]: false }))
+        return
+      }
+
+      timeouts[versionName] = setTimeout(() => {
+        const trimmedUrl = autoTrimFandomUrl(url.trim())
+        const wasTrimmed = trimmedUrl !== url.trim()
+        
+        setVersionUrlWasTrimmed(prev => ({ ...prev, [versionName]: wasTrimmed }))
+        
+        // Auto-update the input field if URL was trimmed
+        if (wasTrimmed) {
+          setVersionPhotoUrls(prev => ({ ...prev, [versionName]: trimmedUrl }))
+        }
+      }, 500) // 500ms debounce
+    })
+
+    return () => {
+      Object.values(timeouts).forEach(timeout => clearTimeout(timeout))
+    }
+  }, [versionPhotoUrls])
 
   // Function to auto-trim fandom.com URLs from the end
   const autoTrimFandomUrl = (url: string): string => {
@@ -639,7 +886,8 @@ function ActressAssignmentItem({
         accessToken,
         generationData?.alias || undefined,
         newUrl || undefined,
-        generationData?.photos || undefined
+        generationData?.photos || undefined,
+        generationData?.photoVersions
       )
       
       setProfilePicUrl(newUrl)
@@ -648,6 +896,85 @@ function ActressAssignmentItem({
       console.error('Failed to update profile picture:', err)
       // Reset to original value on error
       setProfilePicUrl(generationData?.profilePicture || '')
+    } finally {
+      setIsSavingPic(false)
+    }
+  }
+
+  const handleVersionPhotoChange = async (versionName: string, newUrl: string) => {
+    setIsSavingPic(true)
+    try {
+      // Update the version photo URLs state
+      setVersionPhotoUrls(prev => ({ ...prev, [versionName]: newUrl }))
+
+      // Update the photoVersions data
+      const currentPhotoVersions = generationData?.photoVersions || {}
+      const updatedPhotoVersions = {
+        ...currentPhotoVersions,
+        [versionName]: {
+          ...currentPhotoVersions[versionName],
+          photos: newUrl ? [newUrl] : []
+        }
+      }
+
+      // Call API to update version photo
+      await masterDataApi.assignActressToGeneration(
+        actress.id,
+        generationId,
+        accessToken,
+        generationData?.alias || undefined,
+        generationData?.profilePicture || undefined,
+        generationData?.photos || undefined,
+        updatedPhotoVersions
+      )
+    } catch (err) {
+      console.error('Failed to update version photo:', err)
+      // Reset to original value on error
+      setVersionPhotoUrls(prev => ({ 
+        ...prev, 
+        [versionName]: generationData?.photoVersions?.[versionName]?.photos?.[0] || '' 
+      }))
+    } finally {
+      setIsSavingPic(false)
+    }
+  }
+
+  const handleDeleteVersion = async (versionName: string) => {
+    if (!confirm(`Are you sure you want to delete version "${versionName}"? This will remove the version from all actresses in this generation.`)) {
+      return
+    }
+
+    setIsSavingPic(true)
+    try {
+      // Remove the version from photoVersions
+      const currentPhotoVersions = generationData?.photoVersions || {}
+      const updatedPhotoVersions = { ...currentPhotoVersions }
+      delete updatedPhotoVersions[versionName]
+
+      // Update the version photo URLs state
+      setVersionPhotoUrls(prev => {
+        const newUrls = { ...prev }
+        delete newUrls[versionName]
+        return newUrls
+      })
+
+      // Call API to remove version
+      await masterDataApi.assignActressToGeneration(
+        actress.id,
+        generationId,
+        accessToken,
+        generationData?.alias || undefined,
+        generationData?.profilePicture || undefined,
+        generationData?.photos || undefined,
+        updatedPhotoVersions
+      )
+    } catch (err) {
+      console.error('Failed to delete version:', err)
+      // Reset to original value on error
+      setVersionPhotoUrls(prev => ({ 
+        ...prev, 
+        [versionName]: generationData?.photoVersions?.[versionName]?.photos?.[0] || '' 
+      }))
     } finally {
       setIsSavingPic(false)
     }
@@ -662,7 +989,6 @@ function ActressAssignmentItem({
               src={displayPicture}
               alt={displayName || 'Actress'}
               className="w-8 h-8 rounded-full object-cover"
-              fallback={<User className="w-8 h-8 text-gray-400" />}
             />
           ) : (
             <User className="w-8 h-8 text-gray-400" />
@@ -698,6 +1024,48 @@ function ActressAssignmentItem({
             )}
           </div>
         </div>
+
+        {/* Version Photo Input Fields */}
+        {generationData?.photoVersions && Object.keys(generationData.photoVersions).length > 0 && (
+          <div className="flex-1 mx-2">
+            <div className="space-y-1">
+              {Object.keys(generationData.photoVersions).map(versionName => (
+                <div key={versionName} className="relative flex items-center gap-1">
+                  <div className="relative flex-1">
+                    <Input
+                      value={versionPhotoUrls[versionName] || ''}
+                      onChange={(e) => setVersionPhotoUrls(prev => ({ ...prev, [versionName]: e.target.value }))}
+                      onBlur={() => handleVersionPhotoChange(versionName, versionPhotoUrls[versionName] || '')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleVersionPhotoChange(versionName, versionPhotoUrls[versionName] || '')
+                        }
+                      }}
+                      placeholder={`${versionName} photo URL...`}
+                      className="h-6 text-xs"
+                      disabled={isSavingPic}
+                    />
+                    {versionUrlWasTrimmed[versionName] && (
+                      <div className="absolute -bottom-5 left-0 right-0 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-2 py-1 text-xs text-blue-600">
+                        ✂️ URL trimmed
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeleteVersion(versionName)}
+                    disabled={isSavingPic}
+                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title={`Delete version "${versionName}"`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="flex gap-1">
           <Button

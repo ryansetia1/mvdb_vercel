@@ -70,6 +70,7 @@ export function GroupDetailContent({
   const [lineupRefreshKey, setLineupRefreshKey] = useState(0)
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false)
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
+  const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [lineups, setLineups] = useState<MasterDataItem[]>([])
   const [filteredActresses, setFilteredActresses] = useState<MasterDataItem[]>([])
   const [cachedActresses, setCachedActresses] = useState<MasterDataItem[]>([])
@@ -543,11 +544,20 @@ export function GroupDetailContent({
     return null
   }
 
-  const getGenerationProfilePicture = useCallback((actress: MasterDataItem, generationId: string) => {
+  const getGenerationProfilePicture = useCallback((actress: MasterDataItem, generationId: string, selectedVersion?: string) => {
     // Check generationData for profile picture
     if (actress.generationData && typeof actress.generationData === 'object') {
       const generationData = actress.generationData[generationId]
       
+      // If version is selected and photoVersions exist, use version photo
+      if (selectedVersion && generationData?.photoVersions?.[selectedVersion]?.photos?.length > 0) {
+        const versionPhoto = generationData.photoVersions[selectedVersion].photos[0]?.trim()
+        if (versionPhoto) {
+          return versionPhoto
+        }
+      }
+      
+      // Check generationData for profile picture (default)
       if (generationData && generationData.profilePicture) {
         return generationData.profilePicture
       }
@@ -583,7 +593,7 @@ export function GroupDetailContent({
     return generationActresses
       .map(actress => ({
         ...actress,
-        imageUrl: getGenerationProfilePicture(actress, selectedGenerationId || ''),
+        imageUrl: getGenerationProfilePicture(actress, selectedGenerationId || '', selectedVersion === 'default' ? undefined : selectedVersion),
         generationAlias: getGenerationAlias(actress, selectedGenerationId || '')
       }))
       .sort((a, b) => {
@@ -592,7 +602,7 @@ export function GroupDetailContent({
         const aliasB = b.generationAlias || b.name || ''
         return aliasA.localeCompare(aliasB)
       })
-  }, [generationActresses, selectedGenerationId, getGenerationProfilePicture, getGenerationAlias])
+  }, [generationActresses, selectedGenerationId, selectedVersion, getGenerationProfilePicture, getGenerationAlias])
 
   const getLineupProfilePicture = (actress: MasterDataItem, lineupId: string) => {
     // Check lineupData for profile picture
@@ -604,7 +614,7 @@ export function GroupDetailContent({
     }
     
     // Fallback to generation profile picture, then group profile picture, then regular profile picture
-    return getGenerationProfilePicture(actress, selectedGenerationId || '') || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
+    return getGenerationProfilePicture(actress, selectedGenerationId || '', undefined) || getGroupProfilePicture(actress, group.name || '') || actress.profilePicture
   }
 
   const getLineupAlias = (actress: MasterDataItem, lineupId: string) => {
@@ -687,7 +697,7 @@ export function GroupDetailContent({
   const getLatestGenerationProfilePicture = (actress: MasterDataItem): string | null => {
     const latestGeneration = findLatestGenerationWhereActressExists(actress)
     if (latestGeneration) {
-      return getGenerationProfilePicture(actress, latestGeneration.id) || null
+      return getGenerationProfilePicture(actress, latestGeneration.id, undefined) || null
     }
     return null
   }
@@ -726,7 +736,7 @@ export function GroupDetailContent({
   // Get filtered profile picture for specific generation/lineup
   const getFilteredProfilePicture = (actress: MasterDataItem, filterType: string, filterId: string): string | null => {
     if (filterType === 'generation') {
-      return getGenerationProfilePicture(actress, filterId) || null
+      return getGenerationProfilePicture(actress, filterId, undefined) || null
     }
     if (filterType === 'lineup') {
       return getLineupProfilePicture(actress, filterId) || null
@@ -1812,16 +1822,52 @@ export function GroupDetailContent({
               {/* Selected Generation Actresses */}
               {selectedGenerationId && (
                 <div className="mt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <h4 className="text-lg font-medium">
-                      Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
-                      {isLoadingGeneration && cachedActresses.length === 0 && (
-                        <span className="ml-2 text-sm text-gray-500">(Loading...)</span>
-                      )}
-                    </h4>
-                    <Badge variant="secondary">
-                      {generationActresses.length} actresses
-                    </Badge>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-lg font-medium">
+                        Actresses in {generations.find(g => g.id === selectedGenerationId)?.name} Generation
+                        {isLoadingGeneration && cachedActresses.length === 0 && (
+                          <span className="ml-2 text-sm text-gray-500">(Loading...)</span>
+                        )}
+                      </h4>
+                      <Badge variant="secondary">
+                        {generationActresses.length} actresses
+                      </Badge>
+                    </div>
+                    
+                    {/* Version Selector */}
+                    {(() => {
+                      // Get all available versions from generation actresses
+                      const availableVersions = new Set<string>()
+                      generationActresses.forEach(actress => {
+                        const generationData = actress.generationData?.[selectedGenerationId || '']
+                        if (generationData?.photoVersions) {
+                          Object.keys(generationData.photoVersions).forEach(version => availableVersions.add(version))
+                        }
+                      })
+                      
+                      const versionOptions = Array.from(availableVersions).sort()
+                      
+                      if (versionOptions.length > 0) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Version:</span>
+                            <Select value={selectedVersion} onValueChange={setSelectedVersion}>
+                              <SelectTrigger className="w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default">Default</SelectItem>
+                                {versionOptions.map(version => (
+                                  <SelectItem key={version} value={version}>{version}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
                   
                   {generationActresses.length === 0 ? (
