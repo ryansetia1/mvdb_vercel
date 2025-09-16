@@ -1235,53 +1235,6 @@ export function GroupDetailContent({
               </Card>
             )}
 
-            {/* Sort Controls */}
-            {groupMembers.length > 0 && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      <span className="text-sm font-medium">Sort:</span>
-                    </div>
-                    
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sortOptions.map(option => (
-                          <SelectItem key={option.key} value={option.key}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">View:</span>
-                    </div>
-                    
-                    <Select value={selectedViewMode} onValueChange={setSelectedViewMode}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getViewModeOptions().map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <div className="text-sm text-muted-foreground">
-                      Showing {filteredAndSortedMembers.length} of {filteredActresses.length} members
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
@@ -1319,6 +1272,54 @@ export function GroupDetailContent({
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-6">
+          {/* Sort Controls */}
+          {groupMembers.length > 0 && (
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span className="text-sm font-medium">Sort:</span>
+                  </div>
+                  
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map(option => (
+                        <SelectItem key={option.key} value={option.key}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">View:</span>
+                  </div>
+                  
+                  <Select value={selectedViewMode} onValueChange={setSelectedViewMode}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getViewModeOptions().map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredAndSortedMembers.length} of {filteredActresses.length} members
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Add Member Button */}
           <div className="mb-6">
             <Button
