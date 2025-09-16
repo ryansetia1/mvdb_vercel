@@ -1401,68 +1401,63 @@ export function GroupDetailContent({
           {groupMembers.length > 0 && (
             <Card className="mb-6">
               <CardContent className="p-4">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <span className="text-sm font-medium">Sort:</span>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      <span className="text-sm font-medium">Sort:</span>
+                    </div>
+                    
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sortOptions.map(option => (
+                          <SelectItem key={option.key} value={option.key}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">View:</span>
+                    </div>
+                    
+                    <Select value={selectedViewMode} onValueChange={setSelectedViewMode}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getViewModeOptions().map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="text-sm text-muted-foreground">
+                      Showing {filteredAndSortedMembers.length} of {filteredActresses.length} members
+                    </div>
                   </div>
                   
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sortOptions.map(option => (
-                        <SelectItem key={option.key} value={option.key}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">View:</span>
-                  </div>
-                  
-                  <Select value={selectedViewMode} onValueChange={setSelectedViewMode}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getViewModeOptions().map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="text-sm text-muted-foreground">
-                    Showing {filteredAndSortedMembers.length} of {filteredActresses.length} members
-                  </div>
+                  {/* Add New Member Button - positioned at far right */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAddMemberSectionOpen(!isAddMemberSectionOpen)}
+                    className="h-8 px-3 text-xs flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {isAddMemberSectionOpen ? 'Hide Add' : 'Add Member'}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Add Member Button */}
-          <div className="mb-6">
-            <Button
-              onClick={() => setIsAddMemberSectionOpen(!isAddMemberSectionOpen)}
-              variant="outline"
-              className="w-full flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Member
-              </span>
-              <ChevronDown 
-                className={`h-4 w-4 transition-transform duration-200 ${
-                  isAddMemberSectionOpen ? 'rotate-180' : ''
-                }`} 
-              />
-            </Button>
-          </div>
 
           {/* Collapsible Add Member Section */}
           {isAddMemberSectionOpen && (
@@ -2098,7 +2093,7 @@ export function GroupDetailContent({
                           return null
                         })()}
                         
-                        {/* Action Button - changes based on context */}
+                        {/* View Lineups Button */}
                         <Button
                           size="sm"
                           variant="outline"
