@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import { MasterDataItem } from '../utils/masterDataApi'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { MasterDataItem, calculateAge } from '../utils/masterDataApi'
 import { masterDataApi } from '../utils/masterDataApi'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Users, ChevronDown, ChevronRight } from 'lucide-react'
+import { Users, ChevronDown, ChevronRight, Filter, Calendar } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { ImageWithFallback } from './figma/ImageWithFallback'
+
+const lineupSortOptions = [
+  { key: 'name', label: 'Name (A-Z)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'name-desc', label: 'Name (Z-A)', getValue: (actress: MasterDataItem) => actress.name?.toLowerCase() || '' },
+  { key: 'age', label: 'Age (Young)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 999 },
+  { key: 'age-desc', label: 'Age (Old)', getValue: (actress: MasterDataItem) => actress.birthdate ? calculateAge(actress.birthdate) : 0 },
+  { key: 'movieCount', label: 'Movies (Few)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+  { key: 'movieCount-desc', label: 'Movies (Many)', getValue: (actress: MasterDataItem) => (actress as any).movieCount || 0 },
+]
 
 interface LineupDisplayProps {
   generationId: string
@@ -15,8 +25,13 @@ interface LineupDisplayProps {
   onProfileSelect?: (type: string, name: string) => void
   getLineupProfilePicture?: (actress: MasterDataItem, lineupId: string) => string | null
   getLineupAlias?: (actress: MasterDataItem, lineupId: string) => string | null
-  refreshKey?: number // Add refresh trigger
   onDataChange?: () => void // Callback when data changes
+  selectedLineupVersion?: string // Add lineup version selector
+  onLineupVersionChange?: (version: string) => void // Callback for version change
+  sortBy?: string // Add sort option
+  onSortChange?: (sort: string) => void // Callback for sort change
+  lineups?: MasterDataItem[] // Pre-loaded lineups data
+  actresses?: MasterDataItem[] // Pre-loaded actresses data
 }
 
 export function LineupDisplay({ 
@@ -26,74 +41,72 @@ export function LineupDisplay({
   onProfileSelect,
   getLineupProfilePicture,
   getLineupAlias,
-  refreshKey,
-  onDataChange
+  onDataChange,
+  selectedLineupVersion = 'default',
+  onLineupVersionChange,
+  sortBy = 'name',
+  onSortChange,
+  lineups: propLineups = [],
+  actresses: propActresses = []
 }: LineupDisplayProps) {
-  const [lineups, setLineups] = useState<MasterDataItem[]>([])
-  const [actresses, setActresses] = useState<MasterDataItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [lineups, setLineups] = useState<MasterDataItem[]>(propLineups)
+  const [actresses, setActresses] = useState<MasterDataItem[]>(propActresses)
   const [activeLineupId, setActiveLineupId] = useState<string | null>(null)
 
+  // Update state when props change
   useEffect(() => {
-    loadLineups()
-  }, [generationId, refreshKey])
-
-  const loadLineups = async () => {
-    try {
-      setLoading(true)
-
-      // Load lineups for this generation
-      const allLineups = await masterDataApi.getByType('lineup', accessToken)
-      const generationLineups = allLineups.filter(lineup => lineup.generationId === generationId)
-      
-      // Sort by lineupOrder
-      generationLineups.sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
-      setLineups(generationLineups)
-      
-      // Set first lineup as active if none selected
-      if (generationLineups.length > 0 && !activeLineupId) {
-        setActiveLineupId(generationLineups[0].id)
-      }
-
-      // Load actresses for this generation's group
-      const generations = await masterDataApi.getByType('generation', accessToken)
-      const generation = generations.find(g => g.id === generationId)
-      const allActresses = await masterDataApi.getByType('actress', accessToken)
-      const groupActresses = allActresses.filter(actress => 
-        actress.selectedGroups && actress.selectedGroups.includes(generation?.groupName || '')
-      )
-      console.log('LineupDisplay: Loaded actresses:', groupActresses.length)
-      console.log('LineupDisplay: Sample actress lineupData:', groupActresses[0]?.lineupData)
-      console.log('LineupDisplay: All actresses with lineupData:', groupActresses.map(a => ({ 
-        name: a.name, 
-        lineupData: a.lineupData,
-        hasLineupData: !!a.lineupData 
-      })))
-      setActresses(groupActresses)
-
-      // Notify parent that data has changed
-      if (onDataChange) {
-        onDataChange()
-      }
-
-    } catch (err) {
-      console.error('Error loading lineups:', err)
-    } finally {
-      setLoading(false)
+    setLineups(propLineups)
+    setActresses(propActresses)
+    
+    // Set first lineup as active if none selected and we have lineups
+    if (propLineups.length > 0 && !activeLineupId) {
+      setActiveLineupId(propLineups[0].id)
     }
-  }
+  }, [propLineups, propActresses, activeLineupId])
 
-  const getLineupActresses = (lineupId: string) => {
+  // No need for loadLineups function anymore - data comes from parent
+
+  const getLineupActresses = useCallback((lineupId: string) => {
     const lineupActresses = actresses.filter(actress => 
       actress.lineupData && actress.lineupData[lineupId]
     )
-    console.log(`LineupDisplay: getLineupActresses for ${lineupId}:`, lineupActresses.length, 'actresses')
-    console.log(`LineupDisplay: All actresses lineupData:`, actresses.map(a => ({ name: a.name, lineupData: a.lineupData })))
+    
+    // Sort actresses based on selected sort option
+    const sortOption = lineupSortOptions.find(option => option.key === sortBy)
+    
+    if (sortOption) {
+      const isDesc = sortBy.endsWith('-desc')
+      const sortedActresses = [...lineupActresses].sort((a, b) => {
+        const aVal = sortOption.getValue(a)
+        const bVal = sortOption.getValue(b)
+        
+        if (aVal < bVal) return isDesc ? 1 : -1
+        if (aVal > bVal) return isDesc ? -1 : 1
+        return 0
+      })
+      
+      return sortedActresses
+    }
+    
     return lineupActresses
-  }
+  }, [actresses, sortBy])
+
+  // Sort lineups by lineupOrder (default order for lineups)
+  const sortedLineups = useMemo(() => {
+    return [...lineups].sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0))
+  }, [lineups])
+
+  // Memoize lineup actresses for each lineup to avoid recalculating
+  const lineupActressesMap = useMemo(() => {
+    const map = new Map<string, MasterDataItem[]>()
+    sortedLineups.forEach(lineup => {
+      map.set(lineup.id, getLineupActresses(lineup.id))
+    })
+    return map
+  }, [sortedLineups, getLineupActresses])
 
 
-  const getProfilePicture = (actress: MasterDataItem, lineupId: string) => {
+  const getProfilePicture = useCallback((actress: MasterDataItem, lineupId: string) => {
     if (getLineupProfilePicture) {
       return getLineupProfilePicture(actress, lineupId)
     }
@@ -103,9 +116,9 @@ export function LineupDisplay({
       return actress.lineupData[lineupId].profilePicture
     }
     return actress.profilePicture
-  }
+  }, [getLineupProfilePicture])
 
-  const getAlias = (actress: MasterDataItem, lineupId: string) => {
+  const getAlias = useCallback((actress: MasterDataItem, lineupId: string) => {
     if (getLineupAlias) {
       return getLineupAlias(actress, lineupId)
     }
@@ -115,15 +128,9 @@ export function LineupDisplay({
       return actress.lineupData[lineupId].alias
     }
     return actress.alias || actress.name
-  }
+  }, [getLineupAlias])
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center p-4">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
+  // No loading spinner needed - data comes from parent
 
   if (lineups.length === 0) {
     return null // Don't show anything if no lineups
@@ -136,10 +143,11 @@ export function LineupDisplay({
         Lineups
       </h3>
       
+      
       <Tabs value={activeLineupId || ''} onValueChange={setActiveLineupId} className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {lineups.map((lineup) => {
-            const lineupActresses = getLineupActresses(lineup.id)
+          {sortedLineups.map((lineup) => {
+            const lineupActresses = lineupActressesMap.get(lineup.id) || []
             return (
               <TabsTrigger 
                 key={lineup.id} 
@@ -161,8 +169,8 @@ export function LineupDisplay({
           })}
         </TabsList>
         
-        {lineups.map((lineup) => {
-          const lineupActresses = getLineupActresses(lineup.id)
+        {sortedLineups.map((lineup) => {
+          const lineupActresses = lineupActressesMap.get(lineup.id) || []
           
           return (
             <TabsContent key={lineup.id} value={lineup.id} className="mt-4">
@@ -171,8 +179,9 @@ export function LineupDisplay({
                   <p className="text-sm text-gray-600">{lineup.description}</p>
                 )}
                 
+                
                 {lineupActresses.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {lineupActresses.map((actress) => {
                       const profilePicture = getProfilePicture(actress, lineup.id)
                       const alias = getAlias(actress, lineup.id)
@@ -180,36 +189,58 @@ export function LineupDisplay({
                       return (
                         <Card 
                           key={actress.id}
-                          className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                          className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
                           onClick={() => onProfileSelect?.('actress', actress.name || '')}
                         >
                           <CardContent className="p-0">
-                            <div className="aspect-square relative overflow-hidden">
+                            {/* Profile Picture */}
+                            <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
                               {profilePicture ? (
-                                <ImageWithFallback
+                                <img
                                   src={profilePicture}
                                   alt={alias || actress.name || 'Actress'}
-                                  className="w-full h-full object-cover"
-                                  fallback={
-                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                      <Users className="w-8 h-8 text-gray-400" />
-                                    </div>
-                                  }
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                  <Users className="w-8 h-8 text-gray-400" />
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
+                                  <Users className="h-12 w-12 mb-2" />
+                                  <span className="text-xs text-center px-2">No photo</span>
                                 </div>
                               )}
                             </div>
                             
-                            <div className="p-3">
-                              <h4 className="font-medium text-sm truncate">
-                                {alias || actress.name}
-                              </h4>
+                            {/* Info */}
+                            <div className="p-3 space-y-1">
+                              <h3 className="font-medium text-sm truncate" title={actress.name}>
+                                {actress.name || 'Unnamed'}
+                              </h3>
+                              
+                              {/* Show alias if available */}
                               {alias && alias !== actress.name && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {actress.name}
+                                <p className="text-xs text-blue-600 truncate" title={`Alias: ${alias}`}>
+                                  {alias}
+                                </p>
+                              )}
+                              
+                              {/* Show Japanese name if available */}
+                              {actress.jpname && (
+                                <p className="text-xs text-muted-foreground truncate" title={actress.jpname}>
+                                  {actress.jpname}
+                                </p>
+                              )}
+                              
+                              {/* Show age if available */}
+                              {actress.birthdate && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{calculateAge(actress.birthdate)} years</span>
+                                </div>
+                              )}
+                              
+                              {/* Movie count badge */}
+                              {(actress as any).movieCount !== undefined && (actress as any).movieCount > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  🎬 {(actress as any).movieCount} movies
                                 </p>
                               )}
                             </div>

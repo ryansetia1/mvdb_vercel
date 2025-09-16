@@ -53,8 +53,8 @@ export interface MasterDataItem {
   groupName?: string // Denormalized group name for easier display (deprecated)
   selectedGroups?: string[] // Array of group names the actress belongs to
   groupData?: { [groupName: string]: { photos: string[], alias?: string, profilePicture?: string } } // Per-group data including photos, aliases, and profile pictures
-  generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
-  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
+  generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[], photoVersions?: { [versionName: string]: { photos: string[], createdAt: string, description?: string } } } } // Per-generation data including aliases and profile pictures
+  lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[], photoVersions?: { [versionName: string]: { photos: string[], createdAt: string, description?: string } } } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')
   website?: string // For group website/reference page
   description?: string // For actress groups
@@ -533,7 +533,7 @@ export const masterDataApi = {
   },
 
   // Helper method to assign actress to generation
-  async assignActressToGeneration(actressId: string, generationId: string, accessToken: string, alias?: string, profilePicture?: string, photos?: string[]): Promise<MasterDataItem> {
+  async assignActressToGeneration(actressId: string, generationId: string, accessToken: string, alias?: string, profilePicture?: string, photos?: string[], photoVersions?: any): Promise<MasterDataItem> {
     console.log('Frontend API: Assigning actress to generation:', { actressId, generationId, alias, profilePicture, photos })
     
     // Get current actress data
@@ -550,7 +550,8 @@ export const masterDataApi = {
       [generationId]: {
         alias: alias?.trim() || undefined,
         profilePicture: profilePicture?.trim() || undefined,
-        photos: photos || undefined
+        photos: photos || undefined,
+        photoVersions: photoVersions || undefined
       }
     }
 
