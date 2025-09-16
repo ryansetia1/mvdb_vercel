@@ -89,6 +89,7 @@ export function GroupDetailContent({
   const [selectedActressForEdit, setSelectedActressForEdit] = useState<MasterDataItem | null>(null)
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>('')
   const [isUpdatingProfilePicture, setIsUpdatingProfilePicture] = useState(false)
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>('')
   const [previewError, setPreviewError] = useState<boolean>(false)
   const [urlWasTrimmed, setUrlWasTrimmed] = useState<boolean>(false)
@@ -991,6 +992,7 @@ export function GroupDetailContent({
     
     try {
       setIsUpdatingProfilePicture(true)
+      setUpdatingMemberId(selectedActressForEdit.id)
       
       // Update groupData with new profile picture
       const updatedGroupData = {
@@ -1020,17 +1022,25 @@ export function GroupDetailContent({
 
       await masterDataApi.updateExtended('actress', selectedActressForEdit.id, updateData, accessToken)
 
+      // Update local state immediately without reloading entire page
+      setGroupMembers(prevMembers => 
+        prevMembers.map(member => 
+          member.id === selectedActressForEdit.id 
+            ? { ...member, groupData: updatedGroupData }
+            : member
+        )
+      )
+
       toast.success('Group-specific profile picture updated successfully!')
       handleCloseEditModal()
       
-      // Reload data to reflect changes
-      await loadActresses()
     } catch (err) {
       console.error('Error updating group-specific profile picture:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to update group-specific profile picture'
       toast.error(errorMessage)
     } finally {
       setIsUpdatingProfilePicture(false)
+      setUpdatingMemberId(null)
     }
   }
 
@@ -1620,22 +1630,33 @@ export function GroupDetailContent({
               {filteredAndSortedMembers.map((actress) => {
                 const imageUrl = getViewModeProfilePicture(actress)
                 const viewAlias = getViewModeAlias(actress)
+                const isUpdating = updatingMemberId === actress.id
                 
                 return (
                   <Card 
                     key={actress.id} 
-                    className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
-                    onClick={() => onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
+                    className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${isUpdating ? 'opacity-75' : ''}`}
+                    onClick={() => !isUpdating && onProfileSelect('actress' as 'actress' | 'actor', actress.name || '')}
                   >
                     <CardContent className="p-0">
                       {/* Profile Picture */}
                       <div className="aspect-[3/4] overflow-hidden rounded-t-lg bg-muted relative">
+                        {/* Loading Overlay */}
+                        {isUpdating && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                              <span className="text-white text-xs font-medium">Updating...</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         {imageUrl ? (
                           <>
                             <img
                               src={imageUrl}
                               alt={`${actress.name} in ${group.name}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ${isUpdating ? 'blur-sm' : ''}`}
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none'
                                 const fallback = e.currentTarget.nextElementSibling as HTMLElement
@@ -1660,7 +1681,7 @@ export function GroupDetailContent({
                         )}
 
                         {/* Action Buttons */}
-                        {accessToken && (
+                        {accessToken && !isUpdating && (
                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                             <Button
                               size="sm"
