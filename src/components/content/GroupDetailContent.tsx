@@ -15,7 +15,8 @@ import {
   Images, 
   Globe,
   Maximize,
-  Plus
+  Plus,
+  ChevronDown
 } from 'lucide-react'
 import { MasterDataItem, masterDataApi, calculateAge } from '../../utils/masterDataApi'
 import { Movie, movieApi } from '../../utils/movieApi'
@@ -76,6 +77,7 @@ export function GroupDetailContent({
   const [newActressName, setNewActressName] = useState<string>('')
   const [newActressJpName, setNewActressJpName] = useState<string>('')
   const [isCreatingActress, setIsCreatingActress] = useState(false)
+  const [isAddMemberSectionOpen, setIsAddMemberSectionOpen] = useState(false)
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -1045,81 +1047,102 @@ export function GroupDetailContent({
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-6">
-          {/* Add Member Section */}
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium">Tambah Member</h3>
-                
-                {/* Add Existing Actress */}
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <h4 className="font-medium">Tambah Aktris yang Sudah Ada</h4>
-                  <div className="flex gap-2">
-                    <SearchableComboBox
-                      options={actressOptions}
-                      value={selectedActressId}
-                      onValueChange={setSelectedActressId}
-                      placeholder="Pilih aktris..."
-                      searchPlaceholder="Cari aktris..."
-                      emptyMessage="Tidak ada aktris ditemukan."
-                      className="min-w-[300px]"
-                      triggerClassName="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddActressToGroup}
-                      disabled={!selectedActressId || isAddingMember}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {isAddingMember ? 'Menambahkan...' : 'Tambah'}
-                    </Button>
-                  </div>
-                </div>
+          {/* Add Member Button */}
+          <div className="mb-6">
+            <Button
+              onClick={() => setIsAddMemberSectionOpen(!isAddMemberSectionOpen)}
+              variant="outline"
+              className="w-full flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Member
+              </span>
+              <ChevronDown 
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  isAddMemberSectionOpen ? 'rotate-180' : ''
+                }`} 
+              />
+            </Button>
+          </div>
 
-                {/* Create New Actress */}
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <h4 className="font-medium">Buat Aktris Baru</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="newActressName">Nama Aktris</Label>
-                      <Input
-                        id="newActressName"
-                        value={newActressName}
-                        onChange={(e) => setNewActressName(e.target.value)}
-                        placeholder="Masukkan nama aktris..."
-                        disabled={isCreatingActress}
+          {/* Collapsible Add Member Section */}
+          {isAddMemberSectionOpen && (
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium">Tambah Member</h3>
+                  
+                  {/* Add Existing Actress */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Tambah Aktris yang Sudah Ada</h4>
+                    <div className="flex gap-2">
+                      <SearchableComboBox
+                        options={actressOptions}
+                        value={selectedActressId}
+                        onValueChange={setSelectedActressId}
+                        placeholder="Pilih aktris..."
+                        searchPlaceholder="Cari aktris..."
+                        emptyMessage="Tidak ada aktris ditemukan."
+                        className="min-w-[300px]"
+                        triggerClassName="flex-1"
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="newActressJpName">Nama Jepang (Opsional)</Label>
-                      <Input
-                        id="newActressJpName"
-                        value={newActressJpName}
-                        onChange={(e) => setNewActressJpName(e.target.value)}
-                        placeholder="Masukkan nama Jepang..."
-                        disabled={isCreatingActress}
-                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddActressToGroup}
+                        disabled={!selectedActressId || isAddingMember}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {isAddingMember ? 'Menambahkan...' : 'Tambah'}
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={handleCreateNewActress}
-                      disabled={!newActressName.trim() || isCreatingActress}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {isCreatingActress ? 'Membuat...' : 'Buat Aktris Baru'}
-                    </Button>
+
+                  {/* Create New Actress */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Buat Aktris Baru</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="newActressName">Nama Aktris</Label>
+                        <Input
+                          id="newActressName"
+                          value={newActressName}
+                          onChange={(e) => setNewActressName(e.target.value)}
+                          placeholder="Masukkan nama aktris..."
+                          disabled={isCreatingActress}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newActressJpName">Nama Jepang (Opsional)</Label>
+                        <Input
+                          id="newActressJpName"
+                          value={newActressJpName}
+                          onChange={(e) => setNewActressJpName(e.target.value)}
+                          placeholder="Masukkan nama Jepang..."
+                          disabled={isCreatingActress}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={handleCreateNewActress}
+                        disabled={!newActressName.trim() || isCreatingActress}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {isCreatingActress ? 'Membuat...' : 'Buat Aktris Baru'}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Ini akan membuat aktris baru dengan data placeholder. Anda dapat mengedit detail lengkap di tab Aktris nanti.
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Ini akan membuat aktris baru dengan data placeholder. Anda dapat mengedit detail lengkap di tab Aktris nanti.
-                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {filteredActresses.length === 0 ? (
             <div className="text-center py-12">
