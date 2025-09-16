@@ -283,7 +283,9 @@ export function LineupManagement({
                 ...(actress.lineupData || {}),
                 [createdLineup.id]: {
                   alias: formData.actressAliases[actressId] || undefined,
-                  profilePicture: formData.actressProfilePictures[actressId] || undefined
+                  profilePicture: formData.actressProfilePictures[actressId] || undefined,
+                  photos: actress.lineupData?.[createdLineup.id]?.photos || undefined,
+                  photoVersions: actress.lineupData?.[createdLineup.id]?.photoVersions || undefined
                 }
               }
             }
