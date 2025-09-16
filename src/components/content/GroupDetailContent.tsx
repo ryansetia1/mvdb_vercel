@@ -97,6 +97,30 @@ export function GroupDetailContent({
   const [lineupData, setLineupData] = useState<{lineups: MasterDataItem[], actresses: MasterDataItem[]} | null>(null)
   const [lineupDataLoaded, setLineupDataLoaded] = useState(false)
   const [expandedGenerations, setExpandedGenerations] = useState<Set<string>>(new Set())
+  
+  // Cache state for photobooks persistence across main tabs
+  const [photobooksCache, setPhotobooksCache] = useState<{
+    group: Photobook[]
+    generation: Photobook[]
+    lineup: Photobook[]
+    member: Photobook[]
+  } | null>(null)
+  
+  const [hierarchyCache, setHierarchyCache] = useState<{
+    generations: MasterDataItem[]
+    lineups: MasterDataItem[]
+    members: MasterDataItem[]
+  } | null>(null)
+  
+  // Handler untuk update cache dari PhotobooksTabContent
+  const handlePhotobooksCacheUpdate = useCallback((photobooks: any, hierarchy: any) => {
+    console.log('Updating photobooks cache in GroupDetailContent:', {
+      photobooks: Object.keys(photobooks).map(key => ({ [key]: photobooks[key].length })),
+      hierarchy: Object.keys(hierarchy).map(key => ({ [key]: hierarchy[key].length }))
+    })
+    setPhotobooksCache(photobooks)
+    setHierarchyCache(hierarchy)
+  }, [])
   const [selectedViewMode, setSelectedViewMode] = useState<string>('default')
   const [selectedVersion, setSelectedVersion] = useState<string>('default')
   const [selectedLineupVersion, setSelectedLineupVersion] = useState<string>('default')
@@ -2318,6 +2342,9 @@ export function GroupDetailContent({
               group={group}
               accessToken={accessToken}
               onPhotobookSelect={onPhotobookSelect}
+              cachedPhotobooks={photobooksCache}
+              cachedHierarchy={hierarchyCache}
+              onCacheUpdate={handlePhotobooksCacheUpdate}
             />
           ) : (
             <div className="text-center py-12">

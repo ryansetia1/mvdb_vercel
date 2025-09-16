@@ -12,9 +12,29 @@ interface PhotobooksTabContentProps {
   group: MasterDataItem
   accessToken: string
   onPhotobookSelect: (photobook: Photobook) => void
+  // Cache props untuk persistence across main tabs
+  cachedPhotobooks?: {
+    group: Photobook[]
+    generation: Photobook[]
+    lineup: Photobook[]
+    member: Photobook[]
+  }
+  cachedHierarchy?: {
+    generations: MasterDataItem[]
+    lineups: MasterDataItem[]
+    members: MasterDataItem[]
+  }
+  onCacheUpdate?: (photobooks: any, hierarchy: any) => void
 }
 
-export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: PhotobooksTabContentProps) {
+export function PhotobooksTabContent({ 
+  group, 
+  accessToken, 
+  onPhotobookSelect, 
+  cachedPhotobooks, 
+  cachedHierarchy, 
+  onCacheUpdate 
+}: PhotobooksTabContentProps) {
   const [activeSubTab, setActiveSubTab] = useState('group')
   const [photobooks, setPhotobooks] = useState<{
     group: Photobook[]
@@ -45,41 +65,68 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
   // Load photobooks and hierarchy data when component mounts
   useEffect(() => {
     if (accessToken) {
-      // Load hierarchy data first, then photobooks
-      loadHierarchyData().then(() => {
-        loadPhotobooks()
-      })
+      // Check if we have cached data from parent component
+      const hasParentCache = cachedPhotobooks && cachedHierarchy
+      
+      if (hasParentCache) {
+        console.log('Using parent cached data for group:', group.name, 'ID:', group.id)
+        // Use cached data immediately
+        setGenerations(cachedHierarchy!.generations)
+        setLineups(cachedHierarchy!.lineups)
+        setMembers(cachedHierarchy!.members)
+        setPhotobooks(cachedPhotobooks!)
+        setIsLoading(false)
+      } else {
+        console.log('No cached data, loading fresh data for group:', group.name, 'ID:', group.id)
+        // Load hierarchy data first, then photobooks with the loaded data
+        loadHierarchyData().then((hierarchyData) => {
+          if (hierarchyData) {
+            loadPhotobooks(hierarchyData)
+          }
+        })
+      }
     }
-  }, [accessToken, group.id])
+  }, [accessToken, group.id, cachedPhotobooks, cachedHierarchy])
 
-  const loadPhotobooks = async () => {
+  const loadPhotobooks = async (hierarchyData?: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
     setIsLoading(true)
     try {
       console.log('Loading photobooks for group:', group.name, 'ID:', group.id)
+      
+      // Use provided hierarchy data or current state
+      const currentGenerations = hierarchyData?.generations || generations
+      const currentLineups = hierarchyData?.lineups || lineups
+      const currentMembers = hierarchyData?.members || members
+      
+      console.log('Using hierarchy data:', {
+        generations: currentGenerations.length,
+        lineups: currentLineups.length,
+        members: currentMembers.length
+      })
       
       // Load group photobooks
       const groupPhotobooks = await photobookApi.getPhotobooksByGroup(group.id, accessToken)
       console.log('Loaded group photobooks:', groupPhotobooks.length)
       
-      // Load generation photobooks
+      // Load generation photobooks - use current generations data
       const generationPhotobooks = []
-      for (const generation of generations) {
+      for (const generation of currentGenerations) {
         const genPhotobooks = await photobookApi.getPhotobooksByGeneration(generation.id, accessToken)
         generationPhotobooks.push(...genPhotobooks)
       }
       console.log('Loaded generation photobooks:', generationPhotobooks.length)
       
-      // Load lineup photobooks
+      // Load lineup photobooks - use current lineups data
       const lineupPhotobooks = []
-      for (const lineup of lineups) {
+      for (const lineup of currentLineups) {
         const lineupPhotobooksData = await photobookApi.getPhotobooksByLineup(lineup.id, accessToken)
         lineupPhotobooks.push(...lineupPhotobooksData)
       }
       console.log('Loaded lineup photobooks:', lineupPhotobooks.length)
       
-      // Load member photobooks
+      // Load member photobooks - use current members data
       const memberPhotobooks = []
-      for (const member of members) {
+      for (const member of currentMembers) {
         const memberPhotobooksData = await photobookApi.getPhotobooksByMember(member.id, accessToken)
         memberPhotobooks.push(...memberPhotobooksData)
       }
@@ -91,6 +138,20 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
         lineup: lineupPhotobooks,
         member: memberPhotobooks
       })
+      
+      // Notify parent component about cache update
+      if (onCacheUpdate) {
+        onCacheUpdate({
+          group: groupPhotobooks,
+          generation: generationPhotobooks,
+          lineup: lineupPhotobooks,
+          member: memberPhotobooks
+        }, {
+          generations: currentGenerations,
+          lineups: currentLineups,
+          members: currentMembers
+        })
+      }
       
       console.log('All photobooks loaded:', {
         group: groupPhotobooks.length,
@@ -131,9 +192,22 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
       setMembers(groupMembers)
       console.log('Loaded members:', groupMembers.length, groupMembers.map(m => ({ id: m.id, name: m.name, selectedGroups: m.selectedGroups })))
       
+      console.log('Hierarchy data loaded successfully:', {
+        generations: generationsData.length,
+        lineups: groupLineups.length,
+        members: groupMembers.length
+      })
+      
+      // Return hierarchy data for immediate use
+      return {
+        generations: generationsData,
+        lineups: groupLineups,
+        members: groupMembers
+      }
     } catch (error) {
       console.error('Error loading hierarchy data:', error)
       toast.error('Failed to load hierarchy data')
+      return null
     }
   }
 
@@ -156,8 +230,10 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
       )
       
       // Reload hierarchy data first, then photobooks to reflect the new link
-      await loadHierarchyData()
-      await loadPhotobooks()
+      const hierarchyData = await loadHierarchyData()
+      if (hierarchyData) {
+        await loadPhotobooks(hierarchyData)
+      }
       
       toast.success('Photobook linked successfully')
     } catch (error) {
@@ -178,8 +254,10 @@ export function PhotobooksTabContent({ group, accessToken, onPhotobookSelect }: 
       )
       
       // Reload hierarchy data first, then photobooks to reflect the unlink
-      await loadHierarchyData()
-      await loadPhotobooks()
+      const hierarchyData = await loadHierarchyData()
+      if (hierarchyData) {
+        await loadPhotobooks(hierarchyData)
+      }
       
       toast.success('Photobook unlinked successfully')
     } catch (error) {
