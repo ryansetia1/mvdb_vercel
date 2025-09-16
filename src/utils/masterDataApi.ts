@@ -52,7 +52,7 @@ export interface MasterDataItem {
   groupId?: string // Reference to actress group (deprecated - use selectedGroups instead)
   groupName?: string // Denormalized group name for easier display (deprecated)
   selectedGroups?: string[] // Array of group names the actress belongs to
-  groupData?: { [groupName: string]: { photos: string[], alias?: string } } // Per-group data including photos and aliases
+  groupData?: { [groupName: string]: { photos: string[], alias?: string, profilePicture?: string } } // Per-group data including photos, aliases, and profile pictures
   generationData?: { [generationId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-generation data including aliases and profile pictures
   lineupData?: { [lineupId: string]: { alias?: string, profilePicture?: string, photos?: string[] } } // Per-lineup data including aliases and profile pictures
   // Group-specific fields (when type = 'group')

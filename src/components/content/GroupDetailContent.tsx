@@ -78,7 +78,12 @@ export function GroupDetailContent({
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [newActressName, setNewActressName] = useState<string>('')
   const [newActressJpName, setNewActressJpName] = useState<string>('')
+  const [newActressGroupPhoto, setNewActressGroupPhoto] = useState<string>('')
+  const [newActressPreviewUrl, setNewActressPreviewUrl] = useState<string>('')
+  const [newActressPreviewError, setNewActressPreviewError] = useState<boolean>(false)
+  const [newActressUrlWasTrimmed, setNewActressUrlWasTrimmed] = useState<boolean>(false)
   const [isCreatingActress, setIsCreatingActress] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<string>('')
   const [isAddMemberSectionOpen, setIsAddMemberSectionOpen] = useState(false)
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
   const [selectedActressForEdit, setSelectedActressForEdit] = useState<MasterDataItem | null>(null)
@@ -137,6 +142,53 @@ export function GroupDetailContent({
 
     return () => clearTimeout(timeoutId)
   }, [profilePictureUrl])
+
+  // Debounce preview URL update for new actress group photo
+  useEffect(() => {
+    if (!newActressGroupPhoto.trim()) {
+      setNewActressPreviewUrl('')
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(false)
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const trimmedUrl = autoTrimFandomUrl(newActressGroupPhoto.trim())
+      const wasTrimmed = trimmedUrl !== newActressGroupPhoto.trim()
+      
+      setNewActressPreviewUrl(trimmedUrl)
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(wasTrimmed)
+      
+      // Auto-update the input field if URL was trimmed
+      if (wasTrimmed) {
+        setNewActressGroupPhoto(trimmedUrl)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [newActressGroupPhoto])
+
+  // Check for duplicate actress names in real-time
+  useEffect(() => {
+    if (!newActressName.trim()) {
+      setDuplicateWarning('')
+      return
+    }
+
+    const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
+    if (duplicate) {
+      const duplicateInfo = []
+      if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
+      if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
+      if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
+      
+      const duplicateDetails = duplicateInfo.join(', ')
+      setDuplicateWarning(`⚠️ Aktris dengan nama yang sama sudah ada:\n${duplicateDetails}`)
+    } else {
+      setDuplicateWarning('')
+    }
+  }, [newActressName, newActressJpName, cachedActresses])
 
   useEffect(() => {
     // Clear cache first to ensure fresh data
@@ -816,6 +868,37 @@ export function GroupDetailContent({
     }
   }
 
+  // Function to check for duplicate actress names
+  const checkForDuplicateActress = (name: string, jpname?: string): MasterDataItem | null => {
+    if (!name.trim()) return null
+    
+    const searchName = name.trim().toLowerCase()
+    const searchJpname = jpname?.trim().toLowerCase()
+    
+    // Check against all actresses in cache
+    const duplicate = cachedActresses.find(actress => {
+      const actressName = actress.name?.toLowerCase() || ''
+      const actressJpname = actress.jpname?.toLowerCase() || ''
+      const actressAlias = actress.alias?.toLowerCase() || ''
+      
+      // Check exact name match
+      if (actressName === searchName) return true
+      if (actressJpname === searchName) return true
+      if (actressAlias === searchName) return true
+      
+      // Check exact jpname match (if provided)
+      if (searchJpname) {
+        if (actressName === searchJpname) return true
+        if (actressJpname === searchJpname) return true
+        if (actressAlias === searchJpname) return true
+      }
+      
+      return false
+    })
+    
+    return duplicate || null
+  }
+
   // Function to create new actress and add to group
   const handleCreateNewActress = async () => {
     if (!newActressName.trim() || !group.name) return
@@ -823,10 +906,34 @@ export function GroupDetailContent({
     try {
       setIsCreatingActress(true)
       
+      // Check for duplicates before creating
+      const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
+      if (duplicate) {
+        const duplicateInfo = []
+        if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
+        if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
+        if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
+        
+        const duplicateDetails = duplicateInfo.join(', ')
+        const errorMessage = `Aktris dengan nama yang sama sudah ada di database!\n\nAktris yang sama:\n${duplicateDetails}\n\nSilakan gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.`
+        
+        toast.error(errorMessage)
+        setIsCreatingActress(false)
+        return
+      }
+      
+      // Prepare group-specific data if group photo is provided
+      const groupData = newActressGroupPhoto.trim() ? {
+        [group.name]: {
+          profilePicture: newActressGroupPhoto.trim()
+        }
+      } : undefined
+      
       const actressData = {
         name: newActressName.trim(),
         jpname: newActressJpName.trim() || undefined,
-        selectedGroups: [group.name]
+        selectedGroups: [group.name],
+        groupData: groupData
       }
 
       console.log('Creating new actress with data:', actressData)
@@ -840,6 +947,10 @@ export function GroupDetailContent({
       // Clear form
       setNewActressName('')
       setNewActressJpName('')
+      setNewActressGroupPhoto('')
+      setNewActressPreviewUrl('')
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(false)
       
       // Reload data to reflect changes
       await loadActresses()
@@ -1241,6 +1352,7 @@ export function GroupDetailContent({
                           onChange={(e) => setNewActressName(e.target.value)}
                           placeholder="Masukkan nama aktris..."
                           disabled={isCreatingActress}
+                          className={duplicateWarning ? 'border-red-500 focus:border-red-500' : ''}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1251,22 +1363,83 @@ export function GroupDetailContent({
                           onChange={(e) => setNewActressJpName(e.target.value)}
                           placeholder="Masukkan nama Jepang..."
                           disabled={isCreatingActress}
+                          className={duplicateWarning ? 'border-red-500 focus:border-red-500' : ''}
                         />
                       </div>
                     </div>
+                    
+                    {/* Duplicate Warning */}
+                    {duplicateWarning && (
+                      <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                        <span className="text-red-600 text-lg">⚠️</span>
+                        <div className="flex-1">
+                          <div className="font-medium mb-1">Nama Aktris Sudah Ada!</div>
+                          <div className="whitespace-pre-line text-sm">{duplicateWarning.split('\n')[1]}</div>
+                          <div className="text-xs mt-2 text-red-500">
+                            💡 Gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Group Profile Picture */}
+                    <div className="space-y-4">
+                      <Label htmlFor="newActressGroupPhoto">Group Profile Picture (Opsional)</Label>
+                      <Input
+                        id="newActressGroupPhoto"
+                        value={newActressGroupPhoto}
+                        onChange={(e) => setNewActressGroupPhoto(e.target.value)}
+                        placeholder="Masukkan URL foto group-specific..."
+                        disabled={isCreatingActress}
+                      />
+                      
+                      {/* Preview */}
+                      {newActressPreviewUrl && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Preview:</Label>
+                          <div className="flex justify-center">
+                            <div className="w-[200px] h-[250px] rounded-lg overflow-hidden bg-muted shadow-lg">
+                              <img
+                                src={newActressPreviewUrl}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                onError={() => setNewActressPreviewError(true)}
+                                onLoad={() => setNewActressPreviewError(false)}
+                              />
+                            </div>
+                          </div>
+                          {newActressPreviewError && (
+                            <div className="text-center text-red-500 text-sm">
+                              ❌ Failed to load preview image
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* URL Trimmed Notification */}
+                      {newActressUrlWasTrimmed && (
+                        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                          <span className="text-blue-600">✂️</span>
+                          <span>URL automatically trimmed to clean image format</span>
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="flex justify-end">
                       <Button
                         type="button"
                         onClick={handleCreateNewActress}
-                        disabled={!newActressName.trim() || isCreatingActress}
+                        disabled={!newActressName.trim() || isCreatingActress || !!duplicateWarning}
                         className="flex items-center gap-2"
                       >
                         <Plus className="h-4 w-4" />
-                        {isCreatingActress ? 'Membuat...' : 'Buat Aktris Baru'}
+                        {isCreatingActress ? 'Membuat...' : duplicateWarning ? 'Nama Sudah Ada' : 'Buat Aktris Baru'}
                       </Button>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Ini akan membuat aktris baru dengan data placeholder. Anda dapat mengedit detail lengkap di tab Aktris nanti.
+                      <br />
+                      <span className="text-xs text-blue-600">💡 Tip: Fandom.com URLs will be automatically cleaned</span>
                     </p>
                   </div>
                 </div>
