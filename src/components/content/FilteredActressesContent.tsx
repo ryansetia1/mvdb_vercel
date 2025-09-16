@@ -48,14 +48,11 @@ const getGroupProfilePicture = (actress: MasterDataItem, filterType: string, fil
   }
 
   // For group filters, check group-specific photos first
-  console.log(`Getting profile picture for ${actress.name} in group ${filterValue}`)
-  
   // Check the current structure first (for newer data)
   if (actress.groupProfilePictures && typeof actress.groupProfilePictures === 'object') {
     if (actress.groupProfilePictures[filterValue]) {
       const groupPic = actress.groupProfilePictures[filterValue].trim()
       if (groupPic) {
-        console.log('✅ Found groupProfilePictures photo:', groupPic)
         return groupPic
       }
     }
@@ -68,7 +65,6 @@ const getGroupProfilePicture = (actress: MasterDataItem, filterType: string, fil
       
       // Check for profilePicture field (saved from ActorForm)
       if (groupInfo.profilePicture && groupInfo.profilePicture.trim()) {
-        console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
         return groupInfo.profilePicture.trim()
       }
       
@@ -76,14 +72,12 @@ const getGroupProfilePicture = (actress: MasterDataItem, filterType: string, fil
       if (groupInfo.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
         const firstPhoto = groupInfo.photos[0]?.trim()
         if (firstPhoto) {
-          console.log('✅ Found groupData photos array:', firstPhoto)
           return firstPhoto
         }
       }
     }
   }
   
-  console.log('❌ No group-specific photo found, showing placeholder')
   // If no group-specific picture, return null to show placeholder
   return null
 }

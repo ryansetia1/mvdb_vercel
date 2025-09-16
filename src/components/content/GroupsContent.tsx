@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useGlobalKeyboardPagination } from '../../hooks/useGlobalKeyboardPagination'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -486,52 +486,24 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
     setCurrentPage(1)
   }, [searchQuery])
 
-  const getGroupProfilePicture = (actress: MasterDataItem, groupName: string) => {
-    console.log(`\n=== Getting profile picture for ${actress.name} in group ${groupName} ===`)
-    
-    // Debug: log all actress data
-    console.log('Full actress data:', {
-      id: actress.id,
-      name: actress.name,
-      profilePicture: actress.profilePicture,
-      groupProfilePictures: actress.groupProfilePictures,
-      groupData: actress.groupData,
-      groupAliases: actress.groupAliases,
-      selectedGroups: actress.selectedGroups,
-      // Log all fields that might contain group-specific data
-      ...Object.fromEntries(
-        Object.entries(actress).filter(([key]) => 
-          key.toLowerCase().includes('group') || 
-          key.toLowerCase().includes('photo') ||
-          key.toLowerCase().includes('picture')
-        )
-      )
-    })
-    
+  const getGroupProfilePicture = useCallback((actress: MasterDataItem, groupName: string) => {
     // Check the current structure first (for newer data)
-    console.log('Checking groupProfilePictures:', actress.groupProfilePictures)
     if (actress.groupProfilePictures && typeof actress.groupProfilePictures === 'object') {
-      console.log(`Looking for groupProfilePictures[${groupName}]:`, actress.groupProfilePictures[groupName])
       if (actress.groupProfilePictures[groupName]) {
         const groupPic = actress.groupProfilePictures[groupName].trim()
         if (groupPic) {
-          console.log('✅ Found groupProfilePictures photo:', groupPic)
           return groupPic
         }
       }
     }
     
     // Check the groupData structure (for data stored via ActorForm)
-    console.log('Checking groupData:', actress.groupData)
     if (actress.groupData && typeof actress.groupData === 'object') {
-      console.log(`Looking for groupData[${groupName}]:`, actress.groupData[groupName])
       if (actress.groupData[groupName]) {
         const groupInfo = actress.groupData[groupName]
-        console.log(`Found groupInfo for ${groupName}:`, groupInfo)
         
         // Check for profilePicture field (saved from ActorForm)
         if (groupInfo.profilePicture && groupInfo.profilePicture.trim()) {
-          console.log('✅ Found groupData profilePicture:', groupInfo.profilePicture)
           return groupInfo.profilePicture.trim()
         }
         
@@ -539,43 +511,33 @@ export function GroupsContent({ accessToken, searchQuery, onProfileSelect, onGro
         if (groupInfo.photos && Array.isArray(groupInfo.photos) && groupInfo.photos.length > 0) {
           const firstPhoto = groupInfo.photos[0]?.trim()
           if (firstPhoto) {
-            console.log('✅ Found groupData photos array:', firstPhoto)
             return firstPhoto
           }
         }
       }
     }
     
-    console.log('❌ No group-specific photo found, showing placeholder')
     // If no group-specific picture, return null to show placeholder
     return null
-  }
+  }, [])
 
-  const getGroupAlias = (actress: MasterDataItem, groupName: string) => {
-    console.log(`\n=== Getting alias for ${actress.name} in group ${groupName} ===`)
-    
+  const getGroupAlias = useCallback((actress: MasterDataItem, groupName: string) => {
     // Check the current structure first (for newer data)
-    console.log('Checking groupAliases:', actress.groupAliases)
     if (actress.groupAliases && actress.groupAliases[groupName]) {
-      console.log('✅ Found groupAliases alias:', actress.groupAliases[groupName])
       return actress.groupAliases[groupName]
     }
     
     // Check the groupData structure (for data stored via ActorForm)
-    console.log('Checking groupData for alias:', actress.groupData)
     if (actress.groupData && actress.groupData[groupName]) {
       const groupInfo = actress.groupData[groupName]
-      console.log(`Found groupInfo for ${groupName}:`, groupInfo)
       if (groupInfo.alias && groupInfo.alias.trim()) {
-        console.log('✅ Found groupData alias:', groupInfo.alias)
         return groupInfo.alias.trim()
       }
     }
     
-    console.log('❌ No group-specific alias found')
     // Don't fallback to regular alias - only show group-specific alias
     return null
-  }
+  }, [])
 
   // Filter groups based on search query
   const filteredGroups = groups.filter(group => {

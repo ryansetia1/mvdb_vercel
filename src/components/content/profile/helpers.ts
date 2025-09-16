@@ -72,6 +72,5 @@ export const getAllProfileImages = (profile: MasterDataItem | null): string[] =>
     })
   }
   
-  console.log(`📸 All profile images for ${profile.name}:`, images)
   return images
 }
