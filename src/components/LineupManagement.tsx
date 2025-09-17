@@ -53,6 +53,8 @@ export function LineupManagement({
   const [isDeletingVersion, setIsDeletingVersion] = useState(false)
   const [versionUrlWasTrimmed, setVersionUrlWasTrimmed] = useState<{ [actressId: string]: { [versionName: string]: boolean } }>({})
   const [versionPhotoUrls, setVersionPhotoUrls] = useState<{ [actressId: string]: { [versionName: string]: string } }>({})
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ actressId: string, lineupId: string, actressName: string } | null>(null)
 
   // Function to auto-trim fandom.com URLs from the end
   const autoTrimFandomUrl = (url: string): string => {
@@ -584,6 +586,45 @@ export function LineupManagement({
       console.error('Error updating version photo:', err)
       setError('Failed to update version photo')
     }
+  }
+
+  const handleRemoveMemberFromCard = (actressId: string, lineupId: string, actressName: string) => {
+    // Set target for deletion and show confirmation dialog
+    setDeleteTarget({ actressId, lineupId, actressName })
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteMember = async () => {
+    if (!deleteTarget) return
+
+    try {
+      setError(null)
+      setLoading(true)
+      
+      console.log('Removing member from card:', deleteTarget)
+      
+      // Use the same API function as the checkbox removal
+      await masterDataApi.removeActressFromLineup(deleteTarget.actressId, deleteTarget.lineupId, accessToken)
+      
+      console.log('Successfully removed member from card:', deleteTarget.actressName)
+      
+      // Reload data to reflect changes
+      await loadData()
+      
+    } catch (err) {
+      console.error('Error removing member from card:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Gagal menghapus member dari lineup'
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+      setShowDeleteConfirm(false)
+      setDeleteTarget(null)
+    }
+  }
+
+  const cancelDeleteMember = () => {
+    setShowDeleteConfirm(false)
+    setDeleteTarget(null)
   }
 
   const handleEdit = (lineup: MasterDataItem) => {
@@ -1120,7 +1161,22 @@ export function LineupManagement({
                         const lineupData = actress.lineupData?.[lineup.id]
                         
                         return (
-                          <div key={actress.id} className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                          <div key={actress.id} className="space-y-3 p-4 bg-gray-50 rounded-lg relative group">
+                            {/* Delete Button - X in top right corner */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleRemoveMemberFromCard(actress.id, lineup.id, actress.name || 'Unknown')
+                              }}
+                              className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 opacity-0 group-hover:opacity-100"
+                              title={`Remove ${actress.name} from lineup`}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            
                             {/* Actress Info */}
                             <div className="flex items-center space-x-3">
                               <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
@@ -1267,6 +1323,34 @@ export function LineupManagement({
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Penghapusan</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus "{deleteTarget?.actressName}" dari lineup ini?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={cancelDeleteMember} disabled={loading}>
+              Batal
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDeleteMember} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Menghapus...
+                </>
+              ) : (
+                'Hapus'
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
