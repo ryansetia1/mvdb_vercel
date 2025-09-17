@@ -41,6 +41,7 @@ interface FavoriteImageData {
   sourceId: string
   sourceTitle: string
   movieCode?: string
+  movieType?: string // Movie type for zoom logic
   actresses?: string[]
   actors?: string[]
   releaseDate?: string
@@ -204,6 +205,7 @@ export function SimpleFavoritesContent({
           sourceId: movie.id!,
           sourceTitle: movie.titleEn || movie.titleJp || '',
           movieCode: movie.dmm,
+          movieType: movie.type, // Add movie type for zoom logic
           actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
           actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
           releaseDate: movie.releaseDate,
@@ -391,6 +393,16 @@ export function SimpleFavoritesContent({
     setShowLightbox(false)
   }
 
+  // Determine default zoom based on movie type (same logic as EnhancedGallery)
+  const getDefaultZoom = (movieType?: string) => {
+    // For non-Un types, use 1.8x default zoom
+    if (movieType && movieType.toLowerCase() !== 'un') {
+      return 1.8
+    }
+    // For Un type or no type specified, use 1x default zoom
+    return 1
+  }
+
   const handleRemoveFailedFavorite = async (favoriteId: string) => {
     try {
       await simpleFavoritesApi.removeFavorite(favoriteId, accessToken)
@@ -448,30 +460,28 @@ export function SimpleFavoritesContent({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="movies" className="flex items-center gap-2 whitespace-nowrap">
-              <Film className="h-4 w-4" />
-              Movies ({favoriteCounts.movies})
-            </TabsTrigger>
-            <TabsTrigger value="photobooks" className="flex items-center gap-2 whitespace-nowrap">
-              <ImageIcon className="h-4 w-4" />
-              Photobooks ({favoriteCounts.photobooks})
-            </TabsTrigger>
-            <TabsTrigger value="images" className="flex items-center gap-2 whitespace-nowrap">
-              <ImageIcon className="h-4 w-4" />
-              Images ({favoriteCounts.images})
-            </TabsTrigger>
-            <TabsTrigger value="cast" className="flex items-center gap-2 whitespace-nowrap">
-              <User className="h-4 w-4" />
-              Cast ({favoriteCounts.cast})
-            </TabsTrigger>
-            <TabsTrigger value="series" className="flex items-center gap-2 whitespace-nowrap">
-              <PlayCircle className="h-4 w-4" />
-              Series ({favoriteCounts.series})
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="w-full flex">
+          <TabsTrigger value="movies" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <Film className="h-4 w-4" />
+            Movies ({favoriteCounts.movies})
+          </TabsTrigger>
+          <TabsTrigger value="photobooks" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <ImageIcon className="h-4 w-4" />
+            Photobooks ({favoriteCounts.photobooks})
+          </TabsTrigger>
+          <TabsTrigger value="images" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <ImageIcon className="h-4 w-4" />
+            Images ({favoriteCounts.images})
+          </TabsTrigger>
+          <TabsTrigger value="cast" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <User className="h-4 w-4" />
+            Cast ({favoriteCounts.cast})
+          </TabsTrigger>
+          <TabsTrigger value="series" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <PlayCircle className="h-4 w-4" />
+            Series ({favoriteCounts.series})
+          </TabsTrigger>
+        </TabsList>
 
         {/* Movies Tab */}
         <TabsContent value="movies" className="space-y-4">
@@ -924,6 +934,7 @@ export function SimpleFavoritesContent({
           onClose={() => setShowLightbox(false)}
           onIndexChange={setSelectedImageIndex}
           altPrefix="Favorite image"
+          defaultZoom={getDefaultZoom(filteredData.images[selectedImageIndex]?.movieType)}
           metadata={filteredData.images[selectedImageIndex] ? {
             sourceType: filteredData.images[selectedImageIndex].sourceType,
             sourceTitle: filteredData.images[selectedImageIndex].sourceTitle,

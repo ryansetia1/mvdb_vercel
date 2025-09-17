@@ -689,6 +689,7 @@ export function MoviePage({
                   galleryTemplate={selectedMovie.gallery}
                   dmcode={selectedMovie.dmcode}
                   targetImageCount={30}
+                  movieType={selectedMovie.type}
                 />
               </CardContent>
             </Card>
@@ -702,6 +703,7 @@ export function MoviePage({
         alt={selectedMovie.titleEn || selectedMovie.titleJp || 'Movie cover'}
         isOpen={showFullCover}
         onClose={() => setShowFullCover(false)}
+        defaultZoom={2}
       />
     </div>
   )

@@ -10,6 +10,11 @@ export interface AgeGap {
   actressOlder: boolean
 }
 
+export interface LinkItem {
+  title: string
+  url: string
+}
+
 export const parseLinks = (linksString?: string): string[] => {
   if (!linksString) return []
   
@@ -52,6 +57,76 @@ export const parseLinks = (linksString?: string): string[] => {
   
   // Strategy 5: Single URL
   return [cleanedString]
+}
+
+export const parseLinksWithTitles = (linksString?: string): LinkItem[] => {
+  if (!linksString) return []
+  
+  // Remove any extra whitespace and normalize
+  const cleanedString = linksString.trim()
+  if (!cleanedString) return []
+  
+  // Try different parsing strategies in order of preference
+  
+  // Strategy 1: Check for LinkManager format (Title#URL, Title2#URL2)
+  if (cleanedString.includes('#') && cleanedString.includes(',')) {
+    return cleanedString.split(',')
+      .map(link => {
+        const parts = link.trim().split('#')
+        if (parts.length >= 2) {
+          return {
+            title: parts[0].trim(),
+            url: parts[1].trim()
+          }
+        }
+        return {
+          title: parts[0].trim(),
+          url: parts[0].trim()
+        }
+      })
+      .filter(link => link.title && link.url)
+  }
+  
+  // Strategy 2: Check for MultiLinksManager format (URL1, URL2, URL3)
+  if (cleanedString.includes(',')) {
+    return cleanedString.split(',')
+      .map((link, index) => ({
+        title: `Link ${index + 1}`,
+        url: link.trim()
+      }))
+      .filter(link => link.url.length > 0)
+  }
+  
+  // Strategy 3: Check for simple URL with # (single LinkManager format)
+  if (cleanedString.includes('#')) {
+    const parts = cleanedString.split('#')
+    if (parts.length >= 2) {
+      return [{
+        title: parts[0].trim(),
+        url: parts[1].trim()
+      }]
+    }
+    return [{
+      title: parts[0].trim(),
+      url: parts[0].trim()
+    }]
+  }
+  
+  // Strategy 4: Fallback to newline separation (legacy format)
+  if (cleanedString.includes('\n')) {
+    return cleanedString.split('\n')
+      .map((link, index) => ({
+        title: `Link ${index + 1}`,
+        url: link.trim()
+      }))
+      .filter(link => link.url.length > 0)
+  }
+  
+  // Strategy 5: Single URL
+  return [{
+    title: 'Link 1',
+    url: cleanedString
+  }]
 }
 
 export const calculateAgeGaps = (

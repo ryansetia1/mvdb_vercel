@@ -16,7 +16,7 @@ import { TagsManager } from '../TagsManager'
 import { toast } from 'sonner'
 
 // Refactored components and helpers
-import { parseLinks, calculateAgeGaps, processCoverUrl } from './movieDetail/MovieDetailHelpers'
+import { parseLinks, parseLinksWithTitles, calculateAgeGaps, processCoverUrl } from './movieDetail/MovieDetailHelpers'
 import { createRenderers } from './movieDetail/MovieDetailRenderers'
 import { MovieCastSection } from './movieDetail/MovieCastSection'
 import { MovieLinksSection } from './movieDetail/MovieLinksSection'
@@ -248,6 +248,11 @@ export function MovieDetailContent({
   const cLinks = parseLinks(currentMovie.clinks)
   const uLinks = parseLinks(currentMovie.ulinks)
   const sLinks = parseLinks(currentMovie.slinks)
+  
+  // Parse links with titles for display
+  const cLinksWithTitles = parseLinksWithTitles(currentMovie.clinks)
+  const uLinksWithTitles = parseLinksWithTitles(currentMovie.ulinks)
+  const sLinksWithTitles = parseLinksWithTitles(currentMovie.slinks)
 
   // Calculate age gaps
   const ageGaps = calculateAgeGaps(currentMovie, castData)
@@ -468,6 +473,7 @@ export function MovieDetailContent({
                         releaseDate: currentMovie.releaseDate,
                         studio: currentMovie.studio
                       }}
+                      movieType={currentMovie.type}
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-8">
@@ -726,6 +732,9 @@ export function MovieDetailContent({
                       sLinks={sLinks}
                       uLinks={uLinks}
                       cLinks={cLinks}
+                      sLinksWithTitles={sLinksWithTitles}
+                      uLinksWithTitles={uLinksWithTitles}
+                      cLinksWithTitles={cLinksWithTitles}
                       renderLinkButton={renderers.renderLinkButton}
                       movie={currentMovie}
                     />
@@ -810,6 +819,7 @@ export function MovieDetailContent({
         alt={currentMovie.titleEn || currentMovie.titleJp || 'Movie cover'}
         isOpen={showFullCover}
         onClose={() => setShowFullCover(false)}
+        defaultZoom={2}
       />
       </div>
     </TooltipProvider>

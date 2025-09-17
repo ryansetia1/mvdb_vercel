@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTokenAwareDataLoad } from '../hooks/useTokenAwareEffect'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -82,6 +82,9 @@ export function FrontendApp({ accessToken, user, onLogout, onSwitchToAdmin }: Fr
   
   const [activeNavItem, setActiveNavItem] = useState('movies')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // Search input ref for auto-focus
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [showNavCustomizer, setShowNavCustomizer] = useState(false)
   
   // Custom navigation states
@@ -254,6 +257,97 @@ export function FrontendApp({ accessToken, user, onLogout, onSwitchToAdmin }: Fr
       setFilteredMovies(filtered)
     }
   }, [searchQuery, movies])
+
+  // Auto-focus search bar when navigation changes
+  useEffect(() => {
+    const focusSearchBar = (retryCount = 0) => {
+      if (searchInputRef.current) {
+        console.log('Auto-focusing search bar...')
+        
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          if (searchInputRef.current) {
+            // Scroll to search bar first to ensure it's visible
+            searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            
+            // Focus with a small delay to ensure scroll completes
+            setTimeout(() => {
+              if (searchInputRef.current) {
+                // Try multiple focus methods
+                searchInputRef.current.focus()
+                searchInputRef.current.click()
+                
+                // Also select all text for better UX
+                searchInputRef.current.select()
+                
+                // Force focus with preventDefault
+                searchInputRef.current.focus({ preventScroll: false })
+                
+                // Dispatch focus event manually
+                const focusEvent = new Event('focus', { bubbles: true })
+                searchInputRef.current.dispatchEvent(focusEvent)
+              }
+            }, 150)
+          }
+        })
+      } else if (retryCount < 5) {
+        console.log(`Search input ref not available, retrying... (${retryCount + 1}/5)`)
+        // Retry with exponential backoff
+        setTimeout(() => focusSearchBar(retryCount + 1), 200 * (retryCount + 1))
+      } else {
+        console.log('Search input ref not available after 5 retries')
+      }
+    }
+    
+    // Use a longer timeout to ensure DOM is updated
+    const timeoutId = setTimeout(() => focusSearchBar(), 500)
+    
+    return () => clearTimeout(timeoutId)
+  }, [activeNavItem])
+
+  // Auto-focus search bar on initial app load
+  useEffect(() => {
+    const focusOnLoad = (retryCount = 0) => {
+      if (searchInputRef.current) {
+        console.log('Auto-focusing search bar on app load...')
+        
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          if (searchInputRef.current) {
+            // Focus with a small delay to ensure everything is loaded
+            setTimeout(() => {
+              if (searchInputRef.current) {
+                // Try multiple focus methods
+                searchInputRef.current.focus()
+                searchInputRef.current.click()
+                
+                // Also select all text for better UX
+                searchInputRef.current.select()
+                
+                // Force focus with preventDefault
+                searchInputRef.current.focus({ preventScroll: false })
+                
+                // Dispatch focus event manually
+                const focusEvent = new Event('focus', { bubbles: true })
+                searchInputRef.current.dispatchEvent(focusEvent)
+              }
+            }, 500) // Longer delay for initial load
+          }
+        })
+      } else if (retryCount < 10) {
+        console.log(`Search input ref not available on load, retrying... (${retryCount + 1}/10)`)
+        // Retry with exponential backoff
+        setTimeout(() => focusOnLoad(retryCount + 1), 500 * (retryCount + 1))
+      } else {
+        console.log('Search input ref not available on load after 10 retries')
+      }
+    }
+    
+    // Focus on initial load with longer timeout
+    const timeoutId = setTimeout(() => focusOnLoad(), 2000)
+    
+    return () => clearTimeout(timeoutId)
+  }, []) // Empty dependency array means this runs only once on mount
 
   // Navigation handlers
   const handleNavClick = (navItem: NavItem) => {
@@ -761,6 +855,7 @@ export function FrontendApp({ accessToken, user, onLogout, onSwitchToAdmin }: Fr
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 placeholder="Search movies, actors, directors..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

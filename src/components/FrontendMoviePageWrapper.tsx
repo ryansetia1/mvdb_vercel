@@ -388,6 +388,7 @@ export function FrontendMoviePageWrapper({ movie, onBack, onProfileClick }: Fron
                   galleryTemplate={movie.gallery}
                   dmcode={movie.dmcode}
                   targetImageCount={30}
+                  movieType={movie.type}
                 />
               </CardContent>
             </Card>
@@ -400,6 +401,7 @@ export function FrontendMoviePageWrapper({ movie, onBack, onProfileClick }: Fron
           alt={movie.titleEn || movie.titleJp || 'Movie cover'}
           isOpen={showFullCover}
           onClose={() => setShowFullCover(false)}
+          defaultZoom={2}
         />
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { getTypeColorClasses, getTypeColorStyles } from '../../../utils/movieTypeColors'
+import { useTypeColorStyles } from '../../../hooks/useTypeColors'
 import { MovieThumbnail } from '../../MovieThumbnail'
 import { SCMovieThumbnail } from '../../SCMovieThumbnail'
 import { Movie } from '../../../utils/movieApi'
@@ -33,6 +34,132 @@ interface SeriesInfo {
   name: string
   movieCount: number
   firstMovie: Movie
+}
+
+// Komponen MovieItem yang menggunakan hook untuk type colors
+function MovieItem({ 
+  movie, 
+  onMovieSelect, 
+  profile, 
+  allActresses, 
+  allActors 
+}: { 
+  movie: Movie
+  onMovieSelect: (movie: Movie) => void
+  profile?: MasterDataItem
+  allActresses: MasterDataItem[]
+  allActors: MasterDataItem[]
+}) {
+  const typeColorStyles = useTypeColorStyles(movie.type)
+  
+  // Calculate age at movie release
+  const ageAtRelease = profile?.birthdate && movie.releaseDate 
+    ? calculateAgeAtDate(profile.birthdate, movie.releaseDate)
+    : null
+
+  // Calculate max age gap for multi-cast (actor vs actresses, or actress vs actors)
+  let maxGap: number | null = null
+  let maxGapName: string | null = null
+  if (movie.releaseDate && profile?.birthdate) {
+    if (profile?.type === 'actor' && movie.actress) {
+      const names = movie.actress.split(',').map(n => n.trim()).filter(Boolean)
+      const gaps: { name: string; gap: number }[] = []
+      names.forEach(n => {
+        const info = allActresses.find(a => a.name === n)
+        if (info?.birthdate) {
+          const actorAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+          const actressAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+          if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
+        }
+      })
+      if (gaps.length) {
+        const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
+        maxGap = best.gap
+        // Only show name if multiple actresses
+        if (names.length > 1) {
+          // Extract first name (before space or punctuation)
+          const first = best.name.split(/\s|\(|\[/)[0]
+          maxGapName = first || best.name
+        } else {
+          maxGapName = null
+        }
+      }
+    } else if (profile?.type === 'actress' && movie.actors) {
+      const names = movie.actors.split(',').map(n => n.trim()).filter(Boolean)
+      const gaps: { name: string; gap: number }[] = []
+      names.forEach(n => {
+        const info = allActors.find(a => a.name === n)
+        if (info?.birthdate) {
+          const actressAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
+          const actorAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
+          if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
+        }
+      })
+      if (gaps.length) {
+        const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
+        maxGap = best.gap
+        if (names.length > 1) {
+          const first = best.name.split(/\s|\(|\[/)[0]
+          maxGapName = first || best.name
+        } else {
+          maxGapName = null
+        }
+      }
+    }
+  }
+  
+  return (
+    <div
+      key={movie.id}
+      className="group cursor-pointer"
+      onClick={() => onMovieSelect(movie)}
+    >
+      {/* Movie Code and Type */}
+      <div className="text-center mb-2">
+        <Badge variant="secondary" className="text-xs font-mono px-2 py-1">
+          {movie.code?.toUpperCase() || 'NO CODE'}
+        </Badge>
+        {movie.type && (
+          <span 
+            className={`ml-2 text-[10px] px-2 py-0.5 rounded font-medium align-middle ${typeColorStyles.classes}`}
+            style={typeColorStyles.styles}
+            title={`Movie type: ${movie.type}`}
+          >
+            {movie.type.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      {/* Cover using MovieThumbnail component for consistent cropping */}
+      <MovieThumbnail
+        movie={movie}
+        size="sm"
+        className="mx-auto"
+      />
+
+      {/* Movie Title */}
+      <div className="text-center mt-2">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-primary transition-colors">
+          {movie.title}
+        </h3>
+        
+        {/* Age and Gap Info */}
+        <div className="text-xs text-gray-500 mt-1 space-y-1">
+          {ageAtRelease !== null && (
+            <div>Age: {ageAtRelease}</div>
+          )}
+          {maxGap !== null && (
+            <div className="text-orange-600">
+              Max gap: {maxGap}yr{maxGapName ? ` (${maxGapName})` : ''}
+            </div>
+          )}
+          {movie.releaseDate && (
+            <div>{new Date(movie.releaseDate).getFullYear()}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSelect, onFilterSelect, onProfileSelect, accessToken, collaborationInfo }: MoviesGridProps) {
@@ -518,144 +645,16 @@ export function MoviesGrid({ movies, name, profile, onMovieSelect, onSCMovieSele
     <>
       {sortedMovies.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {paginatedMovies.map((movie) => {
-            // Calculate age at movie release
-            const ageAtRelease = profile?.birthdate && movie.releaseDate 
-              ? calculateAgeAtDate(profile.birthdate, movie.releaseDate)
-              : null
-
-            // Calculate max age gap for multi-cast (actor vs actresses, or actress vs actors)
-            let maxGap: number | null = null
-            let maxGapName: string | null = null
-            if (movie.releaseDate && profile?.birthdate) {
-              if (profile?.type === 'actor' && movie.actress) {
-                const names = movie.actress.split(',').map(n => n.trim()).filter(Boolean)
-                const gaps: { name: string; gap: number }[] = []
-                names.forEach(n => {
-                  const info = allActresses.find(a => a.name === n)
-                  if (info?.birthdate) {
-                    const actorAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
-                    const actressAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
-                    if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
-                  }
-                })
-                if (gaps.length) {
-                  const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
-                  maxGap = best.gap
-                  // Only show name if multiple actresses
-                  if (names.length > 1) {
-                    // Extract first name (before space or punctuation)
-                    const first = best.name.split(/\s|\(|\[/)[0]
-                    maxGapName = first || best.name
-                  } else {
-                    maxGapName = null
-                  }
-                }
-              } else if (profile?.type === 'actress' && movie.actors) {
-                const names = movie.actors.split(',').map(n => n.trim()).filter(Boolean)
-                const gaps: { name: string; gap: number }[] = []
-                names.forEach(n => {
-                  const info = allActors.find(a => a.name === n)
-                  if (info?.birthdate) {
-                    const actressAge = calculateAgeAtDate(profile.birthdate!, movie.releaseDate!)
-                    const actorAge = calculateAgeAtDate(info.birthdate, movie.releaseDate!)
-                    if (actorAge !== null && actressAge !== null) gaps.push({ name: n, gap: Math.abs(actorAge - actressAge) })
-                  }
-                })
-                if (gaps.length) {
-                  const best = gaps.reduce((acc, cur) => (cur.gap > acc.gap ? cur : acc))
-                  maxGap = best.gap
-                  if (names.length > 1) {
-                    const first = best.name.split(/\s|\(|\[/)[0]
-                    maxGapName = first || best.name
-                  } else {
-                    maxGapName = null
-                  }
-                }
-              }
-            }
-
-            return (
-              <div
-                key={movie.id}
-                className="group cursor-pointer"
-                onClick={() => onMovieSelect(movie)}
-              >
-                {/* Movie Code and Type */}
-                <div className="text-center mb-2">
-                  <Badge variant="secondary" className="text-xs font-mono px-2 py-1">
-                    {movie.code?.toUpperCase() || 'NO CODE'}
-                  </Badge>
-                  {movie.type && (
-                    <span 
-                      className={`ml-2 text-[10px] px-2 py-0.5 rounded font-medium align-middle ${getTypeColorClasses(movie.type)}`}
-                      style={getTypeColorStyles(movie.type)}
-                      title={`Movie type: ${movie.type}`}
-                    >
-                      {movie.type.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-
-                {/* Cover using MovieThumbnail component for consistent cropping */}
-                <MovieThumbnail
-                  movie={movie}
-                  onClick={() => onMovieSelect(movie)}
-                  showHoverEffect={false} // Disable hover effect to prevent nested group conflicts
-                  className="mb-2"
-                  showFavoriteButton={true}
-                  accessToken={accessToken}
-                />
-
-                {/* Movie Info */}
-                <div className="space-y-1">
-                  <h3 className="font-medium text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">
-                    {movie.titleEn || movie.titleJp || 'Untitled'}
-                  </h3>
-                  
-                  {/* Japanese title if different from English */}
-                  {movie.titleJp && movie.titleEn && movie.titleJp !== movie.titleEn && (
-                    <p className="text-xs text-gray-600 line-clamp-1">
-                      {movie.titleJp}
-                    </p>
-                  )}
-
-                  {/* Actress names for actor profiles */}
-                  {profile?.type === 'actor' && movie.actress && (
-                    <div>
-                      {renderClickableActressNames(movie.actress)}
-                    </div>
-                  )}
-
-                  {/* Actor names for actress profiles */}
-                  {profile?.type === 'actress' && movie.actors && (
-                    <div>
-                      {renderClickableActorNames(movie.actors)}
-                    </div>
-                  )}
-
-                  {/* Release Date and Age + Max Gap */}
-                  {movie.releaseDate && (
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{new Date(movie.releaseDate).getFullYear()}</span>
-                      <div className="flex items-center gap-2">
-                        {maxGap !== null && (
-                          <span className="text-amber-600 font-medium" title="Max age gap in this movie">
-                            Gap {Math.round(maxGap)}y{maxGapName ? ` (${maxGapName})` : ''}
-                          </span>
-                        )}
-                        {ageAtRelease !== null && (
-                          <span className="text-blue-600 font-medium">
-                            Age {ageAtRelease}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+          {paginatedMovies.map((movie) => (
+            <MovieItem 
+              key={movie.id}
+              movie={movie}
+              onMovieSelect={onMovieSelect}
+              profile={profile}
+              allActresses={allActresses}
+              allActors={allActors}
+            />
+          ))}
         </div>
       ) : (
         <div className="text-center text-muted-foreground py-12">

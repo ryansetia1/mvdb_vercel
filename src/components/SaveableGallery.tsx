@@ -29,6 +29,7 @@ interface SaveableGalleryProps {
     releaseDate?: string
     studio?: string
   }
+  movieType?: string
 }
 
 export function SaveableGallery({
@@ -36,7 +37,8 @@ export function SaveableGallery({
   dmcode,
   targetImageCount = 100,
   accessToken,
-  movieData
+  movieData,
+  movieType
 }: SaveableGalleryProps) {
   const [savedData, setSavedData] = useState<SavedGalleryData | null>(null)
   const [parsedData, setParsedData] = useState<ParsedGalleryData | null>(null)
@@ -325,6 +327,7 @@ export function SaveableGallery({
         targetImageCount={targetImageCount}
         accessToken={accessToken}
         movieData={movieData}
+        movieType={movieType}
         onSave={handleSaveGallery}
         isSaving={isSaving}
         onGallerySourceChange={(source) => {
@@ -346,6 +349,7 @@ function EnhancedGalleryWithSave({
   targetImageCount,
   accessToken,
   movieData,
+  movieType,
   onSave,
   isSaving,
   onGallerySourceChange
@@ -355,6 +359,7 @@ function EnhancedGalleryWithSave({
   targetImageCount?: number
   accessToken?: string
   movieData?: any
+  movieType?: string
   onSave: (urls: string[]) => void
   isSaving: boolean
   onGallerySourceChange?: (source: 'cached' | 'fresh') => void
@@ -384,6 +389,7 @@ function EnhancedGalleryWithSave({
         targetImageCount={targetImageCount}
         accessToken={accessToken}
         movieData={movieData}
+        movieType={movieType}
         onValidUrlsChange={setValidUrls}
         onGallerySourceChange={onGallerySourceChange}
       />

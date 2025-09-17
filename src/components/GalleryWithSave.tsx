@@ -30,6 +30,7 @@ interface GalleryWithSaveProps {
     releaseDate?: string
     studio?: string
   }
+  movieType?: string
 }
 
 export function GalleryWithSave({
@@ -37,7 +38,8 @@ export function GalleryWithSave({
   dmcode,
   targetImageCount = 100,
   accessToken,
-  movieData
+  movieData,
+  movieType
 }: GalleryWithSaveProps) {
   const [savedData, setSavedData] = useState<SavedGalleryData | null>(null)
   const [parsedData, setParsedData] = useState<ParsedGalleryData | null>(null)
@@ -408,6 +410,7 @@ export function GalleryWithSave({
       targetImageCount={targetImageCount}
       accessToken={accessToken}
       movieData={movieData}
+      movieType={movieType}
       showSaveOption={true}
       onSaveGallery={handleSaveGallery}
       isSaving={isSaving}

@@ -1082,9 +1082,18 @@ function matchJavdbSimple(
       if (item.kanaName?.trim() === trimmedName) return true
       if (item.name?.trim() === trimmedName) return true
       
+      // Series-specific field matching (titleEn and titleJp)
+      if (item.titleEn?.trim() === trimmedName) return true
+      if (item.titleJp?.trim() === trimmedName) return true
+      
       // Case-insensitive matching for English names only
       if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
         return item.name.toLowerCase() === trimmedName.toLowerCase()
+      }
+      
+      // Case-insensitive matching for titleEn (English title)
+      if (item.titleEn && trimmedName && /^[a-zA-Z\s]+$/.test(item.titleEn) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
+        return item.titleEn.toLowerCase() === trimmedName.toLowerCase()
       }
       
       // Alias matching
@@ -1102,6 +1111,7 @@ function matchJavdbSimple(
           }
         }
       }
+      
       
       return false
     })
