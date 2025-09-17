@@ -51,6 +51,23 @@ export function LineupActressManagement({
     loadData()
   }, [lineupId, generationId])
 
+  // Update assignmentData when selectedActress changes
+  useEffect(() => {
+    if (selectedActress) {
+      const actress = actresses.find(a => a.id === selectedActress)
+      if (actress) {
+        // Set alias default to English name instead of actress alias
+        setAssignmentData(prev => ({
+          ...prev,
+          alias: actress.name || ''
+        }))
+      }
+    } else {
+      // Reset assignmentData when no actress is selected
+      setAssignmentData({ alias: '', profilePicture: '', photos: [] })
+    }
+  }, [selectedActress, actresses])
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -92,6 +109,25 @@ export function LineupActressManagement({
     }
   }
 
+  // Helper function to get all existing versions in this lineup
+  const getAllExistingVersions = () => {
+    const allVersions: { [versionName: string]: any } = {}
+    
+    // Get all versions from existing lineup actresses
+    lineupActresses.forEach(assignment => {
+      const actress = actresses.find(a => a.id === assignment.actressId)
+      if (actress?.lineupData?.[lineupId]?.photoVersions) {
+        Object.entries(actress.lineupData[lineupId].photoVersions).forEach(([versionName, versionData]) => {
+          if (!allVersions[versionName]) {
+            allVersions[versionName] = versionData
+          }
+        })
+      }
+    })
+    
+    return allVersions
+  }
+
   const handleAssignActress = async () => {
     if (!selectedActress) return
 
@@ -101,13 +137,18 @@ export function LineupActressManagement({
       const actress = actresses.find(a => a.id === selectedActress)
       if (!actress) return
 
+      // Get all existing versions in this lineup
+      const existingVersions = getAllExistingVersions()
+
       // Update actress lineup data while preserving ALL existing data
       const updatedLineupData = {
         ...actress.lineupData,
         [lineupId]: {
           alias: assignmentData.alias || undefined,
           profilePicture: assignmentData.profilePicture || undefined,
-          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined
+          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined,
+          // Add existing versions to new member
+          photoVersions: existingVersions
         }
       }
 
@@ -167,7 +208,7 @@ export function LineupActressManagement({
       delete updatedLineupData[lineupId]
 
       // Preserve ALL existing actress data when updating
-      const updateData = {
+      const updateData: any = {
         name: actress.name, // Required field
         jpname: actress.jpname,
         birthdate: actress.birthdate,
@@ -180,8 +221,12 @@ export function LineupActressManagement({
         groupId: actress.groupId,
         groupData: actress.groupData,
         selectedGroups: actress.selectedGroups,
-        generationData: actress.generationData,
-        lineupData: Object.keys(updatedLineupData).length > 0 ? updatedLineupData : undefined
+        generationData: actress.generationData
+      }
+
+      // Only include lineupData if it has content
+      if (Object.keys(updatedLineupData).length > 0) {
+        updateData.lineupData = updatedLineupData
       }
 
       console.log('Frontend: Removing actress from lineup with preserved data:', updateData)
