@@ -97,6 +97,51 @@ export function GroupDetailContent({
   const [lineupData, setLineupData] = useState<{lineups: MasterDataItem[], actresses: MasterDataItem[]} | null>(null)
   const [lineupDataLoaded, setLineupDataLoaded] = useState(false)
   const [expandedGenerations, setExpandedGenerations] = useState<Set<string>>(new Set())
+  const [generationLineupStatus, setGenerationLineupStatus] = useState<{ [generationId: string]: boolean }>({})
+  const [clickedGenerations, setClickedGenerations] = useState<Set<string>>(new Set())
+  
+  // Reset lineup data when generation changes
+  useEffect(() => {
+    if (selectedGenerationId) {
+      setLineupData(null)
+      setLineupDataLoaded(false)
+    }
+  }, [selectedGenerationId])
+
+  // Function to check if a generation has lineups
+  const checkGenerationHasLineups = async (generationId: string): Promise<boolean> => {
+    try {
+      const allLineups = await masterDataApi.getByType('lineup', accessToken)
+      const generationLineups = allLineups.filter(lineup => lineup.generationId === generationId)
+      return generationLineups.length > 0
+    } catch (err) {
+      console.error('Error checking generation lineups:', err)
+      return false
+    }
+  }
+
+  // Load lineup status for all generations
+  useEffect(() => {
+    const loadLineupStatusForAllGenerations = async () => {
+      if (!generations.length || !accessToken) return
+      
+      try {
+        const allLineups = await masterDataApi.getByType('lineup', accessToken)
+        const statusMap: { [generationId: string]: boolean } = {}
+        
+        generations.forEach(generation => {
+          const generationLineups = allLineups.filter(lineup => lineup.generationId === generation.id)
+          statusMap[generation.id] = generationLineups.length > 0
+        })
+        
+        setGenerationLineupStatus(statusMap)
+      } catch (err) {
+        console.error('Error loading lineup status:', err)
+      }
+    }
+    
+    loadLineupStatusForAllGenerations()
+  }, [generations, accessToken])
   
   // Cache state for photobooks persistence across main tabs
   const [photobooksCache, setPhotobooksCache] = useState<{
@@ -503,6 +548,9 @@ export function GroupDetailContent({
 
   const handleGenerationClick = async (generation: MasterDataItem) => {
     try {
+      // Mark this generation as clicked to hide the hint
+      setClickedGenerations(prev => new Set([...prev, generation.id]))
+      
       // Early return if this generation is already selected and we have data
       if (selectedGenerationId === generation.id && generationActresses.length > 0) {
         console.log(`[DEBUG] Generation ${generation.id} already selected, skipping reload`)
@@ -2000,6 +2048,13 @@ export function GroupDetailContent({
                           </p>
                         )}
                         
+                        {/* Click hint - only show if generation hasn't been clicked yet */}
+                        {!clickedGenerations.has(generation.id) && (
+                          <p className="text-xs text-blue-500 font-medium animate-pulse">
+                            👆 Click to view members
+                          </p>
+                        )}
+                        
                         {/* Show age if available */}
                         {generation.birthdate && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -2022,24 +2077,37 @@ export function GroupDetailContent({
                           </div>
                         )}
 
-                        {/* View Lineups Button */}
+                        {/* View Lineups Button - Only show if generation has lineups */}
                         <div className="mt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              // Check if this generation is currently selected and lineups are showing
-                              if (selectedGenerationId === generation.id && showLineups) {
-                                setShowLineups(false) // Hide lineups
-                              } else {
-                                handleViewLineups(generation) // Show lineups for this generation
-                              }
-                            }}
-                            className="h-6 px-2 text-xs w-full"
-                          >
-                            {selectedGenerationId === generation.id && showLineups ? 'Hide Lineups' : 'View Lineups'}
-                          </Button>
+                          {(() => {
+                            // Check if this generation has lineups from cached status
+                            const hasLineups = generationLineupStatus[generation.id]
+                            
+                            // Don't show button if generation has no lineups
+                            if (hasLineups === false) {
+                              return null
+                            }
+                            
+                            // Show button if generation has lineups or status is not yet loaded
+                            return (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Check if this generation is currently selected and lineups are showing
+                                  if (selectedGenerationId === generation.id && showLineups) {
+                                    setShowLineups(false) // Hide lineups
+                                  } else {
+                                    handleViewLineups(generation) // Show lineups for this generation
+                                  }
+                                }}
+                                className="h-6 px-2 text-xs w-full"
+                              >
+                                {selectedGenerationId === generation.id && showLineups ? 'Hide Lineups' : 'View Lineups'}
+                              </Button>
+                            )
+                          })()}
                         </div>
                       </div>
                     </CardContent>
@@ -2132,27 +2200,43 @@ export function GroupDetailContent({
                           return null
                         })()}
                         
-                        {/* View Lineups Button */}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            if (showLineups) {
-                              setShowLineups(false)
-                            } else {
-                              // If we have a selected generation, load lineup data and switch to lineup view
-                              if (selectedGenerationId) {
-                                if (!lineupDataLoaded) {
-                                  await loadLineupData(selectedGenerationId)
+                        {/* View Lineups Button - Only show if generation has lineups */}
+                        {(() => {
+                          // Check if current generation has lineups from cached status
+                          const hasLineups = selectedGenerationId ? generationLineupStatus[selectedGenerationId] : false
+                          
+                          // Don't show button if generation has no lineups
+                          if (hasLineups === false) {
+                            return null
+                          }
+                          
+                          // Show button if generation has lineups or status is not yet loaded
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                if (showLineups) {
+                                  setShowLineups(false)
+                                } else {
+                                  // If we have a selected generation, load lineup data and switch to lineup view
+                                  if (selectedGenerationId) {
+                                    if (!lineupDataLoaded) {
+                                      await loadLineupData(selectedGenerationId)
+                                    }
+                                    // Only show lineups if there are actually lineups
+                                    if (lineupData?.lineups && lineupData.lineups.length > 0) {
+                                      setShowLineups(true)
+                                    }
+                                  }
                                 }
-                                setShowLineups(true)
-                              }
-                            }
-                          }}
-                          className="h-8 px-3 text-xs"
-                        >
-                          {showLineups ? 'Hide Lineups' : 'View Lineups'}
-                        </Button>
+                              }}
+                              className="h-8 px-3 text-xs"
+                            >
+                              {showLineups ? 'Hide Lineups' : 'View Lineups'}
+                            </Button>
+                          )
+                        })()}
                       </div>
                     </div>
                   </CardContent>

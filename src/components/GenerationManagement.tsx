@@ -36,6 +36,7 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
   const [showDialog, setShowDialog] = useState(false)
   const [editingGeneration, setEditingGeneration] = useState<MasterDataItem | null>(null)
   const [selectedGenerationId, setSelectedGenerationId] = useState<string>('')
+  const [expandedGenerationId, setExpandedGenerationId] = useState<string | null>(null)
   const [formData, setFormData] = useState<GenerationFormData>({
     name: '',
     estimatedYears: '',
@@ -300,9 +301,8 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
   return (
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="list">Generations</TabsTrigger>
-          <TabsTrigger value="actresses">Actress Assignments</TabsTrigger>
           <TabsTrigger value="lineups">Lineup Management</TabsTrigger>
         </TabsList>
 
@@ -359,69 +359,18 @@ export function GenerationManagement({ groupId, groupName, accessToken }: Genera
                   onEdit={(gen, e) => handleEdit(gen, e)}
                   onDelete={(gen, e) => handleDelete(gen, e)}
                   isLoading={isLoading}
+                  isExpanded={expandedGenerationId === generation.id}
+                  onToggleExpanded={() => setExpandedGenerationId(
+                    expandedGenerationId === generation.id ? null : generation.id
+                  )}
+                  groupId={groupId || ''}
+                  accessToken={accessToken || ''}
                 />
               ))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="actresses" className="space-y-4">
-          {generations.length > 0 ? (
-            <div className="space-y-4">
-              {/* Generation Selector */}
-              <div className="space-y-2">
-                <Label htmlFor="generation-select">Select Generation</Label>
-                <Select value={selectedGenerationId} onValueChange={setSelectedGenerationId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a generation to manage actresses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {generations.map((generation) => (
-                      <SelectItem key={generation.id} value={generation.id}>
-                        <div className="flex items-center gap-2">
-                          {generation.profilePicture ? (
-                            <ImageWithFallback
-                              src={generation.profilePicture}
-                              alt={generation.name || 'Generation'}
-                              className="w-4 h-4 rounded-full object-cover"
-                              fallback={<User className="w-4 h-4 text-gray-400" />}
-                            />
-                          ) : (
-                            <User className="w-4 h-4 text-gray-400" />
-                          )}
-                          <span>{generation.name}</span>
-                          {generation.estimatedYears && (
-                            <span className="text-xs text-gray-500">({generation.estimatedYears})</span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Generation Actress Management */}
-              {selectedGenerationId && (
-                <GenerationActressManagement 
-                  generationId={selectedGenerationId}
-                  generationName={generations.find(g => g.id === selectedGenerationId)?.name || 'Unnamed Generation'}
-                  groupId={groupId || ''}
-                  accessToken={accessToken || ''}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-              <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <h5 className="font-medium text-gray-900 mb-1">No generations available</h5>
-              <p className="text-sm text-gray-500 mb-3">Create a generation first to manage actresses</p>
-              <Button onClick={(e) => handleCreate(e)} size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Create First Generation
-              </Button>
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="lineups" className="space-y-4">
           {generations.length > 0 ? (
@@ -611,63 +560,104 @@ interface GenerationItemProps {
   onEdit: (generation: MasterDataItem, e?: React.MouseEvent) => void
   onDelete: (generation: MasterDataItem, e?: React.MouseEvent) => void
   isLoading: boolean
+  isExpanded: boolean
+  onToggleExpanded: () => void
+  groupId: string
+  accessToken: string
 }
 
-function GenerationItem({ generation, onEdit, onDelete, isLoading }: GenerationItemProps) {
+function GenerationItem({ 
+  generation, 
+  onEdit, 
+  onDelete, 
+  isLoading, 
+  isExpanded, 
+  onToggleExpanded, 
+  groupId, 
+  accessToken 
+}: GenerationItemProps) {
   return (
-    <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 hover:bg-gray-100 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {generation.profilePicture ? (
-            <ImageWithFallback
-              src={generation.profilePicture}
-              alt={generation.name || 'Generation'}
-              className="w-8 h-8 rounded-full object-cover"
-              fallback={<User className="w-8 h-8 text-gray-400" />}
-            />
-          ) : (
-            <User className="w-8 h-8 text-gray-400" />
-          )}
-          <div>
-            <h5 className="font-medium text-gray-900 text-sm">{generation.name}</h5>
-            {(generation.estimatedYears || generation.startDate || generation.endDate) && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <Calendar className="h-3 w-3" />
-                <span>
-                  {generation.estimatedYears || 
-                   (generation.startDate && generation.endDate
-                    ? `${generation.startDate} - ${generation.endDate}`
-                    : generation.startDate || generation.endDate)}
-                </span>
-              </div>
+    <div className="bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+      <div className="p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {generation.profilePicture ? (
+              <ImageWithFallback
+                src={generation.profilePicture}
+                alt={generation.name || 'Generation'}
+                className="w-8 h-8 rounded-full object-cover"
+                fallback={<User className="w-8 h-8 text-gray-400" />}
+              />
+            ) : (
+              <User className="w-8 h-8 text-gray-400" />
             )}
+            <div>
+              <h5 className="font-medium text-gray-900 text-sm">{generation.name}</h5>
+              {(generation.estimatedYears || generation.startDate || generation.endDate) && (
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Calendar className="h-3 w-3" />
+                  <span>
+                    {generation.estimatedYears || 
+                     (generation.startDate && generation.endDate
+                      ? `${generation.startDate} - ${generation.endDate}`
+                      : generation.startDate || generation.endDate)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleExpanded()
+              }}
+              disabled={isLoading}
+              className="h-7 px-2 text-xs"
+            >
+              <Users className="h-3 w-3 mr-1" />
+              Assign Actress
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => onEdit(generation, e)}
+              disabled={isLoading}
+              className="h-7 w-7 p-0"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => onDelete(generation, e)}
+              disabled={isLoading}
+              className="h-7 w-7 p-0"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </div>
-        
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => onEdit(generation, e)}
-            disabled={isLoading}
-            className="h-7 w-7 p-0"
-          >
-            <Edit className="h-3 w-3" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => onDelete(generation, e)}
-            disabled={isLoading}
-            className="h-7 w-7 p-0"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
+
+        {generation.description && (
+          <p className="text-xs text-gray-600 mt-2 line-clamp-1">{generation.description}</p>
+        )}
       </div>
 
-      {generation.description && (
-        <p className="text-xs text-gray-600 mt-2 line-clamp-1">{generation.description}</p>
+      {/* Expanded Actress Assignment Section */}
+      {isExpanded && (
+        <div className="border-t border-gray-200 p-4 bg-white">
+          <GenerationActressManagement 
+            generationId={generation.id}
+            generationName={generation.name || 'Unnamed Generation'}
+            groupId={groupId}
+            accessToken={accessToken}
+          />
+        </div>
       )}
     </div>
   )
