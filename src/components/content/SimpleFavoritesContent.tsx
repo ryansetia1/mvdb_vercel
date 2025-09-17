@@ -448,30 +448,28 @@ export function SimpleFavoritesContent({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="movies" className="flex items-center gap-2 whitespace-nowrap">
-              <Film className="h-4 w-4" />
-              Movies ({favoriteCounts.movies})
-            </TabsTrigger>
-            <TabsTrigger value="photobooks" className="flex items-center gap-2 whitespace-nowrap">
-              <ImageIcon className="h-4 w-4" />
-              Photobooks ({favoriteCounts.photobooks})
-            </TabsTrigger>
-            <TabsTrigger value="images" className="flex items-center gap-2 whitespace-nowrap">
-              <ImageIcon className="h-4 w-4" />
-              Images ({favoriteCounts.images})
-            </TabsTrigger>
-            <TabsTrigger value="cast" className="flex items-center gap-2 whitespace-nowrap">
-              <User className="h-4 w-4" />
-              Cast ({favoriteCounts.cast})
-            </TabsTrigger>
-            <TabsTrigger value="series" className="flex items-center gap-2 whitespace-nowrap">
-              <PlayCircle className="h-4 w-4" />
-              Series ({favoriteCounts.series})
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="w-full flex">
+          <TabsTrigger value="movies" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <Film className="h-4 w-4" />
+            Movies ({favoriteCounts.movies})
+          </TabsTrigger>
+          <TabsTrigger value="photobooks" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <ImageIcon className="h-4 w-4" />
+            Photobooks ({favoriteCounts.photobooks})
+          </TabsTrigger>
+          <TabsTrigger value="images" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <ImageIcon className="h-4 w-4" />
+            Images ({favoriteCounts.images})
+          </TabsTrigger>
+          <TabsTrigger value="cast" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <User className="h-4 w-4" />
+            Cast ({favoriteCounts.cast})
+          </TabsTrigger>
+          <TabsTrigger value="series" className="flex items-center gap-2 flex-1 whitespace-nowrap">
+            <PlayCircle className="h-4 w-4" />
+            Series ({favoriteCounts.series})
+          </TabsTrigger>
+        </TabsList>
 
         {/* Movies Tab */}
         <TabsContent value="movies" className="space-y-4">
