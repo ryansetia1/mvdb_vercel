@@ -66,6 +66,7 @@ export function ModernLightbox({
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout>()
+  const lastClickTimeRef = useRef<number>(0)
 
   // Update zoom when defaultZoom changes
   useEffect(() => {
@@ -155,6 +156,15 @@ export function ModernLightbox({
 
   const handleReset = useCallback(() => {
     console.log('Reset clicked')
+    setZoom(defaultZoom)
+    setPosition({ x: 0, y: 0 })
+    setRotation(0)
+    resetControlsTimer()
+  }, [defaultZoom, resetControlsTimer])
+
+  // Handle double click to reset zoom and position
+  const handleDoubleClick = useCallback(() => {
+    console.log('Double click detected - resetting zoom and position')
     setZoom(defaultZoom)
     setPosition({ x: 0, y: 0 })
     setRotation(0)
@@ -651,10 +661,21 @@ export function ModernLightbox({
               }}
               onClick={(e) => {
                 e.stopPropagation()
-                if (zoom === defaultZoom) {
-                  console.log('Image clicked - zooming to 2.5x')
-                  setZoom(2.5) // Zoom to 2.5x
+                const currentTime = Date.now()
+                const timeDiff = currentTime - lastClickTimeRef.current
+                
+                if (timeDiff < 300) {
+                  // Double click detected (within 300ms)
+                  handleDoubleClick()
+                } else {
+                  // Single click - zoom in if at default zoom
+                  if (zoom === defaultZoom) {
+                    console.log('Image clicked - zooming to 2.5x')
+                    setZoom(2.5) // Zoom to 2.5x
+                  }
                 }
+                
+                lastClickTimeRef.current = currentTime
               }}
               draggable={false}
             />

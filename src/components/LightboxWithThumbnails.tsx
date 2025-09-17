@@ -48,6 +48,7 @@ export function LightboxWithThumbnails({
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const lastClickTimeRef = useRef<number>(0)
   const imageRef = useRef<HTMLImageElement>(null)
   const thumbnailsRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout>()
@@ -126,6 +127,15 @@ export function LightboxWithThumbnails({
   }, [resetControlsTimer])
 
   const handleReset = useCallback(() => {
+    setZoom(1)
+    setPosition({ x: 0, y: 0 })
+    setRotation(0)
+    resetControlsTimer()
+  }, [resetControlsTimer])
+
+  // Handle double click to reset zoom and position
+  const handleDoubleClick = useCallback(() => {
+    console.log('Double click detected - resetting zoom and position')
     setZoom(1)
     setPosition({ x: 0, y: 0 })
     setRotation(0)
@@ -568,9 +578,20 @@ export function LightboxWithThumbnails({
               }}
               onClick={(e) => {
                 e.stopPropagation()
-                if (!disableZoom && zoom === 1) {
-                  handleZoomIn()
+                const currentTime = Date.now()
+                const timeDiff = currentTime - lastClickTimeRef.current
+                
+                if (timeDiff < 300) {
+                  // Double click detected (within 300ms)
+                  handleDoubleClick()
+                } else {
+                  // Single click - zoom in if at default zoom
+                  if (!disableZoom && zoom === 1) {
+                    handleZoomIn()
+                  }
                 }
+                
+                lastClickTimeRef.current = currentTime
               }}
               draggable={false}
             />
