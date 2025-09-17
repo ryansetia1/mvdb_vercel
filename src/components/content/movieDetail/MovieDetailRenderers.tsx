@@ -94,6 +94,12 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
           color: '#ffffff',
           borderColor: '#0177FF'
         }
+      } else if (title.includes('supjav')) {
+        return {
+          backgroundColor: '#D8201D',
+          color: '#ffffff',
+          borderColor: '#D8201D'
+        }
       }
       
       // Default colors for other platforms

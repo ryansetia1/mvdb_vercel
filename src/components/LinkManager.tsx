@@ -26,17 +26,17 @@ export function LinkManager({ label, links, onLinksChange, placeholder }: LinkMa
   const [editTitle, setEditTitle] = useState('')
   const [editUrl, setEditUrl] = useState('')
   
-  // Common titles based on link type - simplified to 3 most used
+  // Common titles based on link type - simplified to 4 most used
   const getCommonTitles = () => {
     const labelLower = label.toLowerCase()
     if (labelLower.includes('censored')) {
-      return ['VK', 'Missav', 'Highporn']
+      return ['VK', 'Missav', 'Highporn', 'Supjav']
     } else if (labelLower.includes('uncensored')) {
-      return ['VK', 'Missav', 'Highporn']
+      return ['VK', 'Missav', 'Highporn', 'Supjav']
     } else if (labelLower.includes('other')) {
-      return ['VK', 'Missav', 'Highporn']
+      return ['VK', 'Missav', 'Highporn', 'Supjav']
     }
-    return ['VK', 'Missav', 'Highporn']
+    return ['VK', 'Missav', 'Highporn', 'Supjav']
   }
 
   // Parse links from string format

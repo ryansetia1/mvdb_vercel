@@ -520,7 +520,7 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
         const normalized = normalizeR18JapaneseName(director)
         return normalized.jpname || normalized.name || director.name_kanji || director.name_kana || director.name_romaji
       })() : '',
-      studio: data.maker_name_en || data.maker_name_ja || '',
+      studio: data.maker_name_ja || data.maker_name_en || '',
       series: data.series_name_en || data.series_name_ja || '',
       label: data.label_name_en || data.label_name_ja || '',
       actresses: data.actresses.map(actress => {
@@ -1021,6 +1021,18 @@ function matchJavdbSimple(
       if (item.kanjiName?.trim() === trimmedName) return true
       if (item.kanaName?.trim() === trimmedName) return true
       if (item.name?.trim() === trimmedName) return true
+      
+      // Cross-language matching: if parsed name is Japanese, check against English name in DB
+      if (isJapaneseName && item.name && hasJapaneseChars(item.name)) {
+        // Both are Japanese names, do exact match
+        if (item.name.trim() === trimmedName) return true
+      }
+      
+      // Cross-language matching: if parsed name is English, check against Japanese name in DB
+      if (!isJapaneseName && item.jpname && !hasJapaneseChars(trimmedName)) {
+        // Both are English names, do case-insensitive match
+        if (item.jpname.toLowerCase().trim() === trimmedName.toLowerCase()) return true
+      }
       
       // Case-insensitive matching for English names only
       if (item.name && trimmedName && /^[a-zA-Z\s]+$/.test(item.name) && /^[a-zA-Z\s]+$/.test(trimmedName)) {
@@ -2104,7 +2116,34 @@ export async function matchWithDatabase(
     console.log('Searching for studio:', parsedData.studio)
     console.log('Parsed English name:', parsedEnglishName)
     
-    const matchResult = findMatches(parsedData.studio, 'studio')
+    // Try matching with all name variations from R18.dev
+    let matchResult = findMatches(parsedData.studio, 'studio')
+    
+    // If no match found and we have R18.dev studio info, try other name variations
+    if (!matchResult.matched && parsedData.studioInfo) {
+      console.log('No match found with primary name, trying other variations...')
+      
+      // Try with English name
+      if (parsedData.studioInfo.name_en && parsedData.studioInfo.name_en !== parsedData.studio) {
+        console.log('Trying with English name:', parsedData.studioInfo.name_en)
+        const englishMatch = findMatches(parsedData.studioInfo.name_en, 'studio')
+        if (englishMatch.matched) {
+          matchResult = englishMatch
+          console.log('Found match with English name!')
+        }
+      }
+      
+      // Try with Japanese name (if different from primary)
+      if (!matchResult.matched && parsedData.studioInfo.name_ja && parsedData.studioInfo.name_ja !== parsedData.studio) {
+        console.log('Trying with Japanese name:', parsedData.studioInfo.name_ja)
+        const japaneseMatch = findMatches(parsedData.studioInfo.name_ja, 'studio')
+        if (japaneseMatch.matched) {
+          matchResult = japaneseMatch
+          console.log('Found match with Japanese name!')
+        }
+      }
+    }
+    
     console.log('Studio match result:', matchResult)
     
     // Check if there are truly different English names in multiple matches (Stage 1)

@@ -14,6 +14,7 @@ import { SearchableSelect } from '../../SearchableSelect'
 import { SimpleFavoriteButton } from '../../SimpleFavoriteButton'
 import { Button } from '../../ui/button'
 import { Film, ArrowUpDown, ArrowUp, ArrowDown, SortAsc, SortDesc, Heart, Tag, Building, Clapperboard, Tags, ArrowLeft, PlayCircle } from 'lucide-react'
+import { copyToClipboard } from '../../../utils/clipboard'
 
 interface MoviesGridProps {
   movies: Movie[]
@@ -107,6 +108,16 @@ function MovieItem({
       }
     }
   }
+
+  const handleCodeClick = async (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering movie card onClick
+    e.preventDefault()
+    
+    const code = movie.code?.toUpperCase() || 'NO CODE'
+    if (code !== 'NO CODE') {
+      await copyToClipboard(code, 'Movie code')
+    }
+  }
   
   return (
     <div
@@ -116,7 +127,16 @@ function MovieItem({
     >
       {/* Movie Code and Type */}
       <div className="text-center mb-2">
-        <Badge variant="secondary" className="text-xs font-mono px-2 py-1">
+        <Badge 
+          variant="secondary" 
+          className={`text-xs font-mono px-2 py-1 transition-all duration-200 select-none ${
+            movie.code 
+              ? 'cursor-pointer hover:bg-secondary/80 hover:shadow-sm active:scale-95 transform' 
+              : 'cursor-not-allowed opacity-60'
+          }`}
+          onClick={movie.code ? handleCodeClick : undefined}
+          title={movie.code ? `Click to copy: ${movie.code.toUpperCase()}` : 'No code available'}
+        >
           {movie.code?.toUpperCase() || 'NO CODE'}
         </Badge>
         {movie.type && (
