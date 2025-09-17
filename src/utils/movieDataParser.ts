@@ -252,7 +252,7 @@ interface R18JsonData {
     name_en_is_machine_translation: boolean
     name_ja: string
   }>
-  comment_en: string
+  comment_en: string | null
   content_id: string
   directors: Array<{
     id: number
@@ -287,7 +287,7 @@ interface R18JsonData {
   title_en: string
   title_en_is_machine_translation: boolean
   title_en_uncensored: string
-  title_ja: string
+  title_ja: string | null
 }
 
 /**
@@ -300,10 +300,11 @@ function isR18JsonFormat(rawData: string): boolean {
       parsed &&
       typeof parsed === 'object' &&
       'dvd_id' in parsed &&
-      'title_ja' in parsed &&
       'actresses' in parsed &&
       'release_date' in parsed &&
-      'runtime_mins' in parsed
+      'runtime_mins' in parsed &&
+      'content_id' in parsed &&
+      'title_en' in parsed
     )
   } catch {
     return false
@@ -510,7 +511,7 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
     
     const parsed: ParsedMovieData = {
       code: data.dvd_id || '',
-      titleJp: data.title_ja || '',
+      titleJp: data.title_ja || data.title_en || '',
       titleEn: data.title_en || data.title_en_uncensored || '',
       releaseDate: data.release_date || '',
       duration: data.runtime_mins ? `${data.runtime_mins} minutes` : '',
