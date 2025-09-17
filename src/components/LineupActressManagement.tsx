@@ -109,48 +109,48 @@ export function LineupActressManagement({
     }
   }
 
-  // Helper function to get all existing versions in this lineup
-  const getAllExistingVersions = () => {
-    const allVersions: { [versionName: string]: any } = {}
-    
-    // Get all versions from existing lineup actresses
-    lineupActresses.forEach(assignment => {
-      const actress = actresses.find(a => a.id === assignment.actressId)
-      if (actress?.lineupData?.[lineupId]?.photoVersions) {
-        Object.entries(actress.lineupData[lineupId].photoVersions).forEach(([versionName, versionData]) => {
-          if (!allVersions[versionName]) {
-            allVersions[versionName] = versionData
-          }
-        })
-      }
-    })
-    
-    return allVersions
-  }
-
   const handleAssignActress = async () => {
     if (!selectedActress) return
 
     try {
       setLoading(true)
+      setError(null) // Clear any previous errors
       
       const actress = actresses.find(a => a.id === selectedActress)
-      if (!actress) return
+      if (!actress) {
+        console.error('Actress not found:', selectedActress)
+        setError('Aktris tidak ditemukan')
+        return
+      }
 
-      // Get all existing versions in this lineup
-      const existingVersions = getAllExistingVersions()
+      console.log('=== ASSIGNING ACTRESS TO LINEUP ===')
+      console.log('Actress:', { id: actress.id, name: actress.name })
+      console.log('Lineup ID:', lineupId)
+      console.log('Assignment data:', assignmentData)
+
+      // Check if actress is already in this lineup
+      if (actress.lineupData && actress.lineupData[lineupId]) {
+        console.warn('Actress is already in this lineup:', {
+          actressId: actress.id,
+          actressName: actress.name,
+          lineupId,
+          existingData: actress.lineupData[lineupId]
+        })
+        setError('Aktris sudah berada di lineup ini')
+        return
+      }
 
       // Update actress lineup data while preserving ALL existing data
       const updatedLineupData = {
-        ...actress.lineupData,
+        ...(actress.lineupData || {}), // Handle undefined lineupData
         [lineupId]: {
           alias: assignmentData.alias || undefined,
           profilePicture: assignmentData.profilePicture || undefined,
-          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined,
-          // Add existing versions to new member
-          photoVersions: existingVersions
+          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined
         }
       }
+
+      console.log('Updated lineupData after assignment:', updatedLineupData)
 
       // Preserve ALL existing actress data when updating
       const updateData = {
@@ -174,6 +174,8 @@ export function LineupActressManagement({
 
       await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
       
+      console.log('Successfully added actress to lineup:', actress.name)
+      
       // Reset form and reload data
       setSelectedActress('')
       setAssignmentData({ alias: '', profilePicture: '', photos: [] })
@@ -186,7 +188,8 @@ export function LineupActressManagement({
 
     } catch (err) {
       console.error('Error assigning actress to lineup:', err)
-      setError('Gagal menambahkan aktris ke lineup')
+      const errorMessage = err instanceof Error ? err.message : 'Gagal menambahkan aktris ke lineup'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -199,16 +202,41 @@ export function LineupActressManagement({
 
     try {
       setLoading(true)
+      setError(null) // Clear any previous errors
       
       const actress = actresses.find(a => a.id === actressId)
-      if (!actress) return
+      if (!actress) {
+        console.error('Actress not found:', actressId)
+        setError('Aktris tidak ditemukan')
+        return
+      }
+
+      console.log('=== REMOVING ACTRESS FROM LINEUP ===')
+      console.log('Actress:', { id: actress.id, name: actress.name })
+      console.log('Lineup ID:', lineupId)
+      console.log('Current lineupData:', actress.lineupData)
+
+      // Validate that actress is actually in this lineup
+      if (!actress.lineupData || !actress.lineupData[lineupId]) {
+        console.warn('Actress is not in this lineup:', {
+          actressId: actress.id,
+          actressName: actress.name,
+          lineupId,
+          hasLineupData: !!actress.lineupData,
+          hasSpecificLineup: !!actress.lineupData?.[lineupId]
+        })
+        setError('Aktris tidak berada di lineup ini')
+        return
+      }
 
       // Remove lineup data while preserving ALL existing data
-      const updatedLineupData = { ...actress.lineupData }
+      const updatedLineupData = { ...(actress.lineupData || {}) }
       delete updatedLineupData[lineupId]
 
+      console.log('Updated lineupData after removal:', updatedLineupData)
+
       // Preserve ALL existing actress data when updating
-      const updateData: any = {
+      const updateData = {
         name: actress.name, // Required field
         jpname: actress.jpname,
         birthdate: actress.birthdate,
@@ -221,17 +249,15 @@ export function LineupActressManagement({
         groupId: actress.groupId,
         groupData: actress.groupData,
         selectedGroups: actress.selectedGroups,
-        generationData: actress.generationData
-      }
-
-      // Only include lineupData if it has content
-      if (Object.keys(updatedLineupData).length > 0) {
-        updateData.lineupData = updatedLineupData
+        generationData: actress.generationData,
+        lineupData: Object.keys(updatedLineupData).length > 0 ? updatedLineupData : undefined
       }
 
       console.log('Frontend: Removing actress from lineup with preserved data:', updateData)
 
       await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
+      
+      console.log('Successfully removed actress from lineup:', actress.name)
       
       // Wait a bit for server to process the data, then reload
       setTimeout(async () => {
@@ -240,7 +266,8 @@ export function LineupActressManagement({
 
     } catch (err) {
       console.error('Error removing actress from lineup:', err)
-      setError('Gagal menghapus aktris dari lineup')
+      const errorMessage = err instanceof Error ? err.message : 'Gagal menghapus aktris dari lineup'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -248,16 +275,42 @@ export function LineupActressManagement({
 
   const handleUpdateActressData = async (actressId: string, field: string, value: string | string[]) => {
     try {
+      setError(null) // Clear any previous errors
+      
       const actress = actresses.find(a => a.id === actressId)
-      if (!actress) return
+      if (!actress) {
+        console.error('Actress not found:', actressId)
+        setError('Aktris tidak ditemukan')
+        return
+      }
+
+      console.log('=== UPDATING ACTRESS LINEUP DATA ===')
+      console.log('Actress:', { id: actress.id, name: actress.name })
+      console.log('Lineup ID:', lineupId)
+      console.log('Field:', field, 'Value:', value)
+
+      // Validate that actress is in this lineup
+      if (!actress.lineupData || !actress.lineupData[lineupId]) {
+        console.warn('Actress is not in this lineup:', {
+          actressId: actress.id,
+          actressName: actress.name,
+          lineupId,
+          hasLineupData: !!actress.lineupData,
+          hasSpecificLineup: !!actress.lineupData?.[lineupId]
+        })
+        setError('Aktris tidak berada di lineup ini')
+        return
+      }
 
       const updatedLineupData = {
-        ...actress.lineupData,
+        ...(actress.lineupData || {}), // Handle undefined lineupData
         [lineupId]: {
-          ...actress.lineupData?.[lineupId],
+          ...(actress.lineupData?.[lineupId] || {}),
           [field]: value
         }
       }
+
+      console.log('Updated lineupData after field update:', updatedLineupData)
 
       // Preserve ALL existing actress data when updating
       const updateData = {
@@ -281,6 +334,8 @@ export function LineupActressManagement({
 
       await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
       
+      console.log('Successfully updated actress lineup data:', actress.name)
+      
       // Wait a bit for server to process the data, then reload
       setTimeout(async () => {
         await loadData()
@@ -288,7 +343,8 @@ export function LineupActressManagement({
 
     } catch (err) {
       console.error('Error updating actress lineup data:', err)
-      setError('Gagal mengupdate data aktris')
+      const errorMessage = err instanceof Error ? err.message : 'Gagal mengupdate data aktris'
+      setError(errorMessage)
     }
   }
 

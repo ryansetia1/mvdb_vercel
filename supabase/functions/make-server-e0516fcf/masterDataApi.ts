@@ -1017,19 +1017,23 @@ export async function updateExtendedMasterData(c: Context) {
     const finalProfilePicture = uniquePhotos.length > 0 ? uniquePhotos[0] : (profilePicture === null || profilePicture === '' ? undefined : existingItem.profilePicture)
     const finalPhotoArray = uniquePhotos.length > 1 ? uniquePhotos.slice(1) : (photo === null || (Array.isArray(photo) && photo.length === 0) ? undefined : existingItem.photo)
 
-    // Process lineupData - ensure it's properly handled
-    let processedLineupData = existingItem.lineupData || {}
-    if (lineupData !== undefined && lineupData !== null) {
-      if (typeof lineupData === 'object' && !Array.isArray(lineupData)) {
-        // Merge with existing lineupData
-        processedLineupData = {
-          ...processedLineupData,
-          ...lineupData
-        }
-        console.log(`Server: Processed lineupData:`, processedLineupData)
-      } else {
-        console.log(`Server: Invalid lineupData format, keeping existing:`, existingItem.lineupData)
-      }
+    // Process lineupData - handle undefined/null for removal
+    let processedLineupData
+    if (lineupData === undefined) {
+      // Keep existing lineupData
+      processedLineupData = existingItem.lineupData
+      console.log(`Server: lineupData undefined, keeping existing:`, processedLineupData)
+    } else if (lineupData === null) {
+      // Remove lineupData completely
+      processedLineupData = undefined
+      console.log(`Server: lineupData null, removing completely`)
+    } else if (typeof lineupData === 'object' && !Array.isArray(lineupData)) {
+      // Replace with new lineupData
+      processedLineupData = lineupData
+      console.log(`Server: lineupData replaced with:`, processedLineupData)
+    } else {
+      console.log(`Server: Invalid lineupData format, keeping existing:`, existingItem.lineupData)
+      processedLineupData = existingItem.lineupData
     }
 
     // Update the item

@@ -219,24 +219,6 @@ export function LineupManagement({
     }
   }
 
-  // Helper function to get all existing versions in this lineup
-  const getAllExistingVersions = (lineupId: string) => {
-    const allVersions: { [versionName: string]: any } = {}
-    
-    // Get all versions from existing lineup actresses
-    actresses.forEach(actress => {
-      if (actress.lineupData?.[lineupId]?.photoVersions) {
-        Object.entries(actress.lineupData[lineupId].photoVersions).forEach(([versionName, versionData]) => {
-          if (!allVersions[versionName]) {
-            allVersions[versionName] = versionData
-          }
-        })
-      }
-    })
-    
-    return allVersions
-  }
-
   const handleSubmit = async () => {
     
     try {
@@ -277,50 +259,83 @@ export function LineupManagement({
         createdLineup = await masterDataApi.createExtended('lineup', lineupData, accessToken)
       }
 
-      // Get all existing versions in this lineup (for new members)
-      const existingVersions = getAllExistingVersions(createdLineup.id)
-
       // Update selected actresses with lineup data
-      if (formData.selectedActresses && formData.selectedActresses.length > 0 && createdLineup) {
-        for (const actressId of formData.selectedActresses) {
-          const actress = actresses?.find(a => a.id === actressId)
-          if (actress) {
-            // Get existing versions for this actress or use lineup versions for new members
-            const actressVersions = actress.lineupData?.[createdLineup.id]?.photoVersions || existingVersions
-            
-            // Preserve ALL existing actress data when updating
-            const updateData: Partial<MasterDataItem> = {
-              name: actress.name, // Required field for update
-              jpname: actress.jpname,
-              birthdate: actress.birthdate,
-              alias: actress.alias,
-              links: actress.links,
-              takulinks: actress.takulinks,
-              tags: actress.tags,
-              photo: actress.photo,
-              profilePicture: actress.profilePicture,
-              groupId: actress.groupId,
-              groupData: actress.groupData,
-              selectedGroups: actress.selectedGroups,
-              generationData: actress.generationData,
+      if (createdLineup) {
+        console.log('=== UPDATING ACTRESSES WITH LINEUP DATA ===')
+        console.log('Selected actresses:', formData.selectedActresses)
+        console.log('Created lineup:', createdLineup)
+        
+        // Get all actresses that currently have this lineup data
+        const currentLineupActresses = actresses?.filter(actress => 
+          actress.lineupData?.[createdLineup.id]
+        ) || []
+        
+        console.log('Current lineup actresses:', currentLineupActresses.map(a => a.name))
+        
+        // Process selected actresses (add/update lineup data)
+        if (formData.selectedActresses && formData.selectedActresses.length > 0) {
+          for (const actressId of formData.selectedActresses) {
+            const actress = actresses?.find(a => a.id === actressId)
+            if (!actress) {
+              console.error('Actress not found:', actressId)
+              continue
+            }
+
+            console.log('Updating actress:', { id: actress.id, name: actress.name })
+
+            // Use the same pattern as generation removal - spread all actress data
+            const updateData = {
+              ...actress, // Spread all existing actress data
               lineupData: {
-                ...(actress.lineupData || {}),
+                ...(actress.lineupData || {}), // Handle undefined lineupData
                 [createdLineup.id]: {
                   alias: formData.actressAliases[actressId] || undefined,
                   profilePicture: formData.actressProfilePictures[actressId] || undefined,
                   photos: actress.lineupData?.[createdLineup.id]?.photos || undefined,
-                  photoVersions: actressVersions
+                  photoVersions: actress.lineupData?.[createdLineup.id]?.photoVersions || undefined
                 }
-              }
+              },
+              updatedAt: new Date().toISOString()
             }
+            
+            // Remove fields that shouldn't be sent in update
+            delete updateData.id
+            delete updateData.createdAt
+            
             console.log('Updating actress with lineup data:', {
               actressId,
               actressName: actress.name,
               lineupId: createdLineup.id,
               updateData
             })
-            await masterDataApi.updateExtended('actress', actressId, updateData, accessToken)
-            console.log('Actress updated successfully:', actress.name)
+            
+            try {
+              await masterDataApi.updateExtended('actress', actressId, updateData, accessToken)
+              console.log('Actress updated successfully:', actress.name)
+            } catch (err) {
+              console.error('Error updating actress:', actress.name, err)
+              // Continue with other actresses even if one fails
+            }
+          }
+        }
+        
+        // Process actresses that should be removed from lineup
+        const actressesToRemove = currentLineupActresses.filter(actress => 
+          !formData.selectedActresses?.includes(actress.id)
+        )
+        
+        console.log('Actresses to remove from lineup:', actressesToRemove.map(a => a.name))
+        
+        for (const actress of actressesToRemove) {
+          console.log('Removing actress from lineup:', { id: actress.id, name: actress.name })
+          
+          try {
+            // Use the same API function as generation removal
+            await masterDataApi.removeActressFromLineup(actress.id, createdLineup.id, accessToken)
+            console.log('Successfully removed actress from lineup:', actress.name)
+          } catch (err) {
+            console.error('Error removing actress from lineup:', actress.name, err)
+            // Continue with other actresses even if one fails
           }
         }
       }
@@ -569,66 +584,6 @@ export function LineupManagement({
       console.error('Error updating version photo:', err)
       setError('Failed to update version photo')
     }
-  }
-
-  const handleRemoveActressFromLineup = async (actressId: string, lineupId: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus member ini dari lineup?')) {
-      return
-    }
-
-    try {
-      // Don't use setLoading(true) as it might affect dialog state
-      // setLoading(true)
-      
-      const actress = actresses.find(a => a.id === actressId)
-      if (!actress) {
-        setError('Actress not found')
-        return
-      }
-
-      // Remove lineup data while preserving ALL existing data
-      const updatedLineupData = { ...actress.lineupData }
-      delete updatedLineupData[lineupId]
-
-      // Preserve ALL existing actress data when updating
-      const updateData: any = {
-        name: actress.name, // Required field
-        jpname: actress.jpname,
-        birthdate: actress.birthdate,
-        alias: actress.alias,
-        links: actress.links,
-        takulinks: actress.takulinks,
-        tags: actress.tags,
-        photo: actress.photo,
-        profilePicture: actress.profilePicture,
-        groupId: actress.groupId,
-        groupData: actress.groupData,
-        selectedGroups: actress.selectedGroups,
-        generationData: actress.generationData
-      }
-
-      // Only include lineupData if it has content
-      if (Object.keys(updatedLineupData).length > 0) {
-        updateData.lineupData = updatedLineupData
-      }
-
-      console.log('Frontend: Removing actress from lineup with preserved data:', updateData)
-
-      await masterDataApi.updateExtended('actress', actressId, updateData, accessToken)
-      
-      // Wait a bit for server to process the data, then reload
-      setTimeout(async () => {
-        await loadData()
-      }, 1000)
-
-    } catch (err) {
-      console.error('Error removing actress from lineup:', err)
-      setError('Gagal menghapus member dari lineup')
-    }
-    // Don't use setLoading(false) as it might affect dialog state
-    // finally {
-    //   setLoading(false)
-    // }
   }
 
   const handleEdit = (lineup: MasterDataItem) => {
@@ -983,25 +938,6 @@ export function LineupManagement({
                             />
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            const newSelectedActresses = (formData.selectedActresses || []).filter(id => id !== actressId)
-                            const newAliases = { ...formData.actressAliases }
-                            const newProfilePictures = { ...formData.actressProfilePictures }
-                            delete newAliases[actressId]
-                            delete newProfilePictures[actressId]
-                            setFormData({
-                              ...formData,
-                              selectedActresses: newSelectedActresses,
-                              actressAliases: newAliases,
-                              actressProfilePictures: newProfilePictures
-                            })
-                          }}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                          title="Hapus dari lineup"
-                        >
-                          Hapus
-                        </button>
                       </div>
                     )
                   })}
@@ -1184,20 +1120,7 @@ export function LineupManagement({
                         const lineupData = actress.lineupData?.[lineup.id]
                         
                         return (
-                          <div key={actress.id} className="space-y-3 p-4 bg-gray-50 rounded-lg relative">
-                            {/* Delete Button */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleRemoveActressFromLineup(actress.id, lineup.id)
-                              }}
-                              className="absolute top-2 right-2 text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                              title="Hapus dari lineup"
-                            >
-                              Hapus
-                            </button>
-                            
+                          <div key={actress.id} className="space-y-3 p-4 bg-gray-50 rounded-lg">
                             {/* Actress Info */}
                             <div className="flex items-center space-x-3">
                               <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">

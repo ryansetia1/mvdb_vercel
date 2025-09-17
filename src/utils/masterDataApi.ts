@@ -619,6 +619,40 @@ export const masterDataApi = {
     return await this.updateExtended('actress', actressId, updateData, accessToken)
   },
 
+  // Helper method to remove actress from lineup
+  async removeActressFromLineup(actressId: string, lineupId: string, accessToken: string): Promise<MasterDataItem> {
+    console.log('Frontend API: Removing actress from lineup:', { actressId, lineupId })
+    
+    // Get current actress data
+    const actress = await this.getByType('actress', accessToken)
+    const currentActress = actress.find(a => a.id === actressId)
+    
+    if (!currentActress) {
+      throw new Error('Actress not found')
+    }
+
+    // Remove lineup from lineupData
+    const updatedLineupData = { ...currentActress.lineupData }
+    delete updatedLineupData[lineupId]
+
+    console.log('Frontend API: Updated lineup data after removal:', updatedLineupData)
+
+    // Update actress with all existing data plus new lineupData
+    const updateData = {
+      ...currentActress,
+      lineupData: Object.keys(updatedLineupData).length > 0 ? updatedLineupData : null, // Use null to completely remove lineupData
+      updatedAt: new Date().toISOString()
+    }
+
+    // Remove fields that shouldn't be sent in update
+    delete updateData.id
+    delete updateData.createdAt
+
+    console.log('Frontend API: Update data being sent for lineup removal:', updateData)
+
+    return await this.updateExtended('actress', actressId, updateData, accessToken)
+  },
+
   // Helper method to get actresses with their group info populated
   async getActressesWithGroups(accessToken: string): Promise<MasterDataItem[]> {
     const [actresses, groups] = await Promise.all([

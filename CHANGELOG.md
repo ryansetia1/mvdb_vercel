@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CRITICAL**: Fixed lineup member removal functionality
+  - Root cause: Server using merge instead of replace for lineupData
+  - Solution: Updated server logic to properly handle null/undefined lineupData
+  - Added consistent API pattern matching generation removal
+  - Improved error handling and logging
+  - Files modified: Server functions + frontend API utilities
+
 ### Added
 - Smart alias merging system for R18 data
 - AI-powered Japanese to English translation
