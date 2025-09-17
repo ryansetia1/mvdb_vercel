@@ -26,6 +26,7 @@ interface LightboxWithThumbnailsProps {
   metadata?: LightboxMetadata
   altPrefix?: string
   disableZoom?: boolean // For cast profiles where zoom might not be needed
+  defaultZoom?: number // Default zoom level when opening lightbox
 }
 
 export function LightboxWithThumbnails({ 
@@ -36,9 +37,10 @@ export function LightboxWithThumbnails({
   onIndexChange,
   metadata,
   altPrefix = 'Image',
-  disableZoom = false
+  disableZoom = false,
+  defaultZoom = 1
 }: LightboxWithThumbnailsProps) {
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(defaultZoom)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -55,10 +57,15 @@ export function LightboxWithThumbnails({
 
   const currentImage = images[currentIndex]
 
+  // Update zoom when defaultZoom changes
+  useEffect(() => {
+    setZoom(defaultZoom)
+  }, [defaultZoom])
+
   // Reset states when opening/closing or image changes
   useEffect(() => {
     if (isOpen) {
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
       setImageLoaded(false)
@@ -80,7 +87,7 @@ export function LightboxWithThumbnails({
         clearTimeout(hideControlsTimeoutRef.current)
       }
     }
-  }, [isOpen, currentIndex])
+  }, [isOpen, currentIndex, defaultZoom])
 
   // Apply transform to image when zoom changes
   useEffect(() => {
@@ -113,13 +120,13 @@ export function LightboxWithThumbnails({
     if (disableZoom) return
     setZoom(prevZoom => {
       const newZoom = Math.max(prevZoom - 0.5, 0.25)
-      if (newZoom <= 1) {
+      if (newZoom <= defaultZoom) {
         setPosition({ x: 0, y: 0 })
       }
       return newZoom
     })
     resetControlsTimer()
-  }, [disableZoom, resetControlsTimer])
+  }, [disableZoom, defaultZoom, resetControlsTimer])
 
   const handleRotate = useCallback(() => {
     setRotation(prev => prev + 90)
@@ -127,47 +134,47 @@ export function LightboxWithThumbnails({
   }, [resetControlsTimer])
 
   const handleReset = useCallback(() => {
-    setZoom(1)
+    setZoom(defaultZoom)
     setPosition({ x: 0, y: 0 })
     setRotation(0)
     resetControlsTimer()
-  }, [resetControlsTimer])
+  }, [defaultZoom, resetControlsTimer])
 
   // Handle double click to reset zoom and position
   const handleDoubleClick = useCallback(() => {
     console.log('Double click detected - resetting zoom and position')
-    setZoom(1)
+    setZoom(defaultZoom)
     setPosition({ x: 0, y: 0 })
     setRotation(0)
     resetControlsTimer()
-  }, [resetControlsTimer])
+  }, [defaultZoom, resetControlsTimer])
 
   // Navigation functions
   const handleNext = useCallback(() => {
     if (currentIndex < images.length - 1) {
       onIndexChange(currentIndex + 1)
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
     }
     resetControlsTimer()
-  }, [currentIndex, images.length, onIndexChange, resetControlsTimer])
+  }, [currentIndex, images.length, onIndexChange, defaultZoom, resetControlsTimer])
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
       onIndexChange(currentIndex - 1)
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
     }
     resetControlsTimer()
-  }, [currentIndex, onIndexChange, resetControlsTimer])
+  }, [currentIndex, onIndexChange, defaultZoom, resetControlsTimer])
 
   // Thumbnail click
   const handleThumbnailClick = (index: number) => {
     if (index !== currentIndex) {
       onIndexChange(index)
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
     }
@@ -199,7 +206,7 @@ export function LightboxWithThumbnails({
       const zoomFactor = delta > 0 ? 0.9 : 1.1
       const newZoom = Math.max(0.25, Math.min(4, prevZoom * zoomFactor))
       
-      if (newZoom <= 1) {
+      if (newZoom <= defaultZoom) {
         setPosition({ x: 0, y: 0 })
       }
       
@@ -207,11 +214,11 @@ export function LightboxWithThumbnails({
     })
     
     resetControlsTimer()
-  }, [disableZoom, resetControlsTimer])
+  }, [disableZoom, defaultZoom, resetControlsTimer])
 
   // Mouse events for dragging
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (disableZoom || zoom <= 1) return
+    if (disableZoom || zoom <= defaultZoom) return
     e.preventDefault()
     setIsDragging(true)
     setDragStart({
@@ -223,7 +230,7 @@ export function LightboxWithThumbnails({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     resetControlsTimer()
-    if (isDragging && zoom > 1 && !disableZoom) {
+    if (isDragging && zoom > defaultZoom && !disableZoom) {
       setPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -557,12 +564,12 @@ export function LightboxWithThumbnails({
               alt={`${altPrefix} ${currentIndex + 1}`}
               className="select-none"
               style={{
-                maxWidth: disableZoom ? '100vw' : (zoom === 1 ? '100vw' : 'none'),
-                maxHeight: disableZoom ? '100vh' : (zoom === 1 ? '100vh' : 'none'),
+                maxWidth: disableZoom ? '100vw' : (zoom === defaultZoom ? '100vw' : 'none'),
+                maxHeight: disableZoom ? '100vh' : (zoom === defaultZoom ? '100vh' : 'none'),
                 width: 'auto',
                 height: 'auto',
                 objectFit: 'contain',
-                cursor: !disableZoom && zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : (!disableZoom && zoom === 1 ? 'zoom-in' : 'default'),
+                cursor: !disableZoom && zoom > defaultZoom ? (isDragging ? 'grabbing' : 'grab') : (!disableZoom && zoom === defaultZoom ? 'zoom-in' : 'default'),
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                 transformOrigin: 'center center',
                 pointerEvents: 'auto',
@@ -586,7 +593,7 @@ export function LightboxWithThumbnails({
                   handleDoubleClick()
                 } else {
                   // Single click - zoom in if at default zoom
-                  if (!disableZoom && zoom === 1) {
+                  if (!disableZoom && zoom === defaultZoom) {
                     handleZoomIn()
                   }
                 }

@@ -41,6 +41,7 @@ interface FavoriteImageData {
   sourceId: string
   sourceTitle: string
   movieCode?: string
+  movieType?: string // Movie type for zoom logic
   actresses?: string[]
   actors?: string[]
   releaseDate?: string
@@ -204,6 +205,7 @@ export function SimpleFavoritesContent({
           sourceId: movie.id!,
           sourceTitle: movie.titleEn || movie.titleJp || '',
           movieCode: movie.dmm,
+          movieType: movie.type, // Add movie type for zoom logic
           actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
           actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
           releaseDate: movie.releaseDate,
@@ -389,6 +391,16 @@ export function SimpleFavoritesContent({
   const handleCastClick = (type: 'actor' | 'actress', name: string) => {
     onProfileSelect(type, name)
     setShowLightbox(false)
+  }
+
+  // Determine default zoom based on movie type (same logic as EnhancedGallery)
+  const getDefaultZoom = (movieType?: string) => {
+    // For non-Un types, use 1.8x default zoom
+    if (movieType && movieType.toLowerCase() !== 'un') {
+      return 1.8
+    }
+    // For Un type or no type specified, use 1x default zoom
+    return 1
   }
 
   const handleRemoveFailedFavorite = async (favoriteId: string) => {
@@ -922,6 +934,7 @@ export function SimpleFavoritesContent({
           onClose={() => setShowLightbox(false)}
           onIndexChange={setSelectedImageIndex}
           altPrefix="Favorite image"
+          defaultZoom={getDefaultZoom(filteredData.images[selectedImageIndex]?.movieType)}
           metadata={filteredData.images[selectedImageIndex] ? {
             sourceType: filteredData.images[selectedImageIndex].sourceType,
             sourceTitle: filteredData.images[selectedImageIndex].sourceTitle,

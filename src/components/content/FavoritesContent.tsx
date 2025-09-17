@@ -45,6 +45,7 @@ interface FavoriteImageData {
   sourceId: string
   sourceTitle: string
   movieCode?: string
+  movieType?: string // Movie type for zoom logic
   actresses?: string[]
   actors?: string[]
   releaseDate?: string
@@ -206,6 +207,7 @@ export function FavoritesContent({
             sourceId: movie.id!,
             sourceTitle: movie.titleEn || movie.titleJp || '',
             movieCode: movie.dmm,
+            movieType: movie.type, // Add movie type for zoom logic
             actresses: movie.actress ? movie.actress.split(',').map(a => a.trim()).filter(a => a) : [],
             actors: movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(a => a) : [],
             releaseDate: movie.releaseDate
@@ -424,6 +426,16 @@ export function FavoritesContent({
   const handleCastClick = (type: 'actor' | 'actress', name: string) => {
     onProfileSelect(type, name)
     setShowLightbox(false) // Close lightbox when navigating
+  }
+
+  // Determine default zoom based on movie type (same logic as EnhancedGallery)
+  const getDefaultZoom = (movieType?: string) => {
+    // For non-Un types, use 1.8x default zoom
+    if (movieType && movieType.toLowerCase() !== 'un') {
+      return 1.8
+    }
+    // For Un type or no type specified, use 1x default zoom
+    return 1
   }
 
   const handleNext = () => {
@@ -707,6 +719,7 @@ export function FavoritesContent({
           onClose={() => setShowLightbox(false)}
           onIndexChange={setSelectedImageIndex}
           altPrefix="Favorite image"
+          defaultZoom={getDefaultZoom(favoriteImages[selectedImageIndex]?.movieType)}
           metadata={favoriteImages[selectedImageIndex] ? {
             sourceType: favoriteImages[selectedImageIndex].sourceType,
             sourceTitle: favoriteImages[selectedImageIndex].sourceTitle,
