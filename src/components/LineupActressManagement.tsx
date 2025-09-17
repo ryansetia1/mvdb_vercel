@@ -140,13 +140,29 @@ export function LineupActressManagement({
         return
       }
 
+      // Get all existing versions from other actresses in this lineup
+      const existingVersions: { [versionName: string]: any } = {}
+      lineupActresses.forEach(existingActress => {
+        const existingLineupData = existingActress.lineupData?.[lineupId]
+        if (existingLineupData?.photoVersions) {
+          Object.keys(existingLineupData.photoVersions).forEach(versionName => {
+            if (!existingVersions[versionName]) {
+              existingVersions[versionName] = existingLineupData.photoVersions[versionName]
+            }
+          })
+        }
+      })
+      
+      console.log('Existing versions in lineup for new member:', Object.keys(existingVersions))
+      
       // Update actress lineup data while preserving ALL existing data
       const updatedLineupData = {
         ...(actress.lineupData || {}), // Handle undefined lineupData
         [lineupId]: {
           alias: assignmentData.alias || undefined,
           profilePicture: assignmentData.profilePicture || undefined,
-          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined
+          photos: assignmentData.photos.length > 0 ? assignmentData.photos : undefined,
+          photoVersions: Object.keys(existingVersions).length > 0 ? existingVersions : undefined
         }
       }
 

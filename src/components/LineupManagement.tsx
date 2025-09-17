@@ -274,6 +274,21 @@ export function LineupManagement({
         
         console.log('Current lineup actresses:', currentLineupActresses.map(a => a.name))
         
+        // Get all existing versions from current lineup actresses
+        const existingVersions: { [versionName: string]: any } = {}
+        currentLineupActresses.forEach(actress => {
+          const lineupData = actress.lineupData?.[createdLineup.id]
+          if (lineupData?.photoVersions) {
+            Object.keys(lineupData.photoVersions).forEach(versionName => {
+              if (!existingVersions[versionName]) {
+                existingVersions[versionName] = lineupData.photoVersions[versionName]
+              }
+            })
+          }
+        })
+        
+        console.log('Existing versions in lineup:', Object.keys(existingVersions))
+        
         // Process selected actresses (add/update lineup data)
         if (formData.selectedActresses && formData.selectedActresses.length > 0) {
           for (const actressId of formData.selectedActresses) {
@@ -285,6 +300,17 @@ export function LineupManagement({
 
             console.log('Updating actress:', { id: actress.id, name: actress.name })
 
+            // Get existing lineup data for this actress
+            const existingLineupData = actress.lineupData?.[createdLineup.id] || {}
+            
+            // Merge existing versions with new versions (if any)
+            const mergedPhotoVersions = {
+              ...existingVersions, // Give new members all existing versions
+              ...existingLineupData.photoVersions // Preserve any existing versions for this actress
+            }
+            
+            console.log('Merged photo versions for actress:', actress.name, Object.keys(mergedPhotoVersions))
+            
             // Use the same pattern as generation removal - spread all actress data
             const updateData = {
               ...actress, // Spread all existing actress data
@@ -293,8 +319,8 @@ export function LineupManagement({
                 [createdLineup.id]: {
                   alias: formData.actressAliases[actressId] || undefined,
                   profilePicture: formData.actressProfilePictures[actressId] || undefined,
-                  photos: actress.lineupData?.[createdLineup.id]?.photos || undefined,
-                  photoVersions: actress.lineupData?.[createdLineup.id]?.photoVersions || undefined
+                  photos: existingLineupData.photos || undefined,
+                  photoVersions: Object.keys(mergedPhotoVersions).length > 0 ? mergedPhotoVersions : undefined
                 }
               },
               updatedAt: new Date().toISOString()
