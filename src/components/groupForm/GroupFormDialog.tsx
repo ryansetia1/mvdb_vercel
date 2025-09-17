@@ -7,7 +7,7 @@ import { Label } from '../ui/label'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobox'
-import { Users, Plus, Trash2, Edit } from 'lucide-react'
+import { Users, Plus, Trash2, Edit, Save, X } from 'lucide-react'
 import { MasterDataItem } from '../../utils/masterDataApi'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { GROUP_FORM_CONSTANTS } from './constants'
@@ -36,6 +36,9 @@ interface GroupFormDialogProps {
   onAddActressToGroup?: (actressId: string) => Promise<void>
   onRemoveActressFromGroup?: (actressId: string) => Promise<void>
   onCreateNewActress?: (name: string) => Promise<void>
+  // Props for group alias management
+  groupAliases?: { [actressId: string]: string }
+  onUpdateGroupAlias?: (actressId: string, alias: string) => Promise<void>
   accessToken?: string
 }
 
@@ -53,10 +56,13 @@ export function GroupFormDialog({
   onAddActressToGroup,
   onRemoveActressFromGroup,
   onCreateNewActress,
+  groupAliases = {},
+  onUpdateGroupAlias,
   accessToken
 }: GroupFormDialogProps) {
   const [selectedActressId, setSelectedActressId] = useState<string>('')
   const [newActressName, setNewActressName] = useState<string>('')
+  const [editingAliases, setEditingAliases] = useState<{ [actressId: string]: string }>({})
 
   // Prepare options for searchable combobox
   const actressOptions = useComboBoxOptions(
@@ -85,6 +91,41 @@ export function GroupFormDialog({
       setNewActressName('')
     }
   }
+
+  const handleStartEditAlias = (actressId: string) => {
+    setEditingAliases(prev => ({
+      ...prev,
+      [actressId]: groupAliases[actressId] || ''
+    }))
+  }
+
+  const handleCancelEditAlias = (actressId: string) => {
+    setEditingAliases(prev => {
+      const newState = { ...prev }
+      delete newState[actressId]
+      return newState
+    })
+  }
+
+  const handleSaveAlias = async (actressId: string) => {
+    if (onUpdateGroupAlias) {
+      const aliasValue = editingAliases[actressId] || ''
+      await onUpdateGroupAlias(actressId, aliasValue)
+      setEditingAliases(prev => {
+        const newState = { ...prev }
+        delete newState[actressId]
+        return newState
+      })
+    }
+  }
+
+  const handleAliasChange = (actressId: string, value: string) => {
+    setEditingAliases(prev => ({
+      ...prev,
+      [actressId]: value
+    }))
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -362,38 +403,98 @@ export function GroupFormDialog({
                     ) : (
                       <div className="space-y-2">
                         {groupActresses.map((actress) => (
-                          <div key={actress.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              {actress.profilePicture && (
-                                <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border">
-                                  <ImageWithFallback
-                                    src={actress.profilePicture}
-                                    alt={actress.name}
-                                    className="w-full h-full object-cover"
-                                  />
+                          <div key={actress.id} className="p-3 bg-muted/50 rounded-lg space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {actress.profilePicture && (
+                                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border">
+                                    <ImageWithFallback
+                                      src={actress.profilePicture}
+                                      alt={actress.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium">{actress.name}</p>
+                                  {actress.jpname && (
+                                    <p className="text-sm text-muted-foreground">{actress.jpname}</p>
+                                  )}
                                 </div>
-                              )}
-                              <div>
-                                <p className="font-medium">{actress.name}</p>
-                                {actress.jpname && (
-                                  <p className="text-sm text-muted-foreground">{actress.jpname}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onRemoveActressFromGroup?.(actress.id)}
+                                disabled={actressOperationLoading}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                {actressOperationLoading ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                            
+                            {/* Group Alias Section */}
+                            <div className="border-t pt-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <Label className="text-sm font-medium">Group Alias</Label>
+                                {!editingAliases[actress.id] && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleStartEditAlias(actress.id)}
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
                                 )}
                               </div>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onRemoveActressFromGroup?.(actress.id)}
-                              disabled={actressOperationLoading}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              {actressOperationLoading ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                              
+                              {editingAliases[actress.id] !== undefined ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={editingAliases[actress.id]}
+                                    onChange={(e) => handleAliasChange(actress.id, e.target.value)}
+                                    placeholder="Enter group alias..."
+                                    className="flex-1 h-8"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSaveAlias(actress.id)}
+                                    disabled={actressOperationLoading}
+                                    className="h-8 px-2"
+                                  >
+                                    <Save className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCancelEditAlias(actress.id)}
+                                    className="h-8 px-2"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               ) : (
-                                <Trash2 className="h-4 w-4" />
+                                <div className="text-sm text-muted-foreground min-h-[32px] flex items-center">
+                                  {groupAliases[actress.id] ? (
+                                    <span className="font-medium">{groupAliases[actress.id]}</span>
+                                  ) : (
+                                    <span className="italic">No group alias set</span>
+                                  )}
+                                </div>
                               )}
-                            </Button>
+                            </div>
                           </div>
                         ))}
                       </div>

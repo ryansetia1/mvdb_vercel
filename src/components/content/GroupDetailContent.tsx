@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from 'sonner'
 import { PhotobooksTabContent } from './photobooks/PhotobooksTabContent'
 import { Photobook } from '../../utils/photobookApi'
+import { GroupFormDialog } from '../groupForm/GroupFormDialog'
 
 interface GroupDetailContentProps {
   group: MasterDataItem
@@ -99,6 +100,205 @@ export function GroupDetailContent({
   const [expandedGenerations, setExpandedGenerations] = useState<Set<string>>(new Set())
   const [generationLineupStatus, setGenerationLineupStatus] = useState<{ [generationId: string]: boolean }>({})
   const [clickedGenerations, setClickedGenerations] = useState<Set<string>>(new Set())
+  
+  // Edit group dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    jpname: '',
+    profilePicture: '',
+    website: '',
+    description: '',
+    gallery: [] as string[]
+  })
+  const [isEditLoading, setIsEditLoading] = useState(false)
+  const [actressOperationLoading, setActressOperationLoading] = useState(false)
+  const [groupAliases, setGroupAliases] = useState<{ [actressId: string]: string }>({})
+  
+  // Handler untuk actress management
+  const handleAddActressToGroup = async (actressId: string) => {
+    setActressOperationLoading(true)
+    try {
+      // Get actress data
+      const actress = actresses.find(a => a.id === actressId)
+      if (!actress) {
+        throw new Error('Actress not found')
+      }
+
+      // Add group to selectedGroups
+      const currentGroups = actress.selectedGroups || []
+      const updatedGroups = [...currentGroups, group.name].filter((value, index, self) => self.indexOf(value) === index)
+
+      // Update actress with new group
+      await masterDataApi.updateExtended('actress', actressId, {
+        ...actress,
+        selectedGroups: updatedGroups
+      }, accessToken)
+
+      toast.success('Actress added to group successfully!')
+      // Reload data
+      window.location.reload()
+    } catch (error) {
+      console.error('Error adding actress to group:', error)
+      toast.error('Failed to add actress to group')
+    } finally {
+      setActressOperationLoading(false)
+    }
+  }
+
+  const handleRemoveActressFromGroup = async (actressId: string) => {
+    setActressOperationLoading(true)
+    try {
+      // Get actress data
+      const actress = groupMembers.find(a => a.id === actressId)
+      if (!actress) {
+        throw new Error('Actress not found')
+      }
+
+      // Remove group from selectedGroups
+      const currentGroups = actress.selectedGroups || []
+      const updatedGroups = currentGroups.filter(g => g !== group.name)
+
+      // Update actress
+      await masterDataApi.updateExtended('actress', actressId, {
+        ...actress,
+        selectedGroups: updatedGroups
+      }, accessToken)
+
+      toast.success('Actress removed from group successfully!')
+      // Reload data
+      window.location.reload()
+    } catch (error) {
+      console.error('Error removing actress from group:', error)
+      toast.error('Failed to remove actress from group')
+    } finally {
+      setActressOperationLoading(false)
+    }
+  }
+
+  const handleCreateNewActress = async (name: string) => {
+    setActressOperationLoading(true)
+    try {
+      // Create new actress with group assignment
+      await masterDataApi.createExtended('actress', {
+        name: name.trim(),
+        selectedGroups: [group.name]
+      }, accessToken)
+
+      toast.success('New actress created and added to group successfully!')
+      // Reload data
+      window.location.reload()
+    } catch (error) {
+      console.error('Error creating new actress:', error)
+      toast.error('Failed to create new actress')
+    } finally {
+      setActressOperationLoading(false)
+    }
+  }
+
+  const handleUpdateGroupAlias = async (actressId: string, alias: string) => {
+    setActressOperationLoading(true)
+    try {
+      // Get actress data
+      const actress = groupMembers.find(a => a.id === actressId)
+      if (!actress) {
+        throw new Error('Actress not found')
+      }
+
+      // Update groupData with new alias
+      const currentGroupData = actress.groupData || {}
+      const updatedGroupData = {
+        ...currentGroupData,
+        [group.name || '']: {
+          ...currentGroupData[group.name || ''],
+          alias: alias.trim() || undefined
+        }
+      }
+
+      // Update actress with new groupData
+      await masterDataApi.updateExtended('actress', actressId, {
+        ...actress,
+        groupData: updatedGroupData
+      }, accessToken)
+
+      // Update local state
+      setGroupAliases(prev => ({
+        ...prev,
+        [actressId]: alias.trim()
+      }))
+
+      toast.success('Group alias updated successfully!')
+    } catch (error) {
+      console.error('Error updating group alias:', error)
+      toast.error('Failed to update group alias')
+    } finally {
+      setActressOperationLoading(false)
+    }
+  }
+
+  // Function to create new actress from form (without parameter)
+  const handleCreateNewActressFromForm = async () => {
+    if (!newActressName.trim() || !group.name) return
+    
+    try {
+      setIsCreatingActress(true)
+      
+      // Check for duplicates before creating
+      const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
+      if (duplicate) {
+        const duplicateInfo = []
+        if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
+        if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
+        if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
+        
+        const duplicateDetails = duplicateInfo.join(', ')
+        const errorMessage = `Aktris dengan nama yang sama sudah ada di database!\n\nAktris yang sama:\n${duplicateDetails}\n\nSilakan gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.`
+        
+        toast.error(errorMessage)
+        setIsCreatingActress(false)
+        return
+      }
+      
+      // Prepare group-specific data if group photo is provided
+      const groupData = newActressGroupPhoto.trim() ? {
+        [group.name]: {
+          profilePicture: newActressGroupPhoto.trim()
+        }
+      } : undefined
+      
+      const actressData = {
+        name: newActressName.trim(),
+        jpname: newActressJpName.trim() || undefined,
+        selectedGroups: [group.name],
+        groupData: groupData
+      }
+
+      console.log('Creating new actress with data:', actressData)
+
+      const newActress = await masterDataApi.createExtended('actress', actressData, accessToken)
+
+      console.log('New actress created successfully:', newActress)
+
+      toast.success('Aktris baru berhasil dibuat dan ditambahkan ke group!')
+      
+      // Clear form
+      setNewActressName('')
+      setNewActressJpName('')
+      setNewActressGroupPhoto('')
+      setNewActressPreviewUrl('')
+      setNewActressPreviewError(false)
+      setNewActressUrlWasTrimmed(false)
+      
+      // Reload data to reflect changes
+      await loadActresses()
+    } catch (err) {
+      console.error('Error creating new actress:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Gagal membuat aktris baru'
+      toast.error(errorMessage)
+    } finally {
+      setIsCreatingActress(false)
+    }
+  }
   
   // Reset lineup data when generation changes
   useEffect(() => {
@@ -1039,59 +1239,6 @@ export function GroupDetailContent({
     return getGroupAlias(actress, group.name || '')
   }
 
-  // Function to add actress to group
-  const handleAddActressToGroup = async () => {
-    if (!selectedActressId || !group.name) return
-    
-    try {
-      setIsAddingMember(true)
-      const actress = cachedActresses.find(a => a.id === selectedActressId)
-      if (!actress) {
-        toast.error('Actress not found')
-        return
-      }
-
-      // Check if actress is already in this group
-      if (actress.selectedGroups && actress.selectedGroups.includes(group.name)) {
-        toast.error('Actress is already in this group')
-        return
-      }
-
-      const updatedGroups = [...(actress.selectedGroups || []), group.name]
-      
-      // Preserve ALL existing data when updating
-      const updateData = {
-        name: actress.name, // Required field
-        jpname: actress.jpname,
-        birthdate: actress.birthdate,
-        alias: actress.alias,
-        links: actress.links,
-        takulinks: actress.takulinks,
-        tags: actress.tags,
-        photo: actress.photo,
-        profilePicture: actress.profilePicture,
-        groupId: actress.groupId,
-        groupData: actress.groupData,
-        selectedGroups: updatedGroups
-      }
-
-      console.log('Adding actress to group with preserved data:', updateData)
-
-      await masterDataApi.updateExtended('actress', actress.id, updateData, accessToken)
-
-      toast.success('Actress added to group successfully!')
-      setSelectedActressId('')
-      
-      // Reload data to reflect changes
-      await loadActresses()
-    } catch (err) {
-      console.error('Error adding actress to group:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add actress to group'
-      toast.error(errorMessage)
-    } finally {
-      setIsAddingMember(false)
-    }
-  }
 
   // Function to check for duplicate actress names
   const checkForDuplicateActress = (name: string, jpname?: string): MasterDataItem | null => {
@@ -1124,69 +1271,6 @@ export function GroupDetailContent({
     return duplicate || null
   }
 
-  // Function to create new actress and add to group
-  const handleCreateNewActress = async () => {
-    if (!newActressName.trim() || !group.name) return
-    
-    try {
-      setIsCreatingActress(true)
-      
-      // Check for duplicates before creating
-      const duplicate = checkForDuplicateActress(newActressName.trim(), newActressJpName.trim())
-      if (duplicate) {
-        const duplicateInfo = []
-        if (duplicate.name) duplicateInfo.push(`Nama: "${duplicate.name}"`)
-        if (duplicate.jpname) duplicateInfo.push(`Nama Jepang: "${duplicate.jpname}"`)
-        if (duplicate.alias) duplicateInfo.push(`Alias: "${duplicate.alias}"`)
-        
-        const duplicateDetails = duplicateInfo.join(', ')
-        const errorMessage = `Aktris dengan nama yang sama sudah ada di database!\n\nAktris yang sama:\n${duplicateDetails}\n\nSilakan gunakan nama yang berbeda atau tambahkan aktris yang sudah ada ke group ini.`
-        
-        toast.error(errorMessage)
-        setIsCreatingActress(false)
-        return
-      }
-      
-      // Prepare group-specific data if group photo is provided
-      const groupData = newActressGroupPhoto.trim() ? {
-        [group.name]: {
-          profilePicture: newActressGroupPhoto.trim()
-        }
-      } : undefined
-      
-      const actressData = {
-        name: newActressName.trim(),
-        jpname: newActressJpName.trim() || undefined,
-        selectedGroups: [group.name],
-        groupData: groupData
-      }
-
-      console.log('Creating new actress with data:', actressData)
-
-      const newActress = await masterDataApi.createExtended('actress', actressData, accessToken)
-
-      console.log('New actress created successfully:', newActress)
-
-      toast.success('Aktris baru berhasil dibuat dan ditambahkan ke group!')
-      
-      // Clear form
-      setNewActressName('')
-      setNewActressJpName('')
-      setNewActressGroupPhoto('')
-      setNewActressPreviewUrl('')
-      setNewActressPreviewError(false)
-      setNewActressUrlWasTrimmed(false)
-      
-      // Reload data to reflect changes
-      await loadActresses()
-    } catch (err) {
-      console.error('Error creating new actress:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Gagal membuat aktris baru'
-      toast.error(errorMessage)
-    } finally {
-      setIsCreatingActress(false)
-    }
-  }
 
   // Function to open edit profile picture modal
   const handleEditProfilePicture = (actress: MasterDataItem) => {
@@ -1360,8 +1444,8 @@ export function GroupDetailContent({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -1369,14 +1453,42 @@ export function GroupDetailContent({
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Groups
+            <span className="hidden sm:inline">Back to Groups</span>
+            <span className="sm:hidden">Back</span>
           </Button>
           <Globe className="h-6 w-6" />
-          <h1 className="text-3xl font-bold">{group.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">{group.name}</h1>
           <Badge variant="secondary" className="ml-2">
             {groupMembers.length} {groupMembers.length === 1 ? 'member' : 'members'}
           </Badge>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => {
+            setEditFormData({
+              name: group.name || '',
+              jpname: group.jpname || '',
+              profilePicture: group.profilePicture || '',
+              website: group.website || '',
+              description: group.description || '',
+              gallery: Array.isArray(group.gallery) ? group.gallery : []
+            })
+            
+            // Initialize group aliases
+            const aliases: { [actressId: string]: string } = {}
+            groupMembers.forEach(actress => {
+              const groupAlias = actress.groupData?.[group.name || '']?.alias || ''
+              aliases[actress.id] = groupAlias
+            })
+            setGroupAliases(aliases)
+            
+            setEditDialogOpen(true)
+          }}
+          className="px-3 py-1 text-sm"
+        >
+          Edit Group
+        </Button>
       </div>
 
       {/* Group Profile Picture and Info */}
@@ -1667,7 +1779,7 @@ export function GroupDetailContent({
                     <div className="flex justify-end">
                       <Button
                         type="button"
-                        onClick={handleCreateNewActress}
+                        onClick={handleCreateNewActressFromForm}
                         disabled={!newActressName.trim() || isCreatingActress || !!duplicateWarning}
                         className="flex items-center gap-2"
                       >
@@ -2590,6 +2702,63 @@ export function GroupDetailContent({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Group Dialog */}
+      <GroupFormDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        editingGroup={group}
+        formData={editFormData}
+        onInputChange={(field, value) => {
+          setEditFormData(prev => ({
+            ...prev,
+            [field]: value
+          }))
+        }}
+        onSubmit={async (e) => {
+          e.preventDefault()
+          setIsEditLoading(true)
+          
+          try {
+            const updatedGroup = await masterDataApi.updateGroup(
+              group.id,
+              editFormData.name,
+              editFormData.jpname,
+              editFormData.profilePicture,
+              editFormData.website,
+              editFormData.description,
+              accessToken,
+              editFormData.gallery
+            )
+            
+            // Update the group data in parent component
+            // Note: This would need to be passed as a prop from parent
+            toast.success('Group updated successfully!')
+            setEditDialogOpen(false)
+            
+            // Reload the page to reflect changes
+            setTimeout(() => {
+              window.location.reload()
+            }, 1000)
+          } catch (error) {
+            console.error('Error updating group:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update group'
+            toast.error(errorMessage)
+          } finally {
+            setIsEditLoading(false)
+          }
+        }}
+        isLoading={isEditLoading}
+        availableActresses={actresses}
+        groupActresses={groupMembers}
+        actressOperationLoading={actressOperationLoading}
+        onAddActressToGroup={handleAddActressToGroup}
+        onRemoveActressFromGroup={handleRemoveActressFromGroup}
+        onCreateNewActress={handleCreateNewActress}
+        groupAliases={groupAliases}
+        onUpdateGroupAlias={handleUpdateGroupAlias}
+        accessToken={accessToken}
+      />
 
     </div>
   )
