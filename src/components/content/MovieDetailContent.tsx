@@ -468,6 +468,7 @@ export function MovieDetailContent({
                         releaseDate: currentMovie.releaseDate,
                         studio: currentMovie.studio
                       }}
+                      movieType={currentMovie.type}
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-8">
@@ -810,6 +811,7 @@ export function MovieDetailContent({
         alt={currentMovie.titleEn || currentMovie.titleJp || 'Movie cover'}
         isOpen={showFullCover}
         onClose={() => setShowFullCover(false)}
+        defaultZoom={2}
       />
       </div>
     </TooltipProvider>

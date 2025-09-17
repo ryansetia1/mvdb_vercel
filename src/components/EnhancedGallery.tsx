@@ -24,6 +24,7 @@ interface EnhancedGalleryProps {
     releaseDate?: string
     studio?: string
   }
+  movieType?: string
   onValidUrlsChange?: (urls: string[]) => void
   showSaveOption?: boolean
   onSaveGallery?: (urls: string[]) => void
@@ -47,6 +48,7 @@ export function EnhancedGallery({
   targetImageCount = 200, 
   accessToken, 
   movieData, 
+  movieType,
   onValidUrlsChange,
   showSaveOption = false,
   onSaveGallery,
@@ -60,8 +62,21 @@ export function EnhancedGallery({
   const [preloadProgress, setPreloadProgress] = useState(0)
   // State untuk track favorite status di lightbox
   const [currentImageFavorite, setCurrentImageFavorite] = useState(false)
+  // Determine default zoom based on movie type
+  const getDefaultZoom = () => {
+    console.log('🎯 Gallery: Received movieType:', movieType, 'typeof:', typeof movieType)
+    // For non-Un types, use 2x default zoom
+    if (movieType && movieType.toLowerCase() !== 'un') {
+      console.log('🎯 Gallery: Non-Un type detected, using 2x zoom for type:', movieType)
+      return 2
+    }
+    // For Un type or no type specified, use 1x default zoom
+    console.log('🎯 Gallery: Un type or no type, using 1x zoom for type:', movieType)
+    return 1
+  }
 
-  // Gallery cache hook
+  const defaultZoom = getDefaultZoom()
+  console.log('🎯 Gallery: Final defaultZoom:', defaultZoom, 'for movieType:', movieType)
   const {
     cachedUrls,
     isLoading: isCacheLoading,
@@ -718,6 +733,7 @@ export function EnhancedGallery({
           isFavorite={currentImageFavorite}
           onToggleFavorite={handleToggleFavorite}
           accessToken={accessToken}
+          defaultZoom={defaultZoom}
         />
       )}
 

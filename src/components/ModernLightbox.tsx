@@ -34,6 +34,8 @@ interface ModernLightboxProps {
   isFavorite?: boolean
   onToggleFavorite?: () => void
   accessToken?: string
+  // Zoom props
+  defaultZoom?: number
 }
 
 export function ModernLightbox({ 
@@ -49,9 +51,10 @@ export function ModernLightbox({
   metadata,
   isFavorite = false,
   onToggleFavorite,
-  accessToken
+  accessToken,
+  defaultZoom = 1
 }: ModernLightboxProps) {
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(defaultZoom)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -64,10 +67,17 @@ export function ModernLightbox({
   const imageRef = useRef<HTMLImageElement>(null)
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout>()
 
+  // Update zoom when defaultZoom changes
+  useEffect(() => {
+    console.log('🎯 ModernLightbox: defaultZoom changed to:', defaultZoom)
+    setZoom(defaultZoom)
+  }, [defaultZoom])
+
   // Reset states when opening/closing or src changes
   useEffect(() => {
     if (isOpen) {
-      setZoom(1)
+      console.log('🎯 ModernLightbox: Setting zoom to defaultZoom:', defaultZoom)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
       setImageLoaded(false)
@@ -90,7 +100,7 @@ export function ModernLightbox({
         clearTimeout(hideControlsTimeoutRef.current)
       }
     }
-  }, [isOpen, src])
+  }, [isOpen, src, defaultZoom])
 
   // Apply transform directly to image when zoom changes
   useEffect(() => {
@@ -129,13 +139,13 @@ export function ModernLightbox({
     setZoom(prevZoom => {
       const newZoom = Math.max(prevZoom - 0.5, 0.25)
       console.log('New zoom:', newZoom)
-      if (newZoom <= 1) {
+      if (newZoom <= defaultZoom) {
         setPosition({ x: 0, y: 0 })
       }
       return newZoom
     })
     resetControlsTimer()
-  }, [zoom, resetControlsTimer])
+  }, [zoom, defaultZoom, resetControlsTimer])
 
   const handleRotate = useCallback(() => {
     console.log('Rotate clicked')
@@ -145,34 +155,34 @@ export function ModernLightbox({
 
   const handleReset = useCallback(() => {
     console.log('Reset clicked')
-    setZoom(1)
+    setZoom(defaultZoom)
     setPosition({ x: 0, y: 0 })
     setRotation(0)
     resetControlsTimer()
-  }, [resetControlsTimer])
+  }, [defaultZoom, resetControlsTimer])
 
   // Navigation functions
   const handleNext = useCallback(() => {
     if (showNavigation && onNext) {
       onNext()
       // Reset image state for new image
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
     }
     resetControlsTimer()
-  }, [showNavigation, onNext, resetControlsTimer])
+  }, [showNavigation, onNext, defaultZoom, resetControlsTimer])
 
   const handlePrevious = useCallback(() => {
     if (showNavigation && onPrevious) {
       onPrevious()
       // Reset image state for new image
-      setZoom(1)
+      setZoom(defaultZoom)
       setPosition({ x: 0, y: 0 })
       setRotation(0)
     }
     resetControlsTimer()
-  }, [showNavigation, onPrevious, resetControlsTimer])
+  }, [showNavigation, onPrevious, defaultZoom, resetControlsTimer])
 
   // Check if navigation is available
   const hasNext = showNavigation && onNext && currentIndex < totalImages - 1
@@ -190,7 +200,7 @@ export function ModernLightbox({
       const newZoom = Math.max(0.25, Math.min(4, prevZoom * zoomFactor))
       console.log('Wheel zoom - prev:', prevZoom, 'new:', newZoom)
       
-      if (newZoom <= 1) {
+      if (newZoom <= defaultZoom) {
         setPosition({ x: 0, y: 0 })
       }
       
@@ -223,7 +233,7 @@ export function ModernLightbox({
   }, [isOpen, handleWheel])
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom > 1) {
+    if (zoom > defaultZoom) {
       e.preventDefault()
       setIsDragging(true)
       setDragStart({
@@ -236,7 +246,7 @@ export function ModernLightbox({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     resetControlsTimer()
-    if (isDragging && zoom > 1) {
+    if (isDragging && zoom > defaultZoom) {
       setPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -621,7 +631,7 @@ export function ModernLightbox({
                 width: 'auto',
                 height: 'auto',
                 objectFit: 'contain',
-                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                cursor: zoom > defaultZoom ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                 transformOrigin: 'center center',
                 // Don't set transform here - it's handled by useEffect
@@ -641,9 +651,9 @@ export function ModernLightbox({
               }}
               onClick={(e) => {
                 e.stopPropagation()
-                if (zoom === 1) {
-                  console.log('Image clicked - zooming to 2x')
-                  setZoom(2.0) // Zoom to 2x
+                if (zoom === defaultZoom) {
+                  console.log('Image clicked - zooming to 2.5x')
+                  setZoom(2.5) // Zoom to 2.5x
                 }
               }}
               draggable={false}
