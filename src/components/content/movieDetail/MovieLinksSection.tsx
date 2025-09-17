@@ -1,15 +1,19 @@
 import React from 'react'
 import { Movie } from '../../../utils/movieApi'
+import { LinkItem } from './MovieDetailHelpers'
 
 interface MovieLinksSectionProps {
   sLinks: string[]
   uLinks: string[]
   cLinks: string[]
-  renderLinkButton: (url: string, index: number, type: 'stream' | 'download' | 'custom') => React.ReactNode
+  sLinksWithTitles: LinkItem[]
+  uLinksWithTitles: LinkItem[]
+  cLinksWithTitles: LinkItem[]
+  renderLinkButton: (url: string, title: string, index: number, type: 'stream' | 'download' | 'custom') => React.ReactNode
   movie: Movie // Add movie prop to access type information
 }
 
-export function MovieLinksSection({ sLinks, uLinks, cLinks, renderLinkButton, movie }: MovieLinksSectionProps) {
+export function MovieLinksSection({ sLinks, uLinks, cLinks, sLinksWithTitles, uLinksWithTitles, cLinksWithTitles, renderLinkButton, movie }: MovieLinksSectionProps) {
   
   // Parse movie types
   const currentTypes = movie.type ? movie.type.split(',').map(t => t.trim()) : []
@@ -70,31 +74,31 @@ export function MovieLinksSection({ sLinks, uLinks, cLinks, renderLinkButton, mo
   return (
     <div className="space-y-4">
       {/* Censored Links */}
-      {showCensored && cLinks.length > 0 && (
+      {showCensored && cLinksWithTitles.length > 0 && (
         <div>
           <h4 className="text-sm text-muted-foreground mb-2">Censored</h4>
           <div className="flex flex-wrap gap-2">
-            {cLinks.map((url, index) => renderLinkButton(url, index, 'custom'))}
+            {cLinksWithTitles.map((link, index) => renderLinkButton(link.url, link.title, index, 'custom'))}
           </div>
         </div>
       )}
 
       {/* Uncensored Links */}
-      {showUncensored && uLinks.length > 0 && (
+      {showUncensored && uLinksWithTitles.length > 0 && (
         <div>
           <h4 className="text-sm text-muted-foreground mb-2">Uncensored</h4>
           <div className="flex flex-wrap gap-2">
-            {uLinks.map((url, index) => renderLinkButton(url, index, 'download'))}
+            {uLinksWithTitles.map((link, index) => renderLinkButton(link.url, link.title, index, 'download'))}
           </div>
         </div>
       )}
 
       {/* Other Links */}
-      {showOthers && sLinks.length > 0 && (
+      {showOthers && sLinksWithTitles.length > 0 && (
         <div>
           <h4 className="text-sm text-muted-foreground mb-2">Other</h4>
           <div className="flex flex-wrap gap-2">
-            {sLinks.map((url, index) => renderLinkButton(url, index, 'stream'))}
+            {sLinksWithTitles.map((link, index) => renderLinkButton(link.url, link.title, index, 'stream'))}
           </div>
         </div>
       )}

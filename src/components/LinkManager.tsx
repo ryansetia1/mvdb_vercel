@@ -3,7 +3,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Card, CardContent } from './ui/card'
 import { Badge } from './ui/badge'
-import { Plus, X, Edit, Save, ExternalLink, Link as LinkIcon } from 'lucide-react'
+import { Plus, X, Edit, Save, ExternalLink, Link as LinkIcon, Clipboard } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface LinkItem {
   title: string
@@ -97,6 +98,45 @@ export function LinkManager({ label, links, onLinksChange, placeholder }: LinkMa
     setIsAdding(false)
     setNewTitle('')
     setNewUrl('')
+  }
+
+  // Function to read clipboard and auto-fill URL
+  const handlePresetClick = async (title: string) => {
+    try {
+      // Set the title first
+      setNewTitle(title)
+      
+      // Try to read from clipboard
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const clipboardText = await navigator.clipboard.readText()
+        
+        // Check if clipboard contains a valid URL
+        if (clipboardText && isValidUrl(clipboardText.trim())) {
+          setNewUrl(clipboardText.trim())
+          toast.success(`Auto-filled URL from clipboard for ${title}`)
+        } else {
+          toast.info(`Title "${title}" set. Please paste URL manually.`)
+        }
+      } else {
+        // Fallback for older browsers
+        toast.info(`Title "${title}" set. Please paste URL manually.`)
+      }
+    } catch (error) {
+      console.warn('Failed to read clipboard:', error)
+      // Still set the title even if clipboard fails
+      setNewTitle(title)
+      toast.info(`Title "${title}" set. Please paste URL manually.`)
+    }
+  }
+
+  // Helper function to validate URL
+  const isValidUrl = (string: string): boolean => {
+    try {
+      new URL(string)
+      return true
+    } catch (_) {
+      return false
+    }
   }
 
   return (
@@ -219,9 +259,10 @@ export function LinkManager({ label, links, onLinksChange, placeholder }: LinkMa
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setNewTitle(title)}
-                  className="flex-1"
+                  onClick={() => handlePresetClick(title)}
+                  className="flex-1 flex items-center gap-1"
                 >
+                  <Clipboard className="h-3 w-3" />
                   {title}
                 </Button>
               ))}

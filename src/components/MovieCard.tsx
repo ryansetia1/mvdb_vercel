@@ -5,6 +5,7 @@ import { MultipleClickableAvatars } from './MultipleClickableAvatars'
 import { Movie } from '../utils/movieApi'
 import { copyToClipboard } from '../utils/clipboard'
 import { getTypeColorClasses, getTypeColorStyles } from '../utils/movieTypeColors'
+import { useTypeColorStyles } from '../hooks/useTypeColors'
 
 interface MovieCardProps {
   movie: Movie
@@ -27,6 +28,7 @@ export function MovieCard({
   className = '',
   accessToken
 }: MovieCardProps) {
+  const typeColorStyles = useTypeColorStyles(movie.type)
   
   // Parse actress names and handle truncation
   const parseActressNames = (actressString: string | undefined) => {
@@ -91,8 +93,8 @@ export function MovieCard({
           {/* Type Label */}
           {movie.type && (
             <span 
-              className={`text-xs px-2 py-1 rounded-md font-medium ${getTypeColorClasses(movie.type)}`}
-              style={getTypeColorStyles(movie.type)}
+              className={`text-xs px-2 py-1 rounded-md font-medium ${typeColorStyles.classes}`}
+              style={typeColorStyles.styles}
               title={`Movie type: ${movie.type}`}
             >
               {movie.type.toUpperCase()}

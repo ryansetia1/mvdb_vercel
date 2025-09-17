@@ -8,6 +8,7 @@ import { MasterDataItem, calculateAgeAtDate } from '../../../utils/masterDataApi
 import { Movie } from '../../../utils/movieApi'
 import { AgeGap } from './MovieDetailHelpers'
 import { getTypeColorStyles, getTypeColorClasses } from '../../../utils/movieTypeColors'
+import { useTypeColorStyles } from '../../../hooks/useTypeColors'
 
 interface RenderProps {
   onProfileSelect: (type: 'actor' | 'actress' | 'director', name: string) => void
@@ -16,12 +17,28 @@ interface RenderProps {
   movie: Movie
 }
 
+// Komponen untuk render type badge dengan hook
+function TypeBadge({ text, onFilterSelect }: { text: string, onFilterSelect: (type: string, value: string, title?: string) => void }) {
+  const typeColorStyles = useTypeColorStyles(text)
+  
+  return (
+    <Badge
+      style={typeColorStyles.styles}
+      className={`cursor-pointer hover:opacity-80 transition-opacity ${typeColorStyles.classes}`.trim()}
+      onClick={() => onFilterSelect('type', text, `type: ${text}`)}
+      title={`Filter by type: ${text}`}
+    >
+      {text.toUpperCase()}
+    </Badge>
+  )
+}
+
 export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, movie }: RenderProps) => {
   const handleCopyToClipboard = async (text: string, label: string) => {
     await copyToClipboard(text, label)
   }
 
-  const renderLinkButton = (url: string, index: number, type: 'stream' | 'download' | 'custom') => {
+  const renderLinkButton = (url: string, title: string, index: number, type: 'stream' | 'download' | 'custom') => {
     const getIcon = () => {
       switch (type) {
         case 'stream':
@@ -40,7 +57,7 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
         case 'download':
           return `Download ${index + 1}`
         default:
-          return `Link ${index + 1}`
+          return title || `Link ${index + 1}`
       }
     }
 
@@ -55,12 +72,47 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
       }
     }
 
+    // Function to get platform-specific colors
+    const getPlatformColor = (platformTitle: string) => {
+      const title = platformTitle.toLowerCase()
+      
+      if (title.includes('missav')) {
+        return {
+          backgroundColor: '#FE638E',
+          color: '#ffffff',
+          borderColor: '#FE638E'
+        }
+      } else if (title.includes('highporn')) {
+        return {
+          backgroundColor: '#DA2858',
+          color: '#ffffff',
+          borderColor: '#DA2858'
+        }
+      } else if (title.includes('vk')) {
+        return {
+          backgroundColor: '#0177FF',
+          color: '#ffffff',
+          borderColor: '#0177FF'
+        }
+      }
+      
+      // Default colors for other platforms
+      return {
+        backgroundColor: 'transparent',
+        color: 'inherit',
+        borderColor: 'inherit'
+      }
+    }
+
+    const platformColors = getPlatformColor(title)
+
     return (
       <Button
         key={index}
         variant={getVariant()}
         size="sm"
         className="flex items-center gap-2"
+        style={type === 'custom' ? platformColors : undefined}
         asChild
       >
         <a href={url} target="_blank" rel="noopener noreferrer">
@@ -101,19 +153,7 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
 
   const renderClickableMetadata = (text: string, type: 'studio' | 'series' | 'type') => {
     if (type === 'type') {
-      const colorStyles = getTypeColorStyles(text)
-      const colorClasses = getTypeColorClasses(text)
-      
-      return (
-        <Badge
-          style={colorStyles}
-          className={`cursor-pointer hover:opacity-80 transition-opacity ${colorClasses}`.trim()}
-          onClick={() => onFilterSelect(type, text, `${type}: ${text}`)}
-          title={`Filter by ${type}: ${text}`}
-        >
-          {text.toUpperCase()}
-        </Badge>
-      )
+      return <TypeBadge text={text} onFilterSelect={onFilterSelect} />
     }
     
     return (

@@ -6,6 +6,7 @@ import { RightCroppingTest } from './components/RightCroppingTest'
 import { ServerConnectionTest } from './components/ServerConnectionTest'
 import { SimpleFavoritesProvider } from './contexts/SimpleFavoritesContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { TypeColorsProvider } from './contexts/TypeColorsContext'
 import { auth } from './utils/auth'
 import { toast } from 'sonner@2.0.3'
 
@@ -165,17 +166,19 @@ function App() {
 
   return (
     <ThemeProvider>
-      <SimpleFavoritesProvider accessToken={accessToken}>
-        <div className="min-h-screen bg-background">
-          <MainContentContainer>
-            <UnifiedApp
-              accessToken={accessToken}
-              user={user}
-              onLogout={handleLogout}
-            />
-          </MainContentContainer>
-        </div>
-      </SimpleFavoritesProvider>
+      <TypeColorsProvider accessToken={accessToken}>
+        <SimpleFavoritesProvider accessToken={accessToken}>
+          <div className="min-h-screen bg-background">
+            <MainContentContainer>
+              <UnifiedApp
+                accessToken={accessToken}
+                user={user}
+                onLogout={handleLogout}
+              />
+            </MainContentContainer>
+          </div>
+        </SimpleFavoritesProvider>
+      </TypeColorsProvider>
     </ThemeProvider>
   )
 }
