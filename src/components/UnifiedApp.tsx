@@ -61,6 +61,7 @@ import { PhotobookDetailContent } from './content/PhotobookDetailContent'
 import { FavoritesContent } from './content/FavoritesContent'
 import { Dashboard } from './Dashboard'
 import { SimpleFavoritesContent } from './content/SimpleFavoritesContent'
+import { CategorizedSearchPage } from './CategorizedSearchPage'
 import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
@@ -107,6 +108,7 @@ type ContentMode =
   | 'profile'
   | 'filteredMovies'
   | 'customNavFiltered'
+  | 'categorizedSearch'
   | 'filteredActresses'
   | 'admin'
   | 'advancedSearch'
@@ -122,6 +124,7 @@ interface ContentState {
     studioFilter: string
     seriesFilter: string
     typeFilter: string
+    labelFilter: string
     sortBy: string
     currentPage: number
     itemsPerPage: number
@@ -304,6 +307,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     studioFilter: 'all',
     seriesFilter: 'all',
     typeFilter: 'all',
+    labelFilter: 'all',
     sortBy: 'releaseDate-desc',
     currentPage: 1,
     itemsPerPage: 24
@@ -1240,7 +1244,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   // Handler for movies filter changes
   const handleMoviesFiltersChange = (filters: typeof moviesFilters) => {
+    console.log('handleMoviesFiltersChange called with:', filters)
     setMoviesFilters(filters)
+    console.log('moviesFilters state updated to:', filters)
   }
 
   // Handler for advanced search navigation
@@ -1462,6 +1468,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                   </Button>
                 )}
               </div>
+              
+              
               {/* Advanced Search Button */}
               <Button
                 variant="outline"
@@ -1570,6 +1578,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 accessToken={accessToken}
                 externalFilters={moviesFilters}
                 onFiltersChange={handleMoviesFiltersChange}
+                onSearchQueryChange={setSearchQuery}
                 onAddMovie={handleAddMovie}
                 onParseMovie={handleParseMovieFromMovies}
               />
@@ -1777,6 +1786,27 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onProfileSelect={handleProfileSelect}
                 actorName={contentState.data.actorName}
                 actressName={contentState.data.actressName}
+                accessToken={accessToken}
+              />
+            )}
+
+            {contentState.mode === 'categorizedSearch' && contentState.data && (
+              <CategorizedSearchPage
+                searchQuery={contentState.data.searchQuery}
+                movies={movies}
+                actresses={actresses}
+                actors={actors}
+                directors={directors}
+                onMovieSelect={handleMovieSelect}
+                onProfileSelect={handleProfileSelect}
+                onFilterSelect={(filterType, filterValue, title) => {
+                  setContentState({
+                    mode: 'filteredMovies',
+                    data: { filterType, filterValue },
+                    title: title || `${filterType}: ${filterValue}`
+                  })
+                }}
+                onBack={() => setContentState({ mode: 'movies', title: 'Movies' })}
                 accessToken={accessToken}
               />
             )}

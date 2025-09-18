@@ -55,6 +55,8 @@ import { PhotobookDetailContent } from './content/PhotobookDetailContent'
 import { FavoritesContent } from './content/FavoritesContent'
 import { Dashboard } from './Dashboard'
 import { SimpleFavoritesContent } from './content/SimpleFavoritesContent'
+import { SearchDropdown } from './SearchDropdown'
+import { CategorizedSearchPage } from './CategorizedSearchPage'
 import { AdvancedSearchContent } from './content/AdvancedSearchContent'
 import { SoftContent } from './content/SoftContent'
 import { SCMovieDetailContent } from './content/SCMovieDetailContent'
@@ -102,6 +104,7 @@ type ContentMode =
   | 'filteredMovies'
   | 'admin'
   | 'advancedSearch'
+  | 'categorizedSearch'
 
 interface ContentState {
   mode: ContentMode
@@ -174,6 +177,7 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
   
   // Navigation states
   const [searchQuery, setSearchQuery] = useState('')
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showNavCustomizer, setShowNavCustomizer] = useState(false)
   
@@ -1060,8 +1064,48 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
                 type="text"
                 placeholder="Search movies, cast, directors, tags..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setShowSearchDropdown(e.target.value.trim().length > 0)
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim().length > 0) {
+                    setShowSearchDropdown(true)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim().length > 0) {
+                    setContentState({
+                      mode: 'categorizedSearch',
+                      title: `Search: ${searchQuery}`,
+                      data: { searchQuery: searchQuery.trim() }
+                    })
+                    setShowSearchDropdown(false)
+                  }
+                }}
                 className="pl-9"
+              />
+              
+              {/* Search Dropdown */}
+              <SearchDropdown
+                searchQuery={searchQuery}
+                movies={movies}
+                actresses={actresses}
+                actors={actors}
+                directors={directors}
+                onMovieSelect={handleMovieSelect}
+                onProfileSelect={handleProfileSelect}
+                onFilterSelect={(filterType, filterValue, title) => {
+                  setContentState({
+                    mode: 'filteredMovies',
+                    data: { filterType, filterValue },
+                    title: title || `${filterType}: ${filterValue}`
+                  })
+                  setShowSearchDropdown(false)
+                }}
+                accessToken={accessToken}
+                isOpen={showSearchDropdown}
+                onClose={() => setShowSearchDropdown(false)}
               />
             </div>
           </div>
@@ -1307,6 +1351,27 @@ export function UnifiedApp({ accessToken, user, onLogout }: UnifiedAppProps) {
               actresses={actresses}
               actors={actors}
               directors={directors}
+            />
+          )}
+
+          {contentState.mode === 'categorizedSearch' && contentState.data && (
+            <CategorizedSearchPage
+              searchQuery={contentState.data.searchQuery}
+              movies={movies}
+              actresses={actresses}
+              actors={actors}
+              directors={directors}
+              onMovieSelect={handleMovieSelect}
+              onProfileSelect={handleProfileSelect}
+              onFilterSelect={(filterType, filterValue, title) => {
+                setContentState({
+                  mode: 'filteredMovies',
+                  data: { filterType, filterValue },
+                  title: title || `${filterType}: ${filterValue}`
+                })
+              }}
+              onBack={() => setContentState({ mode: 'movies', title: 'Movies' })}
+              accessToken={accessToken}
             />
           )}
 

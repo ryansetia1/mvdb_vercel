@@ -14,6 +14,8 @@ import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
 import { Search, Filter, X, SortAsc, SortDesc, Plus, FileText } from 'lucide-react'
 import { AdvancedSearchTest } from '../AdvancedSearchTest'
+import { SearchDropdown } from '../SearchDropdown'
+import { CategorizedMovieGrid } from '../CategorizedMovieGrid'
 
 interface MoviesContentProps {
   movies: Movie[]
@@ -30,6 +32,7 @@ interface MoviesContentProps {
     studioFilter?: string 
     seriesFilter?: string
     typeFilter?: string
+    labelFilter?: string
     sortBy?: string
     currentPage?: number
     itemsPerPage?: number
@@ -39,10 +42,13 @@ interface MoviesContentProps {
     studioFilter: string
     seriesFilter: string
     typeFilter: string
+    labelFilter: string
     sortBy: string
     currentPage: number
     itemsPerPage: number
   }) => void
+  // Search query handler
+  onSearchQueryChange?: (query: string) => void
   // Admin action handlers
   onAddMovie?: () => void
   onParseMovie?: () => void
@@ -74,6 +80,7 @@ export function MoviesContent({
   directors = [],
   externalFilters,
   onFiltersChange,
+  onSearchQueryChange,
   onAddMovie,
   onParseMovie
 }: MoviesContentProps) {
@@ -85,8 +92,10 @@ export function MoviesContent({
   const [localStudioFilter, setLocalStudioFilter] = useState('all')
   const [localSeriesFilter, setLocalSeriesFilter] = useState('all')
   const [localTypeFilter, setLocalTypeFilter] = useState('all')
+  const [localLabelFilter, setLocalLabelFilter] = useState('all')
   const [isRandomized, setIsRandomized] = useState(false)
   const [randomMovies, setRandomMovies] = useState<Movie[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
 
   // Determine which state to use
   const currentPage = externalFilters?.currentPage ?? localCurrentPage
@@ -96,6 +105,7 @@ export function MoviesContent({
   const studioFilter = externalFilters?.studioFilter ?? localStudioFilter
   const seriesFilter = externalFilters?.seriesFilter ?? localSeriesFilter
   const typeFilter = externalFilters?.typeFilter ?? localTypeFilter
+  const labelFilter = externalFilters?.labelFilter ?? localLabelFilter
 
   // Helper function to update filters
   const updateFilters = (updates: Partial<{
@@ -103,27 +113,32 @@ export function MoviesContent({
     studioFilter: string
     seriesFilter: string
     typeFilter: string
+    labelFilter: string
     sortBy: string
     currentPage: number
     itemsPerPage: number
   }>) => {
+    console.log('updateFilters called with:', updates)
     if (onFiltersChange) {
-      onFiltersChange({
-        tagFilter,
-        studioFilter,
-        seriesFilter,
-        typeFilter,
-        sortBy,
-        currentPage,
-        itemsPerPage,
-        ...updates
-      })
+      const newFilters = {
+        tagFilter: updates.tagFilter ?? tagFilter,
+        studioFilter: updates.studioFilter ?? studioFilter,
+        seriesFilter: updates.seriesFilter ?? seriesFilter,
+        typeFilter: updates.typeFilter ?? typeFilter,
+        labelFilter: updates.labelFilter ?? labelFilter,
+        sortBy: updates.sortBy ?? sortBy,
+        currentPage: updates.currentPage ?? currentPage,
+        itemsPerPage: updates.itemsPerPage ?? itemsPerPage,
+      }
+      console.log('Calling onFiltersChange with:', newFilters)
+      onFiltersChange(newFilters)
     } else {
       // Fallback to local state if no external handler
       if (updates.tagFilter !== undefined) setLocalTagFilter(updates.tagFilter)
       if (updates.studioFilter !== undefined) setLocalStudioFilter(updates.studioFilter)
       if (updates.seriesFilter !== undefined) setLocalSeriesFilter(updates.seriesFilter)
       if (updates.typeFilter !== undefined) setLocalTypeFilter(updates.typeFilter)
+      if (updates.labelFilter !== undefined) setLocalLabelFilter(updates.labelFilter)
       if (updates.sortBy !== undefined) setLocalSortBy(updates.sortBy)
       if (updates.currentPage !== undefined) setLocalCurrentPage(updates.currentPage)
       if (updates.itemsPerPage !== undefined) setLocalItemsPerPage(updates.itemsPerPage)
@@ -276,6 +291,11 @@ export function MoviesContent({
       filtered = filtered.filter(movie => movie.type === typeFilter)
     }
 
+    // Label filter
+    if (labelFilter !== 'all') {
+      filtered = filtered.filter(movie => movie.label === labelFilter)
+    }
+
     // Sort
     const sortOption = sortOptions.find(option => option.key === sortBy)
     if (sortOption) {
@@ -291,7 +311,7 @@ export function MoviesContent({
     }
 
     return filtered
-  }, [movies, searchQuery, tagFilter, studioFilter, seriesFilter, typeFilter, sortBy])
+  }, [movies, searchQuery, tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter, sortBy])
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedMovies.length / itemsPerPage)
@@ -345,6 +365,7 @@ export function MoviesContent({
 
   // Reset to first page when filters change
   const handleFilterChange = (filterType: string, value: string) => {
+    console.log('handleFilterChange called:', filterType, value)
     const updates: any = { currentPage: 1 }
     
     switch (filterType) {
@@ -359,6 +380,9 @@ export function MoviesContent({
         break
       case 'type':
         updates.typeFilter = value
+        break
+      case 'label':
+        updates.labelFilter = value
         break
     }
     
@@ -381,7 +405,7 @@ export function MoviesContent({
     setRandomMovies([])
   }
 
-  const hasActiveFilters = tagFilter !== 'all' || studioFilter !== 'all' || seriesFilter !== 'all' || typeFilter !== 'all'
+  const hasActiveFilters = tagFilter !== 'all' || studioFilter !== 'all' || seriesFilter !== 'all' || typeFilter !== 'all' || labelFilter !== 'all'
 
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {
@@ -423,8 +447,17 @@ export function MoviesContent({
       })
     }
     
+    if (labelFilter !== 'all') {
+      items.push({
+        key: 'label',
+        label: 'Label',
+        value: labelFilter,
+        onRemove: () => updateFilters({ labelFilter: 'all', currentPage: 1 })
+      })
+    }
+    
     return items
-  }, [tagFilter, studioFilter, seriesFilter, typeFilter])
+  }, [tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter])
 
   if (filteredAndSortedMovies.length === 0) {
     return (
@@ -681,36 +714,60 @@ export function MoviesContent({
 
 
 
-      {/* Pagination - Top */}
-      <PaginationEnhanced
-        currentPage={currentPage}
-        totalPages={totalPages}
-        itemsPerPage={itemsPerPage}
-        totalItems={filteredAndSortedMovies.length}
-        onPageChange={(page) => updateFilters({ currentPage: page })}
-        onItemsPerPageChange={(newItemsPerPage) => {
-          updateFilters({ 
-            itemsPerPage: newItemsPerPage, 
-            currentPage: 1 
-          })
-        }}
-      />
+      {/* Pagination - Top (only show when not searching) */}
+      {!searchQuery.trim() && (
+        <PaginationEnhanced
+          currentPage={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          totalItems={filteredAndSortedMovies.length}
+          onPageChange={(page) => updateFilters({ currentPage: page })}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            updateFilters({ 
+              itemsPerPage: newItemsPerPage, 
+              currentPage: 1 
+            })
+          }}
+        />
+      )}
 
-      {/* Movies Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-        {moviesToShow.map((movie) => (
-          <MovieCard
-            key={movie.id}
-            movie={movie}
-            onClick={() => onMovieSelect(movie)}
-            onActressClick={onProfileSelect ? (actressName, e) => {
-              e.stopPropagation()
-              onProfileSelect('actress', actressName)
-            } : undefined}
-            accessToken={accessToken}
-          />
-        ))}
-      </div>
+      {/* Movies Grid or Categorized Search Results */}
+      {searchQuery.trim() ? (
+        <CategorizedMovieGrid
+          searchQuery={searchQuery}
+          movies={movies}
+          actresses={actresses}
+          actors={actors}
+          directors={directors}
+          onMovieSelect={onMovieSelect}
+          onProfileSelect={onProfileSelect}
+          onFilterSelect={(filterType, filterValue, title) => {
+            // Handle filter selection using existing filter system
+            console.log('onFilterSelect called:', filterType, filterValue, title)
+            handleFilterChange(filterType, filterValue)
+            // Clear search query to show filtered results
+            if (onSearchQueryChange) {
+              onSearchQueryChange('')
+            }
+          }}
+          accessToken={accessToken}
+        />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+          {moviesToShow.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onClick={() => onMovieSelect(movie)}
+              onActressClick={onProfileSelect ? (actressName, e) => {
+                e.stopPropagation()
+                onProfileSelect('actress', actressName)
+              } : undefined}
+              accessToken={accessToken}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
