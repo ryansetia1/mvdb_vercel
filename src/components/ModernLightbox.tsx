@@ -67,6 +67,31 @@ export function ModernLightbox({
   const imageRef = useRef<HTMLImageElement>(null)
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout>()
   const lastClickTimeRef = useRef<number>(0)
+  
+  // Touch gesture states
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null)
+  const [touchStartTime, setTouchStartTime] = useState<number>(0)
+  const [lastTapTime, setLastTapTime] = useState<number>(0)
+  const [pinchStart, setPinchStart] = useState<{ distance: number; center: { x: number; y: number } } | null>(null)
+  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(null)
+
+  // Touch utility functions
+  const getDistance = (touch1: Touch, touch2: Touch) => {
+    const dx = touch1.clientX - touch2.clientX
+    const dy = touch1.clientY - touch2.clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getCenter = (touch1: Touch, touch2: Touch) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    }
+  }
+
+  const isDoubleTap = (currentTime: number) => {
+    return currentTime - lastTapTime < 300
+  }
 
   // Update zoom when defaultZoom changes
   useEffect(() => {
@@ -268,6 +293,127 @@ export function ModernLightbox({
     setIsDragging(false)
   }
 
+  // Touch event handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touches = e.touches
+    const currentTime = Date.now()
+    
+    if (touches.length === 1) {
+      // Single touch - potential tap or swipe
+      const touch = touches[0]
+      setTouchStart({ x: touch.clientX, y: touch.clientY })
+      setTouchStartTime(currentTime)
+      setSwipeStart({ x: touch.clientX, y: touch.clientY })
+    } else if (touches.length === 2) {
+      // Two touches - pinch gesture
+      const distance = getDistance(touches[0], touches[1])
+      const center = getCenter(touches[0], touches[1])
+      setPinchStart({ distance, center })
+      setIsDragging(false) // Stop mouse dragging when pinch starts
+    }
+    resetControlsTimer()
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touches = e.touches
+    
+    if (touches.length === 1 && pinchStart === null) {
+      // Single touch move - potential swipe for navigation
+      const touch = touches[0]
+      if (swipeStart && zoom === defaultZoom && showNavigation) {
+        const deltaX = touch.clientX - swipeStart.x
+        const deltaY = touch.clientY - swipeStart.y
+        
+        // Check if it's a horizontal swipe (more horizontal than vertical movement)
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+          // Swipe threshold reached
+          if (deltaX > 0 && hasPrevious) {
+            // Swipe right - previous image
+            handlePrevious()
+          } else if (deltaX < 0 && hasNext) {
+            // Swipe left - next image
+            handleNext()
+          }
+          setSwipeStart(null)
+        }
+      } else if (zoom > defaultZoom) {
+        // Pan when zoomed
+        if (touchStart) {
+          const deltaX = touch.clientX - touchStart.x
+          const deltaY = touch.clientY - touchStart.y
+          setPosition({
+            x: position.x + deltaX,
+            y: position.y + deltaY
+          })
+          setTouchStart({ x: touch.clientX, y: touch.clientY })
+        }
+      }
+    } else if (touches.length === 2 && pinchStart) {
+      // Pinch zoom
+      const distance = getDistance(touches[0], touches[1])
+      const scale = distance / pinchStart.distance
+      const newZoom = Math.max(0.25, Math.min(4, zoom * scale))
+      
+      setZoom(newZoom)
+      
+      // Adjust position to zoom towards pinch center
+      if (containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect()
+        const centerX = pinchStart.center.x - containerRect.left - containerRect.width / 2
+        const centerY = pinchStart.center.y - containerRect.top - containerRect.height / 2
+        
+        setPosition({
+          x: position.x + centerX * (scale - 1),
+          y: position.y + centerY * (scale - 1)
+        })
+      }
+      
+      setPinchStart({ distance, center: getCenter(touches[0], touches[1]) })
+    }
+    resetControlsTimer()
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const currentTime = Date.now()
+    
+    if (e.touches.length === 0) {
+      // All touches ended
+      if (pinchStart === null && touchStart && swipeStart) {
+        // Single touch ended - check for tap
+        const timeDiff = currentTime - touchStartTime
+        const touch = e.changedTouches[0]
+        
+        if (timeDiff < 300 && touchStart) {
+          const deltaX = Math.abs(touch.clientX - touchStart.x)
+          const deltaY = Math.abs(touch.clientY - touchStart.y)
+          
+          if (deltaX < 10 && deltaY < 10) {
+            // It's a tap
+            if (isDoubleTap(currentTime)) {
+              // Double tap - reset zoom
+              handleReset()
+            } else {
+              // Single tap - zoom in if at default zoom
+              if (zoom === defaultZoom) {
+                setZoom(2.5) // Zoom to 2.5x
+              }
+            }
+            setLastTapTime(currentTime)
+          }
+        }
+      }
+      
+      // Reset all touch states
+      setTouchStart(null)
+      setPinchStart(null)
+      setSwipeStart(null)
+    }
+    resetControlsTimer()
+  }
+
   const handleDownload = () => {
     setIsDownloading(true)
     try {
@@ -393,10 +539,10 @@ export function ModernLightbox({
             variant="secondary"
             size="sm"
             onClick={onClose}
-            className="h-10 w-10 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm"
+            className="h-12 w-12 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm touch-manipulation"
             title="Close (Esc)"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6" />
           </Button>
         </motion.div>
 
@@ -416,10 +562,10 @@ export function ModernLightbox({
                   variant="secondary"
                   size="sm"
                   onClick={handlePrevious}
-                  className="h-12 w-12 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm"
+                  className="h-14 w-14 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm touch-manipulation"
                   title="Previous Image (←)"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-7 w-7" />
                 </Button>
               </motion.div>
             )}
@@ -437,10 +583,10 @@ export function ModernLightbox({
                   variant="secondary"
                   size="sm"
                   onClick={handleNext}
-                  className="h-12 w-12 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm"
+                  className="h-14 w-14 p-0 bg-black/70 hover:bg-black/90 border-white/20 text-white hover:text-white shadow-xl backdrop-blur-sm touch-manipulation"
                   title="Next Image (→)"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-7 w-7" />
                 </Button>
               </motion.div>
             )}
@@ -468,10 +614,10 @@ export function ModernLightbox({
                     handleZoomOut()
                   }}
                   disabled={zoom <= 0.25}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0 disabled:opacity-50"
+                  className="text-white hover:bg-white/20 h-10 w-10 p-0 disabled:opacity-50 touch-manipulation"
                   title="Zoom Out (-)"
                 >
-                  <ZoomOut className="h-4 w-4" />
+                  <ZoomOut className="h-5 w-5" />
                 </Button>
                 
                 <div className="flex items-center px-3 text-white font-medium min-w-[60px] justify-center text-sm">
@@ -488,10 +634,10 @@ export function ModernLightbox({
                     handleZoomIn()
                   }}
                   disabled={zoom >= 4}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0 disabled:opacity-50"
+                  className="text-white hover:bg-white/20 h-10 w-10 p-0 disabled:opacity-50 touch-manipulation"
                   title="Zoom In (+)"
                 >
-                  <ZoomIn className="h-4 w-4" />
+                  <ZoomIn className="h-5 w-5" />
                 </Button>
                 
                 <div className="w-px h-6 bg-white/20 mx-1" />
@@ -504,10 +650,10 @@ export function ModernLightbox({
                     e.stopPropagation()
                     handleRotate()
                   }}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0"
+                  className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
                   title="Rotate (R)"
                 >
-                  <RotateCw className="h-4 w-4" />
+                  <RotateCw className="h-5 w-5" />
                 </Button>
                 
                 <Button
@@ -518,10 +664,10 @@ export function ModernLightbox({
                     e.stopPropagation()
                     handleReset()
                   }}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0"
+                  className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
                   title="Reset (0)"
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-5 w-5" />
                 </Button>
                 
                 <div className="w-px h-6 bg-white/20 mx-1" />
@@ -536,7 +682,7 @@ export function ModernLightbox({
                     handleDownload()
                   }}
                   disabled={isDownloading}
-                  className={`text-white hover:bg-white/20 h-8 w-8 p-0 transition-all duration-200 ${
+                  className={`text-white hover:bg-white/20 h-10 w-10 p-0 transition-all duration-200 touch-manipulation ${
                     isDownloading ? 'bg-green-500/20 cursor-not-allowed' : ''
                   }`}
                   title={isDownloading ? 'Downloading...' : 'Download Image'}
@@ -564,7 +710,7 @@ export function ModernLightbox({
                         e.stopPropagation()
                         onToggleFavorite()
                       }}
-                      className={`text-white hover:bg-white/20 h-8 w-8 p-0 transition-all duration-200 ${
+                      className={`text-white hover:bg-white/20 h-10 w-10 p-0 transition-all duration-200 touch-manipulation ${
                         isFavorite ? 'text-red-400 hover:text-red-300' : 'hover:text-red-400'
                       }`}
                       title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -587,10 +733,15 @@ export function ModernLightbox({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{
             touchAction: 'none',
             userSelect: 'none',
-            overflow: 'visible' // Allow image to overflow when zoomed
+            overflow: 'visible', // Allow image to overflow when zoomed
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none'
           }}
         >
           {/* Loading state */}
@@ -719,6 +870,13 @@ export function ModernLightbox({
                       <span>R to rotate</span>
                       <span>•</span>
                       <span>0 to reset</span>
+                    </span>
+                    <span className="inline-flex items-center gap-4 sm:hidden">
+                      <span>Pinch to zoom</span>
+                      <span>•</span>
+                      <span>Swipe to navigate</span>
+                      <span>•</span>
+                      <span>Tap to zoom</span>
                     </span>
                   </div>
                 </div>

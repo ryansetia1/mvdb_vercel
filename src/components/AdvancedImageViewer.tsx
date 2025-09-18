@@ -51,11 +51,36 @@ export function AdvancedImageViewer({
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 })
   
+  // Touch gesture states
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null)
+  const [touchStartTime, setTouchStartTime] = useState<number>(0)
+  const [lastTapTime, setLastTapTime] = useState<number>(0)
+  const [pinchStart, setPinchStart] = useState<{ distance: number; center: { x: number; y: number } } | null>(null)
+  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(null)
+  
   const imageRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const currentSrc = gallery.length > 0 ? gallery[currentIndex] : src
   const hasGallery = gallery.length > 1
+
+  // Touch utility functions
+  const getDistance = (touch1: Touch, touch2: Touch) => {
+    const dx = touch1.clientX - touch2.clientX
+    const dy = touch1.clientY - touch2.clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getCenter = (touch1: Touch, touch2: Touch) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    }
+  }
+
+  const isDoubleTap = (currentTime: number) => {
+    return currentTime - lastTapTime < 300
+  }
 
   // Reset transformations when image changes
   useEffect(() => {
@@ -122,6 +147,124 @@ export function AdvancedImageViewer({
 
   const handleMouseUp = () => {
     setIsDragging(false)
+  }
+
+  // Touch event handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touches = e.touches
+    const currentTime = Date.now()
+    
+    if (touches.length === 1) {
+      // Single touch - potential tap or swipe
+      const touch = touches[0]
+      setTouchStart({ x: touch.clientX, y: touch.clientY })
+      setTouchStartTime(currentTime)
+      setSwipeStart({ x: touch.clientX, y: touch.clientY })
+    } else if (touches.length === 2) {
+      // Two touches - pinch gesture
+      const distance = getDistance(touches[0], touches[1])
+      const center = getCenter(touches[0], touches[1])
+      setPinchStart({ distance, center })
+      setIsDragging(false) // Stop mouse dragging when pinch starts
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touches = e.touches
+    
+    if (touches.length === 1 && pinchStart === null) {
+      // Single touch move - potential swipe for navigation
+      const touch = touches[0]
+      if (swipeStart && zoom === 1 && hasGallery) {
+        const deltaX = touch.clientX - swipeStart.x
+        const deltaY = touch.clientY - swipeStart.y
+        
+        // Check if it's a horizontal swipe (more horizontal than vertical movement)
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+          // Swipe threshold reached
+          if (deltaX > 0) {
+            // Swipe right - previous image
+            handlePrevious()
+          } else {
+            // Swipe left - next image
+            handleNext()
+          }
+          setSwipeStart(null)
+        }
+      } else if (zoom > 1) {
+        // Pan when zoomed
+        if (touchStart) {
+          const deltaX = touch.clientX - touchStart.x
+          const deltaY = touch.clientY - touchStart.y
+          setPosition({
+            x: position.x + deltaX,
+            y: position.y + deltaY
+          })
+          setTouchStart({ x: touch.clientX, y: touch.clientY })
+        }
+      }
+    } else if (touches.length === 2 && pinchStart) {
+      // Pinch zoom
+      const distance = getDistance(touches[0], touches[1])
+      const scale = distance / pinchStart.distance
+      const newZoom = Math.max(0.1, Math.min(5, zoom * scale))
+      
+      setZoom(newZoom)
+      
+      // Adjust position to zoom towards pinch center
+      if (containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect()
+        const centerX = pinchStart.center.x - containerRect.left - containerRect.width / 2
+        const centerY = pinchStart.center.y - containerRect.top - containerRect.height / 2
+        
+        setPosition({
+          x: position.x + centerX * (scale - 1),
+          y: position.y + centerY * (scale - 1)
+        })
+      }
+      
+      setPinchStart({ distance, center: getCenter(touches[0], touches[1]) })
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const currentTime = Date.now()
+    
+    if (e.touches.length === 0) {
+      // All touches ended
+      if (pinchStart === null && touchStart && swipeStart) {
+        // Single touch ended - check for tap
+        const timeDiff = currentTime - touchStartTime
+        const touch = e.changedTouches[0]
+        
+        if (timeDiff < 300 && touchStart) {
+          const deltaX = Math.abs(touch.clientX - touchStart.x)
+          const deltaY = Math.abs(touch.clientY - touchStart.y)
+          
+          if (deltaX < 10 && deltaY < 10) {
+            // It's a tap
+            if (isDoubleTap(currentTime)) {
+              // Double tap - reset zoom
+              resetTransformations()
+            } else {
+              // Single tap - zoom in if at default zoom
+              if (zoom === 1) {
+                handleZoomIn()
+              }
+            }
+            setLastTapTime(currentTime)
+          }
+        }
+      }
+      
+      // Reset all touch states
+      setTouchStart(null)
+      setPinchStart(null)
+      setSwipeStart(null)
+    }
   }
 
   const handlePrevious = () => {
@@ -223,10 +366,10 @@ export function AdvancedImageViewer({
               size="sm"
               onClick={handleZoomOut}
               disabled={zoom <= 0.1}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Zoom Out (-)"
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-5 w-5" />
             </Button>
             
             <Button
@@ -234,10 +377,10 @@ export function AdvancedImageViewer({
               size="sm"
               onClick={handleZoomIn}
               disabled={zoom >= 5}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Zoom In (+)"
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-5 w-5" />
             </Button>
             
             <div className="flex items-center px-2 text-white text-xs">
@@ -250,40 +393,40 @@ export function AdvancedImageViewer({
               variant="ghost"
               size="sm"
               onClick={handleRotateCounterClockwise}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Rotate Left (Shift+R)"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-5 w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRotateClockwise}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Rotate Right (R)"
             >
-              <RotateCw className="h-4 w-4" />
+              <RotateCw className="h-5 w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleFlipHorizontal}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Flip Horizontal"
             >
-              <FlipHorizontal className="h-4 w-4" />
+              <FlipHorizontal className="h-5 w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleFlipVertical}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Flip Vertical"
             >
-              <FlipVertical className="h-4 w-4" />
+              <FlipVertical className="h-5 w-5" />
             </Button>
           </div>
 
@@ -292,40 +435,40 @@ export function AdvancedImageViewer({
               variant="ghost"
               size="sm"
               onClick={() => setShowInfo(!showInfo)}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Image Info"
             >
-              <Info className="h-4 w-4" />
+              <Info className="h-5 w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleDownload}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Download"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-5 w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Toggle Fullscreen"
             >
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              className="text-white hover:bg-white/20 h-10 w-10 p-0 touch-manipulation"
               title="Close (Esc)"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
@@ -337,20 +480,20 @@ export function AdvancedImageViewer({
               variant="ghost"
               size="sm"
               onClick={handlePrevious}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/70 text-white hover:bg-white/20 h-12 w-12 p-0"
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/70 text-white hover:bg-white/20 h-14 w-14 p-0 touch-manipulation"
               title="Previous (←)"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-7 w-7" />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/70 text-white hover:bg-white/20 h-12 w-12 p-0"
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/70 text-white hover:bg-white/20 h-14 w-14 p-0 touch-manipulation"
               title="Next (→)"
             >
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className="h-7 w-7" />
             </Button>
           </>
         )}
@@ -368,6 +511,14 @@ export function AdvancedImageViewer({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            touchAction: 'none',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none'
+          }}
         >
           <img
             ref={imageRef}
@@ -425,7 +576,12 @@ export function AdvancedImageViewer({
         {/* Help Text */}
         <div className="absolute bottom-16 right-4 z-20">
           <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 text-xs text-white/70">
-            Click outside to close | Drag when zoomed | Scroll or +/- to zoom
+            <div className="hidden sm:block">
+              Click outside to close | Drag when zoomed | Scroll or +/- to zoom
+            </div>
+            <div className="sm:hidden">
+              Tap to zoom | Pinch to zoom | Swipe to navigate
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -39,7 +39,7 @@ export const getAllProfileImages = (profile: MasterDataItem | null): string[] =>
     })
   }
   
-  // Last priority: Add group-specific photos
+  // Third priority: Add group-specific photos
   if (profile.groupData && typeof profile.groupData === 'object') {
     Object.values(profile.groupData).forEach((groupInfo: any) => {
       if (groupInfo && typeof groupInfo === 'object') {
@@ -56,6 +56,80 @@ export const getAllProfileImages = (profile: MasterDataItem | null): string[] =>
           groupInfo.photos.forEach(photo => {
             if (typeof photo === 'string' && photo.trim() && !images.includes(photo.trim())) {
               images.push(photo.trim())
+            }
+          })
+        }
+      }
+    })
+  }
+  
+  // Fourth priority: Add generation-specific photos
+  if (profile.generationData && typeof profile.generationData === 'object') {
+    Object.values(profile.generationData).forEach((generationInfo: any) => {
+      if (generationInfo && typeof generationInfo === 'object') {
+        // Add generation profilePicture
+        if (generationInfo.profilePicture && generationInfo.profilePicture.trim()) {
+          const generationPic = generationInfo.profilePicture.trim()
+          if (!images.includes(generationPic)) {
+            images.push(generationPic)
+          }
+        }
+        
+        // Add generation photos array
+        if (generationInfo.photos && Array.isArray(generationInfo.photos)) {
+          generationInfo.photos.forEach(photo => {
+            if (typeof photo === 'string' && photo.trim() && !images.includes(photo.trim())) {
+              images.push(photo.trim())
+            }
+          })
+        }
+        
+        // Add generation photo versions
+        if (generationInfo.photoVersions && typeof generationInfo.photoVersions === 'object') {
+          Object.values(generationInfo.photoVersions).forEach((versionInfo: any) => {
+            if (versionInfo && typeof versionInfo === 'object' && versionInfo.photos && Array.isArray(versionInfo.photos)) {
+              versionInfo.photos.forEach(photo => {
+                if (typeof photo === 'string' && photo.trim() && !images.includes(photo.trim())) {
+                  images.push(photo.trim())
+                }
+              })
+            }
+          })
+        }
+      }
+    })
+  }
+  
+  // Fifth priority: Add lineup-specific photos
+  if (profile.lineupData && typeof profile.lineupData === 'object') {
+    Object.values(profile.lineupData).forEach((lineupInfo: any) => {
+      if (lineupInfo && typeof lineupInfo === 'object') {
+        // Add lineup profilePicture
+        if (lineupInfo.profilePicture && lineupInfo.profilePicture.trim()) {
+          const lineupPic = lineupInfo.profilePicture.trim()
+          if (!images.includes(lineupPic)) {
+            images.push(lineupPic)
+          }
+        }
+        
+        // Add lineup photos array
+        if (lineupInfo.photos && Array.isArray(lineupInfo.photos)) {
+          lineupInfo.photos.forEach(photo => {
+            if (typeof photo === 'string' && photo.trim() && !images.includes(photo.trim())) {
+              images.push(photo.trim())
+            }
+          })
+        }
+        
+        // Add lineup photo versions
+        if (lineupInfo.photoVersions && typeof lineupInfo.photoVersions === 'object') {
+          Object.values(lineupInfo.photoVersions).forEach((versionInfo: any) => {
+            if (versionInfo && typeof versionInfo === 'object' && versionInfo.photos && Array.isArray(versionInfo.photos)) {
+              versionInfo.photos.forEach(photo => {
+                if (typeof photo === 'string' && photo.trim() && !images.includes(photo.trim())) {
+                  images.push(photo.trim())
+                }
+              })
             }
           })
         }
