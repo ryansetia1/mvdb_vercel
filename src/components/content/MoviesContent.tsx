@@ -249,6 +249,7 @@ export function MoviesContent({
         movie.studio?.toLowerCase().includes(query) ||
         movie.series?.toLowerCase().includes(query) ||
         movie.tags?.toLowerCase().includes(query) ||
+        movie.label?.toLowerCase().includes(query) ||
         movieContainsCastWithQuery(movie, query)
       )
     }

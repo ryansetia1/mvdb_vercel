@@ -39,7 +39,15 @@ export function FilteredMovieList({
       const filtered = movies.filter(movie =>
         movie.titleEn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         movie.titleJp?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        movie.code?.toLowerCase().includes(searchQuery.toLowerCase())
+        movie.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.dmcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.actress?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.actors?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.director?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.studio?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.series?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.tags?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.label?.toLowerCase().includes(searchQuery.toLowerCase())
       )
       setFilteredMovies(filtered)
     } else {

@@ -106,12 +106,14 @@ export function FilteredMoviesContent({
         movie.titleEn?.toLowerCase().includes(query) ||
         movie.titleJp?.toLowerCase().includes(query) ||
         movie.code?.toLowerCase().includes(query) ||
+        movie.dmcode?.toLowerCase().includes(query) ||
         movie.actress?.toLowerCase().includes(query) ||
         movie.actors?.toLowerCase().includes(query) ||
         movie.director?.toLowerCase().includes(query) ||
         movie.studio?.toLowerCase().includes(query) ||
         movie.series?.toLowerCase().includes(query) ||
-        movie.tags?.toLowerCase().includes(query)
+        movie.tags?.toLowerCase().includes(query) ||
+        movie.label?.toLowerCase().includes(query)
       )
     }
 

@@ -145,12 +145,14 @@ export function FilteredCustomNavContent({
           movie.titleEn?.toLowerCase().includes(query) ||
           movie.titleJp?.toLowerCase().includes(query) ||
           movieCodeMatchesQuery(movie.code, query) ||
+          movieCodeMatchesQuery(movie.dmcode, query) ||
           castMatchesQuery(movie.actress, query) ||
           castMatchesQuery(movie.actors, query) ||
           castMatchesQuery(movie.director, query) ||
           movie.studio?.toLowerCase().includes(query) ||
           movie.series?.toLowerCase().includes(query) ||
-          movie.tags?.toLowerCase().includes(query)
+          movie.tags?.toLowerCase().includes(query) ||
+          movie.label?.toLowerCase().includes(query)
         )
       })
     }
