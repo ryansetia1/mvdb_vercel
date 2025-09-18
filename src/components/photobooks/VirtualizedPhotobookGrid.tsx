@@ -34,8 +34,8 @@ export const VirtualizedPhotobookGrid = React.memo(function VirtualizedPhotobook
   generations = [],
   lineups = [],
   members = [],
-  itemHeight = 240,
-  itemWidth = 180,
+  itemHeight = 320,
+  itemWidth = 260,
   containerHeight = 600,
   containerWidth = 1200
 }: VirtualizedPhotobookGridProps) {
@@ -101,9 +101,9 @@ export const VirtualizedPhotobookGrid = React.memo(function VirtualizedPhotobook
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {Array.from({ length: Math.min(photobooks?.length || 8, 12) }).map((_, i) => (
-          <div key={i} className="w-40 h-60 bg-gray-200 animate-pulse rounded-lg" />
+          <div key={i} className="w-64 h-96 bg-gray-200 animate-pulse rounded-lg" />
         ))}
       </div>
     )
@@ -133,7 +133,7 @@ export const VirtualizedPhotobookGrid = React.memo(function VirtualizedPhotobook
   if ((photobooks?.length || 0) > 50) {
     return (
       <div ref={containerRef} className="w-full">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {(visiblePhotobooks || []).map((photobook, index) => (
             <div key={photobook.id} data-index={visibleRange.start + index}>
               <PhotobookCard
@@ -156,7 +156,7 @@ export const VirtualizedPhotobookGrid = React.memo(function VirtualizedPhotobook
 
   // Fallback to regular grid for smaller lists
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {(photobooks || []).map((photobook) => (
         <PhotobookCard
           key={photobook.id}

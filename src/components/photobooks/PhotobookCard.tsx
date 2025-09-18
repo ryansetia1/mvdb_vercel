@@ -24,16 +24,16 @@ export const PhotobookCard = React.memo(function PhotobookCard({
   onCardClick, 
   onUnlink, 
   showUnlinkButton = false,
-  size = 'md',
+  size = 'lg',
   generations = [],
   lineups = [],
   members = []
 }: PhotobookCardProps) {
   
   const sizeClasses = {
-    sm: 'w-32 h-48',
-    md: 'w-40 h-60',
-    lg: 'w-48 h-72'
+    sm: 'w-40 h-60',
+    md: 'w-52 h-78',
+    lg: 'w-64 h-96'
   }
 
   // Memoize linked items calculation to prevent recalculation on every render

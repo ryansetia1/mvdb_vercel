@@ -49,9 +49,9 @@ export const PhotobookGrid = React.memo(function PhotobookGrid({
   }, [photobooks, onPhotobookClick, onUnlinkPhotobook, showUnlinkButtons, generations, lineups, members])
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {Array.from({ length: Math.min(photobooks?.length || 8, 12) }).map((_, i) => (
-          <div key={i} className="w-40 h-60 bg-gray-200 animate-pulse rounded-lg" />
+          <div key={i} className="w-64 h-96 bg-gray-200 animate-pulse rounded-lg" />
         ))}
       </div>
     )
