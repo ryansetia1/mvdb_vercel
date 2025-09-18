@@ -31,9 +31,9 @@ export const PhotobookCard = React.memo(function PhotobookCard({
 }: PhotobookCardProps) {
   
   const sizeClasses = {
-    sm: 'w-40 h-60',
-    md: 'w-52 h-78',
-    lg: 'w-64 h-96'
+    sm: 'w-40 h-56',
+    md: 'w-52 h-72',
+    lg: 'w-60 h-88'
   }
 
   // Memoize linked items calculation to prevent recalculation on every render
@@ -86,7 +86,7 @@ export const PhotobookCard = React.memo(function PhotobookCard({
 
   return (
     <Card 
-      className={`${sizeClasses[size]} cursor-pointer hover:shadow-lg transition-shadow group`}
+      className={`${sizeClasses[size]} cursor-pointer hover:shadow-lg transition-shadow group mb-4`}
       onClick={() => onCardClick(photobook)}
     >
       <CardContent className="p-0 h-full">
@@ -125,24 +125,24 @@ export const PhotobookCard = React.memo(function PhotobookCard({
         </div>
         
         {/* Title */}
-        <div className="p-3 h-1/4 flex flex-col justify-center">
-          <h3 className="font-medium text-sm line-clamp-2 text-center">
+        <div className="p-2 h-1/4 flex flex-col justify-start overflow-hidden space-y-2">
+          <h3 className="font-medium text-xs line-clamp-2 text-center leading-tight">
             {photobook.titleEn}
           </h3>
           {photobook.titleJp && (
-            <p className="text-xs text-gray-500 text-center mt-1 line-clamp-1">
+            <p className="text-xs text-gray-500 text-center line-clamp-1 leading-tight">
               {photobook.titleJp}
             </p>
           )}
           
           {/* Ownership Badges */}
           {linkedItems.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2 justify-center">
+            <div className="flex flex-wrap gap-1 justify-center max-h-6 overflow-hidden">
               {linkedItems.map((item, index) => (
-                <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
+                <Badge key={index} variant="secondary" className="text-xs px-1 py-0 flex-shrink-0">
                   <div className="flex items-center gap-1">
                     {item.icon}
-                    <span className="truncate max-w-16">{item.name}</span>
+                    <span className="truncate max-w-12">{item.name}</span>
                   </div>
                 </Badge>
               ))}

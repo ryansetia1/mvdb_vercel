@@ -30,7 +30,7 @@ import { SearchableComboBox, useComboBoxOptions } from '../ui/searchable-combobo
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { toast } from 'sonner'
 import { PhotobooksTabContent } from './photobooks/PhotobooksTabContent'
-import { Photobook } from '../../utils/photobookApi'
+import { Photobook, photobookApi } from '../../utils/photobookApi'
 
 interface GroupDetailContentProps {
   group: MasterDataItem
@@ -262,7 +262,68 @@ export function GroupDetailContent({
       }
     }
     
+    // Preload photobooks data for better performance
+    const preloadPhotobooks = async () => {
+      try {
+        console.log('Starting photobooks preload for group:', group.name)
+        
+        // Load hierarchy data first
+        const [generationsData, allLineups, allActresses] = await Promise.all([
+          masterDataApi.getGenerationsByGroup(group.id, accessToken),
+          masterDataApi.getByType('lineup', accessToken),
+          masterDataApi.getByType('actress', accessToken)
+        ])
+        
+        // Filter lineups and members based on generations
+        const groupLineups = (allLineups || []).filter(lineup => 
+          generationsData.some(gen => gen.id === lineup.generationId)
+        )
+        
+        const groupMembers = (allActresses || []).filter(actress => 
+          actress.selectedGroups && actress.selectedGroups.includes(group.name || '')
+        )
+        
+        // Load all photobooks in parallel
+        const [groupPhotobooks, generationPhotobooks, lineupPhotobooks, memberPhotobooks] = await Promise.all([
+          photobookApi.getPhotobooksByGroup(group.id, accessToken),
+          Promise.all(generationsData.map(generation => 
+            photobookApi.getPhotobooksByGeneration(generation.id, accessToken)
+          )).then(results => results.flat()),
+          Promise.all(groupLineups.map(lineup => 
+            photobookApi.getPhotobooksByLineup(lineup.id, accessToken)
+          )).then(results => results.flat()),
+          Promise.all(groupMembers.map(member => 
+            photobookApi.getPhotobooksByMember(member.id, accessToken)
+          )).then(results => results.flat())
+        ])
+        
+        // Update cache
+        setPhotobooksCache({
+          group: groupPhotobooks,
+          generation: generationPhotobooks,
+          lineup: lineupPhotobooks,
+          member: memberPhotobooks
+        })
+        
+        setHierarchyCache({
+          generations: generationsData,
+          lineups: groupLineups,
+          members: groupMembers
+        })
+        
+        console.log('Photobooks preloaded:', {
+          group: groupPhotobooks.length,
+          generation: generationPhotobooks.length,
+          lineup: lineupPhotobooks.length,
+          member: memberPhotobooks.length
+        })
+      } catch (error) {
+        console.error('Error preloading photobooks:', error)
+      }
+    }
+    
     preloadActresses()
+    preloadPhotobooks()
     loadActresses()
   }, [accessToken, group.id]) // Use group.id instead of group.name to prevent unnecessary re-renders
 

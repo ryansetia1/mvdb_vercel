@@ -86,7 +86,7 @@ export function PhotobooksTabContent({
 
   // Load photobooks and hierarchy data when component mounts
   useEffect(() => {
-    if (accessToken && !hasAnyData) {
+    if (accessToken) {
       // Check if we have cached data from parent component
       const hasParentCache = cachedPhotobooks && cachedHierarchy
       
@@ -100,19 +100,36 @@ export function PhotobooksTabContent({
           setIsLoading(false)
         })
         
-        // Start background loading for other tabs if not cached
-        startBackgroundLoading(cachedHierarchy!)
+        // Reset all loading states since data is already available
+        setLoadingStates({
+          generation: false,
+          lineup: false,
+          member: false
+        })
+        
+        console.log('Using cached photobooks data:', {
+          group: cachedPhotobooks.group.length,
+          generation: cachedPhotobooks.generation.length,
+          lineup: cachedPhotobooks.lineup.length,
+          member: cachedPhotobooks.member.length
+        })
       } else {
-        // Start loading immediately without waiting for hierarchy data
-        setIsLoading(false) // Show UI immediately
-        loadPhotobooks() // Load photobooks in background
+        // No cached data available, show loading states
+        setLoadingStates({
+          generation: true,
+          lineup: true,
+          member: true
+        })
+        
+        // Start loading photobooks and sub-tabs in parallel
+        loadPhotobooks().then(() => {
+          setIsLoading(false) // Show UI only after data is loaded
+        }).catch(() => {
+          setIsLoading(false) // Show UI even on error
+        })
       }
-    } else if (accessToken && hasAnyData) {
-      // Data already exists, just ensure loading state is false
-      setIsLoading(false)
-      console.log('Data already exists, skipping initial load')
     }
-  }, [accessToken, group.id, hasAnyData, cachedPhotobooks, cachedHierarchy])
+  }, [accessToken, group.id, cachedPhotobooks, cachedHierarchy])
 
   // Separate effect to handle cached data updates without triggering reload
   useEffect(() => {
@@ -177,49 +194,58 @@ export function PhotobooksTabContent({
         group: groupPhotobooks
       }))
       
-      // Load hierarchy data if not provided (but don't wait for it)
+      // Start loading sub-tabs immediately and wait for completion
       if (!hierarchyData) {
+        // Load hierarchy data and start sub-tabs loading in parallel
         const hierarchyResult = await loadHierarchyData()
         if (hierarchyResult) {
-          // Start background loading for all tabs
-          startBackgroundLoading(hierarchyResult)
+          await startBackgroundLoading(hierarchyResult)
         }
       } else {
-        // Start background loading for all tabs
-        startBackgroundLoading(hierarchyData)
+        // Start background loading for all tabs with provided hierarchy data
+        await startBackgroundLoading(hierarchyData)
       }
       
     } catch (error) {
       console.error('Error loading photobooks:', error)
       toast.error('Failed to load photobooks')
+      
+      // Reset loading states on error
+      setLoadingStates({
+        generation: false,
+        lineup: false,
+        member: false
+      })
     }
   }
 
   // Background loading function for all sub tabs
   const startBackgroundLoading = async (hierarchyData: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
-    // Only load tabs that don't have data yet
+    // Load all tabs that don't have data yet
     const loadPromises: Promise<void>[] = []
     
-    if ((photobooks.generation?.length || 0) === 0 && !loadingStates.generation) {
+    if ((photobooks.generation?.length || 0) === 0) {
       loadPromises.push(loadSubTabPhotobooks('generation', hierarchyData))
     }
     
-    if ((photobooks.lineup?.length || 0) === 0 && !loadingStates.lineup) {
+    if ((photobooks.lineup?.length || 0) === 0) {
       loadPromises.push(loadSubTabPhotobooks('lineup', hierarchyData))
     }
     
-    if ((photobooks.member?.length || 0) === 0 && !loadingStates.member) {
+    if ((photobooks.member?.length || 0) === 0) {
       loadPromises.push(loadSubTabPhotobooks('member', hierarchyData))
     }
     
     if (loadPromises.length > 0) {
       console.log(`Starting background loading for ${loadPromises.length} tabs`)
       
-      // Execute background loading in parallel
-      Promise.allSettled(loadPromises).then(results => {
-        const successCount = results.filter(result => result.status === 'fulfilled').length
-        console.log(`Background loading completed: ${successCount}/${loadPromises.length} tabs loaded successfully`)
-      })
+      // Execute background loading in parallel and wait for completion
+      try {
+        await Promise.allSettled(loadPromises)
+        console.log(`Background loading completed for all ${loadPromises.length} tabs`)
+      } catch (error) {
+        console.error('Error in background loading:', error)
+      }
     } else {
       console.log('All tabs already have data, skipping background loading')
     }
@@ -227,22 +253,17 @@ export function PhotobooksTabContent({
   
   // Load photobooks for specific sub tab
   const loadSubTabPhotobooks = async (tabType: 'generation' | 'lineup' | 'member', hierarchyData?: { generations: MasterDataItem[], lineups: MasterDataItem[], members: MasterDataItem[] }) => {
-    if (loadingStates[tabType]) return // Already loading
-    
     // Check if data already exists
     const currentData = photobooks[tabType]
     if (currentData && currentData.length > 0) {
       console.log(`${tabType} data already exists, skipping load`)
+      // Reset loading state since data already exists
+      setLoadingStates(prev => ({ ...prev, [tabType]: false }))
       return
     }
     
-    // Check if we have any data at all to prevent unnecessary loading
-    if (hasAnyData && (currentData?.length || 0) === 0) {
-      console.log(`${tabType} data is empty but other data exists, skipping load to prevent unnecessary reloading`)
-      return
-    }
-    
-    setLoadingStates(prev => ({ ...prev, [tabType]: true }))
+    // Allow loading even if other data exists - user might be switching tabs
+    // Don't set loading state here since it's already set to true
     
     try {
       // Use provided hierarchy data or load if not available
@@ -287,6 +308,14 @@ export function PhotobooksTabContent({
       }))
       
       console.log(`Successfully loaded ${photobooks.length} ${tabType} photobooks`)
+      
+      // If no photobooks found, still update loading state to false
+      if (photobooks.length === 0) {
+        console.log(`No ${tabType} photobooks found, updating loading state`)
+      }
+      
+      // Add a small delay to ensure state updates are processed
+      await new Promise(resolve => setTimeout(resolve, 100))
       
     } catch (error) {
       console.error(`Error loading ${tabType} photobooks:`, error)
@@ -650,8 +679,8 @@ const PhotobookSubTabContent = memo(function PhotobookSubTabContent({
       </div>
 
       {/* Photobook Grid */}
-      {isLoading && (photobooks?.length || 0) === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 gap-y-5">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="bg-gray-200 rounded-lg aspect-[3/4] mb-2"></div>
