@@ -48,6 +48,7 @@ A comprehensive movie database management system with advanced parsing capabilit
 ### **🔧 Recent Fixes & Updates**
 - ✅ **[Endpoint Duplication Fix](./docs/ENDPOINT_DUPLICATION_FIX.md)** - Fixed photobooks and favorites not displaying
 - ✅ **[Troubleshooting Guide](./docs/TROUBLESHOOTING_GUIDE.md)** - Common issues and solutions
+- ✅ **[Photobook Actress Badge System](./docs/photobook-actress-badge-system.md)** - Simplified badge display system
 - ✅ **[Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)** - Best practices for endpoint management
 - ✅ **[Quick Reference](./docs/QUICK_REFERENCE.md)** - Emergency fixes and common commands
 

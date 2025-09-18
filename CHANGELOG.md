@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **NEW**: Comprehensive documentation for endpoint management
 - **NEW**: Troubleshooting guide for common issues
 - **NEW**: Development guidelines for preventing endpoint duplication
+- **NEW**: Photobook cover image click-to-zoom functionality
+- **NEW**: Simplified photobook actress badge system documentation
 
 ### Changed
 - Improved data parsing accuracy
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better security for API key management
 - **IMPROVED**: Endpoint organization and naming conventions
 - **IMPROVED**: Authentication strategy consistency
+- **IMPROVED**: Photobook actress badge display system - simplified logic for consistent individual badges
 
 ### Fixed
 - Critical bug where aliases wouldn't merge with existing data
@@ -35,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CRITICAL**: Fixed favorites not displaying due to endpoint duplication
 - **FIXED**: Endpoint URL inconsistencies between frontend and backend
 - **FIXED**: Authentication issues with public endpoints
+- **FIXED**: Photobook actress badges displaying inconsistently (mixed individual and combined badges)
+- **FIXED**: Photobook cover image click functionality not working due to pointer events conflicts
 
 ## [1.0.0] - 2024-09-14
 

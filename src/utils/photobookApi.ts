@@ -390,18 +390,17 @@ export const photobookHelpers = {
     return results
   },
 
-  // Get all unique actresses from image tags (raw data, no auto-tagging)
+  // Get all unique actresses from photobook (simple approach)
   getAllActressesFromTagsRaw(photobook: Photobook): string[] {
-    if (!photobook.imageTags) {
-      // Fallback to main actress if no image tags
-      return photobook.actress ? [photobook.actress] : []
+    // Simply get actresses from the main actress field
+    if (photobook.actress) {
+      if (photobook.actress.includes(',')) {
+        return photobook.actress.split(',').map(name => name.trim()).filter(name => name.length > 0)
+      }
+      return [photobook.actress]
     }
     
-    const allActresses = photobook.imageTags.flatMap(tag => tag.actresses)
-    const uniqueActresses = Array.from(new Set(allActresses))
-    
-    // If no actresses found in tags, fallback to main actress
-    return uniqueActresses.length > 0 ? uniqueActresses : (photobook.actress ? [photobook.actress] : [])
+    return []
   },
 
   // Apply auto-tagging: if no actresses are tagged to an image, tag all actresses

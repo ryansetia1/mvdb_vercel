@@ -11,7 +11,7 @@ import { Photobook, photobookApi, photobookHelpers, ImageTag } from '../../utils
 import { favoritesApi } from '../../utils/favoritesApi'
 import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
 import { SimpleFavoriteButton } from '../SimpleFavoriteButton'
-import { ArrowLeft, Calendar, User, ExternalLink, Images, Shield, Users, Edit3, Save, X } from 'lucide-react'
+import { ArrowLeft, Calendar, User, ExternalLink, Images, Shield, Users, Edit3, Save, X, ZoomIn } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface PhotobookDetailContentProps {
@@ -449,9 +449,17 @@ export function PhotobookDetailContent({
               <div className="text-center">
                 <div 
                   className={`w-full max-w-48 mx-auto mb-3 aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 relative group ${
-                    isEditingRatings && photobook.cover ? 'cursor-pointer ring-2 ring-blue-500 ring-opacity-50' : ''
+                    photobook.cover ? 'cursor-pointer hover:ring-2 hover:ring-blue-500 hover:ring-opacity-50' : ''
+                  } ${
+                    isEditingRatings && photobook.cover ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
                   }`}
                   onClick={(e) => {
+                    console.log('Cover clicked!', {
+                      isEditingRatings,
+                      hasCover: !!photobook.cover,
+                      coverUrl: photobook.cover
+                    })
+                    
                     if (isEditingRatings && photobook.cover) {
                       e.stopPropagation()
                       const currentRating = getImageRating(photobook.cover)
@@ -466,6 +474,16 @@ export function PhotobookDetailContent({
                       }
                       
                       handleRatingChange(photobook.cover, newRating)
+                    } else if (photobook.cover && !isEditingRatings) {
+                      // Open cover image in lightbox
+                      console.log('Opening cover in lightbox:', photobook.cover)
+                      e.stopPropagation()
+                      handleImageClick([photobook.cover], 0)
+                    } else {
+                      console.log('Cover click ignored:', {
+                        isEditingRatings,
+                        hasCover: !!photobook.cover
+                      })
                     }
                   }}
                 >
@@ -474,13 +492,21 @@ export function PhotobookDetailContent({
                       <ImageWithFallback
                         src={photobook.cover}
                         alt={photobook.titleEn}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover pointer-events-none"
                       />
                       {/* Edit mode overlay */}
                       {isEditingRatings && (
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <Edit3 className="h-6 w-6 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      {/* Click to view overlay */}
+                      {!isEditingRatings && (
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <ZoomIn className="h-6 w-6 text-white" />
                           </div>
                         </div>
                       )}
@@ -488,7 +514,7 @@ export function PhotobookDetailContent({
                       {(() => {
                         const coverRating = getImageRating(photobook.cover)
                         return coverRating && (
-                          <div className="absolute top-2 right-2">
+                          <div className="absolute top-2 right-2 pointer-events-none">
                             <Badge 
                               variant={coverRating === 'N' ? 'destructive' : 'secondary'} 
                               className="text-xs h-auto py-1 px-2"
@@ -500,7 +526,7 @@ export function PhotobookDetailContent({
                       })()}
                       {/* Edit Mode Indicator for Cover */}
                       {isEditingRatings && (
-                        <div className="absolute top-2 left-2">
+                        <div className="absolute top-2 left-2 pointer-events-none">
                           <Badge variant="outline" className="text-xs h-auto py-1 px-2 bg-blue-500 text-white border-blue-500">
                             EDIT
                           </Badge>
