@@ -55,6 +55,11 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
         case 'stream':
           return `Watch ${index + 1}`
         case 'download':
+          // Check if we have a title (platform name) for download links
+          if (title) {
+            return title
+          }
+          // Fallback to generic label if no title
           return `Download ${index + 1}`
         default:
           return title || `Link ${index + 1}`
@@ -112,7 +117,7 @@ export const createRenderers = ({ onProfileSelect, onFilterSelect, castData, mov
         variant={getVariant()}
         size="sm"
         className="flex items-center gap-2"
-        style={type === 'custom' ? platformColors : undefined}
+        style={(type === 'custom' || type === 'download') ? platformColors : undefined}
         asChild
       >
         <a href={url} target="_blank" rel="noopener noreferrer">

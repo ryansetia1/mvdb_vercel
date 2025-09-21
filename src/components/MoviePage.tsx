@@ -237,11 +237,32 @@ export function MoviePage({
       }
     }
 
+    // Function to get platform name from URL
+    const getPlatformName = (url: string) => {
+      const urlLower = url.toLowerCase()
+      
+      if (urlLower.includes('missav')) {
+        return 'MissAV'
+      } else if (urlLower.includes('highporn')) {
+        return 'HighPorn'
+      } else if (urlLower.includes('vk')) {
+        return 'VK'
+      }
+      
+      return null
+    }
+
     const getLabel = () => {
       switch (type) {
         case 'stream':
           return `Watch ${index + 1}`
         case 'download':
+          // Try to get platform name from URL
+          const platformName = getPlatformName(url)
+          if (platformName) {
+            return platformName
+          }
+          // Fallback to generic label if no platform detected
           return `Download ${index + 1}`
         default:
           return `Link ${index + 1}`
@@ -259,12 +280,47 @@ export function MoviePage({
       }
     }
 
+    // Function to get platform-specific colors
+    const getPlatformColor = (url: string) => {
+      const urlLower = url.toLowerCase()
+      
+      if (urlLower.includes('missav')) {
+        return {
+          backgroundColor: '#FE638E',
+          color: '#ffffff',
+          borderColor: '#FE638E'
+        }
+      } else if (urlLower.includes('highporn')) {
+        return {
+          backgroundColor: '#DA2858',
+          color: '#ffffff',
+          borderColor: '#DA2858'
+        }
+      } else if (urlLower.includes('vk')) {
+        return {
+          backgroundColor: '#0177FF',
+          color: '#ffffff',
+          borderColor: '#0177FF'
+        }
+      }
+      
+      // Default colors for other platforms
+      return {
+        backgroundColor: 'transparent',
+        color: 'inherit',
+        borderColor: 'inherit'
+      }
+    }
+
+    const platformColors = getPlatformColor(url)
+
     return (
       <Button
         key={index}
         variant={getVariant()}
         size="sm"
         className="flex items-center gap-2"
+        style={(type === 'custom' || type === 'download') ? platformColors : undefined}
         asChild
       >
         <a href={url} target="_blank" rel="noopener noreferrer">
