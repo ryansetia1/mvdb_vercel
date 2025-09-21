@@ -562,6 +562,11 @@ export function GroupDetailContent({
     }
   }
 
+  // Helper function to check if a generation has any lineups
+  const generationHasLineups = (generationId: string) => {
+    return lineups.some(lineup => lineup.generationId === generationId)
+  }
+
   const handleGenerationClick = async (generation: MasterDataItem) => {
     try {
       // Early return if this generation is already selected and we have data
@@ -2083,25 +2088,27 @@ export function GroupDetailContent({
                           </div>
                         )}
 
-                        {/* View Lineups Button */}
-                        <div className="mt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              // Check if this generation is currently selected and lineups are showing
-                              if (selectedGenerationId === generation.id && showLineups) {
-                                setShowLineups(false) // Hide lineups
-                              } else {
-                                handleViewLineups(generation) // Show lineups for this generation
-                              }
-                            }}
-                            className="h-6 px-2 text-xs w-full"
-                          >
-                            {selectedGenerationId === generation.id && showLineups ? 'Hide Lineups' : 'View Lineups'}
-                          </Button>
-                        </div>
+                        {/* View Lineups Button - only show if generation has lineups */}
+                        {generationHasLineups(generation.id) && (
+                          <div className="mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // Check if this generation is currently selected and lineups are showing
+                                if (selectedGenerationId === generation.id && showLineups) {
+                                  setShowLineups(false) // Hide lineups
+                                } else {
+                                  handleViewLineups(generation) // Show lineups for this generation
+                                }
+                              }}
+                              className="h-6 px-2 text-xs w-full"
+                            >
+                              {selectedGenerationId === generation.id && showLineups ? 'Hide Lineups' : 'View Lineups'}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
