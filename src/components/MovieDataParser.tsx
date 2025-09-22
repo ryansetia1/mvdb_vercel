@@ -110,6 +110,7 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const [movieType, setMovieType] = useState<string>('')
   const [availableTypes, setAvailableTypes] = useState<MasterDataItem[]>([])
   const [translatingTitle, setTranslatingTitle] = useState(false)
+  const [titleTranslationMethod, setTitleTranslationMethod] = useState<'ai' | 'fallback' | 'original' | null>(null)
   const [titleOptions, setTitleOptions] = useState<string[]>([])
   const [needsTitleSelection, setNeedsTitleSelection] = useState(false)
   const [cover, setCover] = useState('')
@@ -916,11 +917,20 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         dmcode: dmcode || ''
       }
       
-      const translatedText = await translateMovieTitleWithContext(parsedData.titleJp, movieData, accessToken)
+      const translationResult = await translateMovieTitleWithContext(parsedData.titleJp, movieData, accessToken)
       
-      if (translatedText && translatedText !== parsedData.titleJp) {
-        setTitleEn(translatedText)
-        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1 dengan konteks movie data')
+      if (translationResult.translatedText && translationResult.translatedText !== parsedData.titleJp) {
+        setTitleEn(translationResult.translatedText)
+        setTitleTranslationMethod(translationResult.translationMethod)
+        
+        // Show appropriate success message based on translation method
+        if (translationResult.translationMethod === 'ai') {
+          toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1 dengan konteks movie data')
+        } else if (translationResult.translationMethod === 'fallback') {
+          toast.success('Title diterjemahkan menggunakan MyMemory API (fallback)')
+        } else {
+          toast.success('Title menggunakan teks asli')
+        }
       } else {
         setError('Failed to translate title')
         toast.error('Gagal menerjemahkan title')
@@ -2494,7 +2504,20 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             </div>
             <div className="mt-4">
               <div className="flex items-center gap-2 mb-2">
-                <strong>Title (EN):</strong>
+                <div className="flex items-center gap-2">
+                  <strong>Title (EN):</strong>
+                  {titleTranslationMethod && !mergeMode?.isActive && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      titleTranslationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : titleTranslationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {titleTranslationMethod === 'ai' ? 'AI' : titleTranslationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex-1 relative">
                   <ShimmerInput
                     type="text"

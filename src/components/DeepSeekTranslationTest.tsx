@@ -45,7 +45,7 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
     setLoading(true)
     try {
       const result = await convertJapaneseToRomaji(testText, accessToken)
-      setRomajiText(result)
+      setRomajiText(result.translatedText)
       toast.success('Konversi Romaji berhasil!')
     } catch (error) {
       console.error('Romaji conversion error:', error)

@@ -35,6 +35,8 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
   const [error, setError] = useState('')
   const [translating, setTranslating] = useState(false)
   const [convertingRomaji, setConvertingRomaji] = useState(false)
+  const [translationMethod, setTranslationMethod] = useState<'ai' | 'fallback' | 'original' | null>(null)
+  const [romajiMethod, setRomajiMethod] = useState<'ai' | 'fallback' | 'original' | null>(null)
   const [duplicateError, setDuplicateError] = useState<{
     message: string
     existingItem: MasterDataItem | null
@@ -119,20 +121,31 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     setTranslating(true)
     try {
       // Menggunakan DeepSeek R1 untuk translate dengan konteks series name
-      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name')
+      const translationResult = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
       
-      if (translatedText && translatedText !== formData.titleJp) {
-        setFormData({ ...formData, titleEn: translatedText })
-        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+      if (translationResult.translatedText && translationResult.translatedText !== formData.titleJp) {
+        setFormData({ ...formData, titleEn: translationResult.translatedText })
+        setTranslationMethod(translationResult.translationMethod)
+        
+        // Show appropriate success message based on translation method
+        if (translationResult.translationMethod === 'ai') {
+          toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+        } else if (translationResult.translationMethod === 'fallback') {
+          toast.success('Title diterjemahkan menggunakan MyMemory API (fallback)')
+        } else {
+          toast.success('Title menggunakan teks asli')
+        }
       } else {
         // Fallback: just copy the Japanese text
         setFormData({ ...formData, titleEn: formData.titleJp })
+        setTranslationMethod('original')
         toast.warning('Terjemahan tidak tersedia, menggunakan text asli')
       }
     } catch (error) {
       console.error('Translation error:', error)
       // Fallback: just copy the Japanese text
       setFormData({ ...formData, titleEn: formData.titleJp })
+      setTranslationMethod('original')
       toast.error('Terjadi error saat menerjemahkan, menggunakan text asli')
     } finally {
       setTranslating(false)
@@ -146,20 +159,31 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     try {
       // Menggunakan DeepSeek R1 untuk translate dengan konteks yang sesuai
       const context = type === 'actress' ? 'actress_name' : type === 'actor' ? 'actor_name' : 'general'
-      const translatedText = await translateJapaneseToEnglishWithContext(formData.jpname, context, undefined, accessToken)
+      const translationResult = await translateJapaneseToEnglishWithContext(formData.jpname, context, undefined, accessToken)
       
-      if (translatedText && translatedText !== formData.jpname) {
-        setFormData({ ...formData, name: translatedText })
-        toast.success('Nama berhasil diterjemahkan menggunakan DeepSeek R1')
+      if (translationResult.translatedText && translationResult.translatedText !== formData.jpname) {
+        setFormData({ ...formData, name: translationResult.translatedText })
+        setTranslationMethod(translationResult.translationMethod)
+        
+        // Show appropriate success message based on translation method
+        if (translationResult.translationMethod === 'ai') {
+          toast.success('Nama berhasil diterjemahkan menggunakan DeepSeek R1')
+        } else if (translationResult.translationMethod === 'fallback') {
+          toast.success('Nama diterjemahkan menggunakan MyMemory API (fallback)')
+        } else {
+          toast.success('Nama menggunakan teks asli')
+        }
       } else {
         // Fallback: just copy the Japanese text
         setFormData({ ...formData, name: formData.jpname })
+        setTranslationMethod('original')
         toast.warning('Terjemahan tidak tersedia, menggunakan nama asli')
       }
     } catch (error) {
       console.error('Translation error:', error)
       // Fallback: just copy the Japanese text
       setFormData({ ...formData, name: formData.jpname })
+      setTranslationMethod('original')
       toast.error('Terjadi error saat menerjemahkan, menggunakan nama asli')
     } finally {
       setTranslating(false)
@@ -172,16 +196,27 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     setConvertingRomaji(true)
     try {
       // Menggunakan DeepSeek R1 untuk konversi romaji dengan fallback
-      const romajiText = await convertJapaneseToRomaji(formData.jpname, accessToken)
+      const romajiResult = await convertJapaneseToRomaji(formData.jpname, accessToken)
       
-      if (romajiText && romajiText !== formData.jpname) {
-        setFormData({ ...formData, name: romajiText })
-        toast.success('Nama berhasil dikonversi ke Romaji menggunakan DeepSeek R1')
+      if (romajiResult.translatedText && romajiResult.translatedText !== formData.jpname) {
+        setFormData({ ...formData, name: romajiResult.translatedText })
+        setRomajiMethod(romajiResult.translationMethod)
+        
+        // Show appropriate success message based on conversion method
+        if (romajiResult.translationMethod === 'ai') {
+          toast.success('Nama berhasil dikonversi ke Romaji menggunakan DeepSeek R1')
+        } else if (romajiResult.translationMethod === 'fallback') {
+          toast.success('Nama dikonversi ke Romaji menggunakan fallback')
+        } else {
+          toast.success('Nama menggunakan teks asli')
+        }
       } else {
+        setRomajiMethod('original')
         toast.warning('Konversi Romaji tidak tersedia, menggunakan nama asli')
       }
     } catch (error) {
       console.error('Romaji conversion error:', error)
+      setRomajiMethod('original')
       toast.error('Terjadi error saat konversi Romaji')
     } finally {
       setConvertingRomaji(false)
@@ -547,9 +582,22 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           {type === 'series' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Title English
-                </label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Title English
+                  </label>
+                  {translationMethod && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      translationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <ShimmerInput
                     type="text"
@@ -610,9 +658,22 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           {type === 'studio' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Studio (English) *
-                </label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nama Studio (English) *
+                  </label>
+                  {translationMethod && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      translationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <ShimmerInput
                     type="text"
@@ -728,9 +789,22 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           {(type === 'actress' || type === 'actor' || type === 'director') && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama
-                </label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nama
+                  </label>
+                  {translationMethod && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      translationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <ShimmerInput
                     type="text"
@@ -915,9 +989,22 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           {type === 'label' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Label (English) *
-                </label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nama Label (English) *
+                  </label>
+                  {translationMethod && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      translationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <ShimmerInput
                     type="text"

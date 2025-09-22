@@ -59,6 +59,8 @@ const sortOptions: SortOption[] = [
   { key: 'titleEn-desc', label: 'Title (Z-A)', getValue: (movie) => movie.titleEn?.toLowerCase() || '' },
   { key: 'releaseDate', label: 'Release Date (Old)', getValue: (movie) => movie.releaseDate || '' },
   { key: 'releaseDate-desc', label: 'Release Date (New)', getValue: (movie) => movie.releaseDate || '' },
+  { key: 'createdAt', label: 'Date Added (Old)', getValue: (movie) => movie.createdAt || '' },
+  { key: 'createdAt-desc', label: 'Date Added (New)', getValue: (movie) => movie.createdAt || '' },
   { key: 'actress', label: 'Actress (A-Z)', getValue: (movie) => movie.actress?.toLowerCase() || '' },
   { key: 'actress-desc', label: 'Actress (Z-A)', getValue: (movie) => movie.actress?.toLowerCase() || '' },
 ]

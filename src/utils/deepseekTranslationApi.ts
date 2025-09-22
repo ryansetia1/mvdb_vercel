@@ -120,10 +120,9 @@ export interface TranslationRequest {
   accessToken?: string
 }
 
-export interface TranslationResponse {
+export interface TranslationResult {
   translatedText: string
-  success: boolean
-  error?: string
+  translationMethod: 'ai' | 'fallback' | 'original'
 }
 
 /**
@@ -138,7 +137,8 @@ export async function translateWithDeepSeek(request: TranslationRequest): Promis
     return {
       translatedText: '',
       success: false,
-      error: 'Text tidak boleh kosong'
+      error: 'Text tidak boleh kosong',
+      translationMethod: 'original'
     }
   }
 
@@ -149,7 +149,8 @@ export async function translateWithDeepSeek(request: TranslationRequest): Promis
     return {
       translatedText: '',
       success: false,
-      error: 'API key tidak dikonfigurasi'
+      error: 'API key tidak dikonfigurasi',
+      translationMethod: 'original'
     }
   }
 
@@ -215,14 +216,16 @@ Translate this Japanese text to English:`
       
       return {
         translatedText,
-        success: true
+        success: true,
+        translationMethod: 'ai'
       }
     } else {
       console.error('Unexpected API response structure:', data)
       return {
         translatedText: '',
         success: false,
-        error: 'Unexpected response format from API'
+        error: 'Unexpected response format from API',
+        translationMethod: 'original'
       }
     }
 
@@ -231,7 +234,8 @@ Translate this Japanese text to English:`
     return {
       translatedText: '',
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      translationMethod: 'original'
     }
   }
 }
@@ -241,16 +245,19 @@ Translate this Japanese text to English:`
  * @param japaneseText - Text dalam bahasa Jepang
  * @param context - Konteks konten (movie_title, actor_name, actress_name, dll)
  * @param movieContext - Konteks movie data (actors, actresses, directors, dll)
- * @returns Promise<string> - Translated text dalam bahasa Inggris
+ * @returns Promise<TranslationResult> - Translation result dengan informasi metode terjemahan
  */
 export async function translateJapaneseToEnglishWithContext(
   japaneseText: string, 
   context: 'movie_title' | 'actor_name' | 'actress_name' | 'studio_name' | 'series_name' | 'general' = 'general',
   movieContext?: TranslationRequest['movieContext'],
   accessToken?: string
-): Promise<string> {
+): Promise<TranslationResult> {
   if (!japaneseText || japaneseText.trim().length === 0) {
-    return ''
+    return {
+      translatedText: '',
+      translationMethod: 'original'
+    }
   }
 
   // Try DeepSeek R1 first with context
@@ -265,7 +272,10 @@ export async function translateJapaneseToEnglishWithContext(
 
   if (deepseekResult.success && deepseekResult.translatedText) {
     console.log(`DeepSeek R1 translation successful for ${context}:`, deepseekResult.translatedText)
-    return deepseekResult.translatedText
+    return {
+      translatedText: deepseekResult.translatedText,
+      translationMethod: 'ai'
+    }
   }
 
   // Fallback to MyMemory API
@@ -276,14 +286,23 @@ export async function translateJapaneseToEnglishWithContext(
     
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
       console.log('MyMemory fallback translation successful')
-      return data.responseData.translatedText
+      return {
+        translatedText: data.responseData.translatedText,
+        translationMethod: 'fallback'
+      }
     } else {
       console.warn('MyMemory fallback also failed, returning original text')
-      return japaneseText
+      return {
+        translatedText: japaneseText,
+        translationMethod: 'original'
+      }
     }
   } catch (fallbackError) {
     console.error('MyMemory fallback error:', fallbackError)
-    return japaneseText
+    return {
+      translatedText: japaneseText,
+      translationMethod: 'original'
+    }
   }
 }
 
@@ -291,7 +310,7 @@ export async function translateJapaneseToEnglishWithContext(
  * Translate movie title dengan konteks movie data untuk menghindari terjemahan literal nama orang
  * @param movieTitle - Movie title dalam bahasa Jepang
  * @param movieData - Data movie yang berisi actors, actresses, directors, dll
- * @returns Promise<string> - Translated movie title dalam bahasa Inggris
+ * @returns Promise<TranslationResult> - Translation result dengan informasi metode terjemahan
  */
 export async function translateMovieTitleWithContext(
   movieTitle: string,
@@ -304,9 +323,12 @@ export async function translateMovieTitleWithContext(
     dmcode?: string
   },
   accessToken?: string
-): Promise<string> {
+): Promise<TranslationResult> {
   if (!movieTitle || movieTitle.trim().length === 0) {
-    return ''
+    return {
+      translatedText: '',
+      translationMethod: 'original'
+    }
   }
 
   // Parse comma-separated values
@@ -330,11 +352,12 @@ export async function translateMovieTitleWithContext(
  * Translate Japanese text to English dengan fallback ke MyMemory API
  * @param japaneseText - Text dalam bahasa Jepang
  * @param accessToken - Supabase access token untuk mengakses secrets
- * @returns Promise<string> - Translated text dalam bahasa Inggris
+ * @returns Promise<string> - Translated text dalam bahasa Inggris (untuk kompatibilitas)
  */
 export async function translateJapaneseToEnglish(japaneseText: string, accessToken?: string): Promise<string> {
   // Use the context-aware function with general context
-  return translateJapaneseToEnglishWithContext(japaneseText, 'general', undefined, accessToken)
+  const result = await translateJapaneseToEnglishWithContext(japaneseText, 'general', undefined, accessToken)
+  return result.translatedText
 }
 
 /**
@@ -360,11 +383,14 @@ export async function batchTranslateJapaneseToEnglish(texts: string[]): Promise<
 /**
  * Convert Japanese text to Romaji menggunakan DeepSeek R1
  * @param japaneseText - Text dalam bahasa Jepang
- * @returns Promise<string> - Romaji text
+ * @returns Promise<TranslationResult> - Romaji conversion result dengan informasi metode
  */
-export async function convertJapaneseToRomaji(japaneseText: string, accessToken?: string): Promise<string> {
+export async function convertJapaneseToRomaji(japaneseText: string, accessToken?: string): Promise<TranslationResult> {
   if (!japaneseText || japaneseText.trim().length === 0) {
-    return ''
+    return {
+      translatedText: '',
+      translationMethod: 'original'
+    }
   }
 
   // Get API key with fallback to Supabase secrets
@@ -372,7 +398,10 @@ export async function convertJapaneseToRomaji(japaneseText: string, accessToken?
   
   if (!apiKey) {
     console.warn('API key tidak dikonfigurasi, menggunakan fallback Romaji conversion')
-    return basicJapaneseToRomaji(japaneseText)
+    return {
+      translatedText: basicJapaneseToRomaji(japaneseText),
+      translationMethod: 'fallback'
+    }
   }
 
   try {
@@ -421,7 +450,10 @@ Convert this Japanese text to Romaji:`
       const errorData = await response.text()
       console.error('OpenRouter API Error for Romaji:', response.status, errorData)
       // Fallback to basic conversion
-      return basicJapaneseToRomaji(japaneseText)
+      return {
+        translatedText: basicJapaneseToRomaji(japaneseText),
+        translationMethod: 'fallback'
+      }
     }
 
     const data = await response.json()
@@ -430,19 +462,41 @@ Convert this Japanese text to Romaji:`
       const romajiText = data.choices[0].message.content?.trim() || ''
       
       if (romajiText && romajiText !== japaneseText) {
-        return romajiText
+        return {
+          translatedText: romajiText,
+          translationMethod: 'ai'
+        }
       } else {
-        return basicJapaneseToRomaji(japaneseText)
+        return {
+          translatedText: basicJapaneseToRomaji(japaneseText),
+          translationMethod: 'fallback'
+        }
       }
     } else {
       console.error('Unexpected API response structure for Romaji:', data)
-      return basicJapaneseToRomaji(japaneseText)
+      return {
+        translatedText: basicJapaneseToRomaji(japaneseText),
+        translationMethod: 'fallback'
+      }
     }
 
   } catch (error) {
     console.error('Romaji conversion error:', error)
-    return basicJapaneseToRomaji(japaneseText)
+    return {
+      translatedText: basicJapaneseToRomaji(japaneseText),
+      translationMethod: 'fallback'
+    }
   }
+}
+
+/**
+ * Convert Japanese text to Romaji (wrapper untuk kompatibilitas)
+ * @param japaneseText - Text dalam bahasa Jepang
+ * @returns Promise<string> - Romaji text (untuk kompatibilitas)
+ */
+export async function convertJapaneseToRomajiLegacy(japaneseText: string, accessToken?: string): Promise<string> {
+  const result = await convertJapaneseToRomaji(japaneseText, accessToken)
+  return result.translatedText
 }
 
 /**

@@ -37,6 +37,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
+  const [translationMethod, setTranslationMethod] = useState<'ai' | 'fallback' | 'original' | null>(null)
 
   const resetForm = () => {
     setFormData(initialFormData)
@@ -57,11 +58,20 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
     setIsTranslating(true)
     try {
       // Menggunakan DeepSeek R1 untuk translate dengan konteks series
-      const translatedText = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
+      const translationResult = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
       
-      if (translatedText && translatedText !== formData.titleJp) {
-        setFormData(prev => ({ ...prev, titleEn: translatedText }))
-        toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+      if (translationResult.translatedText && translationResult.translatedText !== formData.titleJp) {
+        setFormData(prev => ({ ...prev, titleEn: translationResult.translatedText }))
+        setTranslationMethod(translationResult.translationMethod)
+        
+        // Show appropriate success message based on translation method
+        if (translationResult.translationMethod === 'ai') {
+          toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+        } else if (translationResult.translationMethod === 'fallback') {
+          toast.success('Title diterjemahkan menggunakan MyMemory API (fallback)')
+        } else {
+          toast.success('Title menggunakan teks asli')
+        }
       } else {
         toast.error('Gagal menerjemahkan title')
       }
@@ -152,7 +162,20 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="titleEn">Title English</Label>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="titleEn">Title English</Label>
+                  {translationMethod && (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      translationMethod === 'ai' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                        : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                    }`}>
+                      {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
+                    </span>
+                  )}
+                </div>
                 <ShimmerInput
                   id="titleEn"
                   value={formData.titleEn}
