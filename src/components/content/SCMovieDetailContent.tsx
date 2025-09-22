@@ -349,8 +349,14 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="h-4 w-4" />
-                    <span className="font-medium">Release Date:</span>
+                    <span className="font-medium">SC Release Date:</span>
                     <span>{formatDate(currentSCMovie.releaseDate)}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4" />
+                    <span className="font-medium">HC Release Date:</span>
+                    <span>{formatDate(currentSCMovie.hcReleaseDate)}</span>
                   </div>
                   
                   <div className="flex items-center gap-2 text-sm">

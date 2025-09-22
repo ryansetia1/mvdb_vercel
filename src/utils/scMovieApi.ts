@@ -20,6 +20,7 @@ export interface SCMovie {
   cover: string
   scType: 'real_cut' | 'regular_censorship'
   releaseDate?: string
+  hcReleaseDate?: string
   cast?: string
   hcCode?: string
   hasEnglishSubs: boolean

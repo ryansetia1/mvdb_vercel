@@ -6,7 +6,7 @@ import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Switch } from './ui/switch'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, RefreshCw } from 'lucide-react'
 import { SCMovie, scMovieApi } from '../utils/scMovieApi'
 import { SearchableSelect } from './SearchableSelect'
 import { CombinedCastSelector } from './CombinedCastSelector'
@@ -27,6 +27,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
     cover: '',
     scType: 'regular_censorship',
     releaseDate: '',
+    hcReleaseDate: '',
     cast: '',
     hcCode: '',
     hasEnglishSubs: false,
@@ -62,7 +63,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
     }
   }
 
-  const fetchHCMovieCast = async (hcCode: string) => {
+  const fetchHCMovieData = async (hcCode: string) => {
     setIsLoadingCast(true)
     try {
       // Find HC movie by code
@@ -87,24 +88,45 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
           castData.push(...actors)
         }
         
-        // Update form data with cast from HC movie
+        // Prepare update data
+        const updateData: Partial<SCMovie> = {}
+        
+        // Update cast data
         if (castData.length > 0) {
+          updateData.cast = castData.join(', ')
+        }
+        
+        // Update HC release date
+        if (hcMovie.releaseDate) {
+          updateData.hcReleaseDate = hcMovie.releaseDate
+        }
+        
+        // Update form data with HC movie data
+        if (Object.keys(updateData).length > 0) {
           setFormData(prev => ({ 
             ...prev, 
-            cast: castData.join(', ')
+            ...updateData
           }))
           
           // Show success message
-          toast.success(`Cast data otomatis dimuat dari HC movie ${hcCode}: ${castData.join(', ')}`)
+          const messages = []
+          if (updateData.cast) {
+            messages.push(`Cast: ${updateData.cast}`)
+          }
+          if (updateData.hcReleaseDate) {
+            messages.push(`Release Date: ${new Date(updateData.hcReleaseDate).toLocaleDateString('id-ID')}`)
+          }
+          
+          toast.success(`Data HC movie ${hcCode} otomatis dimuat: ${messages.join(', ')}`)
         } else {
-          toast.info(`HC movie ${hcCode} ditemukan, tetapi tidak ada data cast yang tersedia`)
+          toast.info(`HC movie ${hcCode} ditemukan, tetapi tidak ada data yang tersedia`)
         }
       } else {
         toast.warning(`HC movie dengan code ${hcCode} tidak ditemukan di database`)
       }
     } catch (error) {
-      console.error('Failed to fetch HC movie cast:', error)
-      toast.error('Gagal memuat data cast dari HC movie')
+      console.error('Failed to fetch HC movie data:', error)
+      toast.error('Gagal memuat data dari HC movie')
     } finally {
       setIsLoadingCast(false)
     }
@@ -118,9 +140,9 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
   const handleSelectChange = async (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }))
     
-    // If HC code is selected, automatically fetch cast data from HC movie
+    // If HC code is selected, automatically fetch data from HC movie
     if (name === 'hcCode' && value) {
-      await fetchHCMovieCast(value)
+      await fetchHCMovieData(value)
     }
   }
 
@@ -270,12 +292,23 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
             </div>
 
             <div>
-              <Label htmlFor="releaseDate">Tanggal Rilis (Optional)</Label>
+              <Label htmlFor="releaseDate">Tanggal Rilis SC (Optional)</Label>
               <Input
                 id="releaseDate"
                 name="releaseDate"
                 type="date"
                 value={formData.releaseDate || ''}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="hcReleaseDate">Tanggal Rilis HC (Optional)</Label>
+              <Input
+                id="hcReleaseDate"
+                name="hcReleaseDate"
+                type="date"
+                value={formData.hcReleaseDate || ''}
                 onChange={handleInputChange}
               />
             </div>
@@ -307,13 +340,32 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
 
             <div>
               <Label htmlFor="hcCode">HC Code (Movie Code dari HC counterpart)</Label>
-              <SearchableSelect
-                value={formData.hcCode || ''}
-                onValueChange={(value) => handleSelectChange('hcCode', value)}
-                options={availableHCCodes.map(code => ({ value: code, label: code }))}
-                placeholder="Pilih atau ketik HC Code..."
-                allowCustomValue={true}
-              />
+              <div className="flex gap-2">
+                <SearchableSelect
+                  value={formData.hcCode || ''}
+                  onValueChange={(value) => handleSelectChange('hcCode', value)}
+                  options={availableHCCodes.map(code => ({ value: code, label: code }))}
+                  placeholder="Pilih atau ketik HC Code..."
+                  allowCustomValue={true}
+                  className="flex-1"
+                />
+                {formData.hcCode && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchHCMovieData(formData.hcCode!)}
+                    disabled={isLoadingCast}
+                    className="px-3"
+                  >
+                    {isLoadingCast ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

@@ -29,10 +29,8 @@ interface SortOption {
 const sortOptions: SortOption[] = [
   { key: 'titleEn-asc', label: 'Title A-Z', getValue: (movie) => movie.titleEn?.toLowerCase() || '' },
   { key: 'titleEn-desc', label: 'Title Z-A', getValue: (movie) => movie.titleEn?.toLowerCase() || '' },
-  { key: 'releaseDate-desc', label: 'SC Release Date (Newest)', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
-  { key: 'releaseDate-asc', label: 'SC Release Date (Oldest)', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
-  { key: 'hcReleaseDate-desc', label: 'HC Release Date (Newest)', getValue: (movie) => movie.hcReleaseDate ? new Date(movie.hcReleaseDate).getTime() : 0 },
-  { key: 'hcReleaseDate-asc', label: 'HC Release Date (Oldest)', getValue: (movie) => movie.hcReleaseDate ? new Date(movie.hcReleaseDate).getTime() : 0 },
+  { key: 'releaseDate-desc', label: 'Newest First', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
+  { key: 'releaseDate-asc', label: 'Oldest First', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
   { key: 'cast-asc', label: 'Cast A-Z', getValue: (movie) => movie.cast?.toLowerCase() || '' },
   { key: 'cast-desc', label: 'Cast Z-A', getValue: (movie) => movie.cast?.toLowerCase() || '' },
   { key: 'hcCode-asc', label: 'HC Code A-Z', getValue: (movie) => movie.hcCode?.toLowerCase() || '' },
@@ -146,6 +144,14 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
   }
 
   useEffect(() => {
+    console.log('useEffect triggered with:', { 
+      scMoviesLength: scMovies.length, 
+      effectiveSearchQuery, 
+      scTypeFilter, 
+      englishSubsFilter, 
+      sortBy 
+    });
+    
     // Filter movies based on search query and other filters
     let filtered = [...scMovies]
 
@@ -185,6 +191,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
       })
     }
 
+    console.log('Setting filtered movies:', filtered.length);
     setFilteredMovies(filtered)
   }, [scMovies, effectiveSearchQuery, scTypeFilter, englishSubsFilter, sortBy])
 
@@ -279,6 +286,11 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         showResultCount={true}
       />
 
+      {/* Debug Info */}
+      <div className="text-xs text-muted-foreground p-2 bg-yellow-50 border rounded">
+        Debug: Sort={sortBy}, Type={scTypeFilter}, Subs={englishSubsFilter}, Movies={filteredMovies.length}
+      </div>
+
       {/* Sort and Filter Controls */}
       <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg">
         <div className="flex items-center gap-2">
@@ -286,7 +298,10 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
           <span className="text-sm font-medium">Sort:</span>
         </div>
         
-        <Select value={sortBy} onValueChange={setSortBy}>
+        <Select value={sortBy} onValueChange={(value) => {
+          console.log('Sort changed to:', value);
+          setSortBy(value);
+        }}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
@@ -303,7 +318,10 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
           <span className="text-sm font-medium">Type:</span>
         </div>
         
-        <Select value={scTypeFilter} onValueChange={setScTypeFilter}>
+        <Select value={scTypeFilter} onValueChange={(value) => {
+          console.log('SC Type filter changed to:', value);
+          setScTypeFilter(value);
+        }}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
@@ -318,7 +336,10 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
           <span className="text-sm font-medium">English Subs:</span>
         </div>
         
-        <Select value={englishSubsFilter} onValueChange={setEnglishSubsFilter}>
+        <Select value={englishSubsFilter} onValueChange={(value) => {
+          console.log('English Subs filter changed to:', value);
+          setEnglishSubsFilter(value);
+        }}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All" />
           </SelectTrigger>
