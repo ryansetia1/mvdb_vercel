@@ -9,6 +9,7 @@ import { MoviesGrid } from './profile/MoviesGrid'
 import { PhotobooksGrid } from './profile/PhotobooksGrid'
 import { PhotobookGallery } from './profile/PhotobookGallery'
 import { ActressesGrid } from './profile/ActressesGrid'
+import { TakuActressesGrid } from './profile/TakuActressesGrid'
 import { StudiosGrid } from './profile/StudiosGrid'
 import { SeriesGrid } from './profile/SeriesGrid'
 import { processProfileImages, getAllProfileImages } from './profile/helpers'
@@ -17,7 +18,7 @@ import { masterDataApi, MasterDataItem } from '../../utils/masterDataApi'
 import { movieApi } from '../../utils/movieApi'
 import { photobookApi, photobookHelpers } from '../../utils/photobookApi'
 import { useCachedData } from '../../hooks/useCachedData'
-import { ArrowLeft, Film, Camera, Users, Building, List, Edit } from 'lucide-react'
+import { ArrowLeft, Film, Camera, Users, Building, List, Edit, Heart } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ActorForm } from '../ActorForm'
@@ -514,7 +515,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
               <Tabs value={state.activeTab} onValueChange={(value) => setState(prev => ({ ...prev, activeTab: value }))}>
                 <TabsList className={`grid w-full ${
                   type === 'actress' ? 'grid-cols-2' : 
-                  type === 'actor' ? 'grid-cols-2' : 
+                  type === 'actor' ? (name === 'Taku Yoshimura' ? 'grid-cols-3' : 'grid-cols-2') : 
                   type === 'director' ? 'grid-cols-4' :
                   'grid-cols-1'
                 }`}>
@@ -532,6 +533,12 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                     <TabsTrigger value="actresses" className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       Actresses
+                    </TabsTrigger>
+                  )}
+                  {type === 'actor' && name === 'Taku Yoshimura' && (
+                    <TabsTrigger value="taku-actresses" className="flex items-center gap-2">
+                      <Heart className="h-4 w-4" />
+                      Taku Actresses
                     </TabsTrigger>
                   )}
                   {type === 'director' && (
@@ -670,6 +677,19 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                 {type === 'actor' && (
                   <TabsContent value="actresses" className="space-y-4">
                     <ActressesGrid
+                      actorName={name}
+                      movies={state.movies}
+                      onMovieFilter={handleActressCollaboration}
+                      onProfileSelect={onProfileSelect}
+                      accessToken={accessToken}
+                    />
+                  </TabsContent>
+                )}
+
+                {/* Taku Actresses Tab for Taku Yoshimura */}
+                {type === 'actor' && name === 'Taku Yoshimura' && (
+                  <TabsContent value="taku-actresses" className="space-y-4">
+                    <TakuActressesGrid
                       actorName={name}
                       movies={state.movies}
                       onMovieFilter={handleActressCollaboration}
