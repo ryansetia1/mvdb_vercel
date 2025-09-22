@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, generateDmcode, analyzeDmcodePatterns, mergeMovieData, detectDataSource, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
+import { parseMovieData, matchWithDatabase, convertToMovie, checkDuplicateMovieCode, checkDuplicateMovieByTitle, generateDmcode, analyzeDmcodePatterns, mergeMovieData, detectDataSource, ParsedMovieData, MatchedData } from '../utils/movieDataParser'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { Movie } from '../utils/movieApi'
 import { masterDataApi } from '../utils/masterDataApi'
@@ -95,6 +95,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
   const [showDuplicateWarning, setShowDuplicateWarning] = useState<{
     existingMovie: Movie
     newMovieCode: string
+    matchType: 'code' | 'title'
+    matchScore?: number
   } | null>(null)
   const [mergeMode, setMergeMode] = useState<{
     existingMovie: Movie
@@ -398,19 +400,44 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         console.log('Generated dmcode:', generatedDmcode, 'for code:', parsed.code, 'studio:', parsed.studio)
       }
       
-      // Check for duplicate movie code
+      // Check for duplicate movie code or title (if dvd_id is null)
       console.log('=== CHECKING DUPLICATE ON PARSE ===')
       console.log('Code to check:', parsed.code)
+      console.log('Title JP:', parsed.titleJp)
+      console.log('Title EN:', parsed.titleEn)
       
-      const duplicateCheck = await checkDuplicateMovieCode(parsed.code)
-      console.log('Duplicate check result:', duplicateCheck)
+      let duplicateCheck = { isDuplicate: false, existingMovie: undefined }
+      
+      // If code exists, check by code first
+      if (parsed.code && parsed.code.trim()) {
+        duplicateCheck = await checkDuplicateMovieCode(parsed.code)
+        console.log('Duplicate check by code result:', duplicateCheck)
+      }
+      
+      // If no duplicate found by code and dvd_id is null (R18 data), check by title
+      if (!duplicateCheck.isDuplicate && (!parsed.code || parsed.code.trim() === '')) {
+        console.log('No code or empty code, checking by title...')
+        if (parsed.titleJp || parsed.titleEn) {
+          duplicateCheck = await checkDuplicateMovieByTitle(
+            parsed.titleJp || '', 
+            parsed.titleEn || '',
+            parsed.releaseDate,
+            parsed.studio,
+            parsed.series,
+            parsed.duration
+          )
+          console.log('Duplicate check by title result:', duplicateCheck)
+        }
+      }
       
       if (duplicateCheck.isDuplicate && duplicateCheck.existingMovie) {
         console.log('DUPLICATE FOUND! Showing warning...')
         // Show duplicate warning
         setShowDuplicateWarning({
           existingMovie: duplicateCheck.existingMovie,
-          newMovieCode: parsed.code
+          newMovieCode: parsed.code || 'No Code',
+          matchType: parsed.code && parsed.code.trim() ? 'code' : 'title',
+          matchScore: duplicateCheck.matchScore
         })
         
         // Auto-activate merge mode for testing title comparison
@@ -2941,6 +2968,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
           onMerge={handleMergeData}
           existingMovie={showDuplicateWarning.existingMovie}
           newMovieCode={showDuplicateWarning.newMovieCode}
+          matchType={showDuplicateWarning.matchType}
+          matchScore={showDuplicateWarning.matchScore}
         />
       )}
 

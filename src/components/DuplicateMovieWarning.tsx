@@ -9,6 +9,8 @@ interface DuplicateMovieWarningProps {
   onMerge: () => void
   existingMovie: Movie
   newMovieCode: string
+  matchType?: 'code' | 'title'
+  matchScore?: number
 }
 
 export function DuplicateMovieWarning({
@@ -17,7 +19,9 @@ export function DuplicateMovieWarning({
   onContinue,
   onMerge,
   existingMovie,
-  newMovieCode
+  newMovieCode,
+  matchType = 'code',
+  matchScore
 }: DuplicateMovieWarningProps) {
   if (!isOpen) return null
 
@@ -41,7 +45,7 @@ export function DuplicateMovieWarning({
           <div className="flex-1">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Duplicate Movie Code Detected
+                {matchType === 'title' ? 'Duplicate Movie Title Detected' : 'Duplicate Movie Code Detected'}
               </h3>
               <button
                 onClick={onClose}
@@ -53,7 +57,20 @@ export function DuplicateMovieWarning({
 
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-300 mb-3">
-                Movie code <span className="font-mono font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">{newMovieCode}</span> already exists in the database.
+                {matchType === 'title' ? (
+                  <>
+                    Movie title <span className="font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">{newMovieCode === 'No Code' ? 'matches existing movie' : newMovieCode}</span> already exists in the database.
+                    {matchScore && (
+                      <span className="ml-2 text-sm text-blue-600 font-medium">
+                        (Match Score: {matchScore}/100)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Movie code <span className="font-mono font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">{newMovieCode}</span> already exists in the database.
+                  </>
+                )}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Anda dapat memilih untuk melengkapi data yang sudah ada dengan informasi baru, atau menambahkan movie baru.

@@ -252,7 +252,7 @@ interface R18JsonData {
     name_en_is_machine_translation: boolean
     name_ja: string
   }>
-  comment_en: string
+  comment_en: string | null
   content_id: string
   directors: Array<{
     id: number
@@ -261,7 +261,7 @@ interface R18JsonData {
     name_romaji: string
     name_en?: string
   }>
-  dvd_id: string
+  dvd_id: string | null
   gallery: Array<{
     image_full: string
     image_thumb: string
@@ -269,15 +269,15 @@ interface R18JsonData {
   histrions: any[]
   jacket_full_url: string
   jacket_thumb_url: string
-  label_id: number
-  label_name_en: string
-  label_name_ja: string
+  label_id: number | null
+  label_name_en: string | null
+  label_name_ja: string | null
   maker_id: number
   maker_name_en: string
   maker_name_ja: string
   release_date: string
   runtime_mins: number
-  sample_url: string
+  sample_url: string | null
   series_id: number
   series_name_en: string
   series_name_en_is_machine_translation: boolean
@@ -299,11 +299,12 @@ function isR18JsonFormat(rawData: string): boolean {
     return (
       parsed &&
       typeof parsed === 'object' &&
-      'dvd_id' in parsed &&
       'title_ja' in parsed &&
       'actresses' in parsed &&
       'release_date' in parsed &&
-      'runtime_mins' in parsed
+      'runtime_mins' in parsed &&
+      'content_id' in parsed &&
+      'maker_name_en' in parsed
     )
   } catch {
     return false
@@ -509,7 +510,7 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
     const data: R18JsonData = JSON.parse(rawData.trim())
     
     const parsed: ParsedMovieData = {
-      code: data.dvd_id || '',
+      code: data.dvd_id || data.content_id || '',
       titleJp: data.title_ja || '',
       titleEn: data.title_en || data.title_en_uncensored || '',
       releaseDate: data.release_date || '',
@@ -591,7 +592,7 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
     }
 
     // Validate required fields
-    if (!parsed.code || !parsed.titleJp || !parsed.releaseDate) {
+    if ((!parsed.code && !data.content_id) || !parsed.titleJp || !parsed.releaseDate) {
       return null
     }
 
@@ -2395,6 +2396,173 @@ export async function matchWithDatabase(
   }
 
   return matched
+}
+
+/**
+ * Check if movie exists by title matching (Japanese or English) with additional parameters
+ */
+export async function checkDuplicateMovieByTitle(titleJp: string, titleEn: string, releaseDate?: string, studio?: string, series?: string, duration?: string): Promise<{ isDuplicate: boolean; existingMovie?: Movie; matchScore?: number }> {
+  try {
+    console.log('=== checkDuplicateMovieByTitle ===')
+    console.log('Searching for titleJp:', titleJp)
+    console.log('Searching for titleEn:', titleEn)
+    console.log('Additional params - Release:', releaseDate, 'Studio:', studio, 'Series:', series, 'Duration:', duration)
+    
+    const allMovies = await movieApi.getAllMovies()
+    console.log('Total movies:', allMovies.length)
+    
+    // Normalize titles for comparison
+    const normalizeTitle = (title: string) => {
+      return title.toLowerCase().trim().replace(/[\s\-_.,!?()&]/g, '')
+    }
+    
+    // Extract key words from title for partial matching
+    const extractKeywords = (title: string) => {
+      return title.toLowerCase()
+        .replace(/[^\w\s\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, ' ') // Keep Japanese chars, letters, numbers
+        .split(/\s+/)
+        .filter(word => word.length > 1) // Filter out single characters
+    }
+    
+    const normalizedTitleJp = normalizeTitle(titleJp)
+    const normalizedTitleEn = normalizeTitle(titleEn)
+    const keywordsJp = extractKeywords(titleJp)
+    const keywordsEn = extractKeywords(titleEn)
+    
+    console.log('Normalized titleJp:', normalizedTitleJp)
+    console.log('Normalized titleEn:', normalizedTitleEn)
+    console.log('Keywords JP:', keywordsJp)
+    console.log('Keywords EN:', keywordsEn)
+    
+    // Find potential matches with scoring
+    const potentialMatches = allMovies.map((movie: Movie) => {
+      let score = 0
+      let matchReasons: string[] = []
+      
+      // Title matching with scoring
+      if (movie.titleJp) {
+        const movieTitleJp = normalizeTitle(movie.titleJp)
+        const movieKeywordsJp = extractKeywords(movie.titleJp)
+        
+        // Exact match (highest score)
+        if (movieTitleJp === normalizedTitleJp) {
+          score += 100
+          matchReasons.push('Exact Japanese title match')
+        }
+        // Partial match (check if most keywords match)
+        else if (keywordsJp.length > 0) {
+          const matchingKeywords = keywordsJp.filter(keyword => 
+            movieKeywordsJp.some(movieKeyword => 
+              movieKeyword.includes(keyword) || keyword.includes(movieKeyword)
+            )
+          )
+          const keywordMatchRatio = matchingKeywords.length / keywordsJp.length
+          if (keywordMatchRatio >= 0.6) { // At least 60% keywords match
+            score += Math.round(60 * keywordMatchRatio)
+            matchReasons.push(`Japanese title partial match (${Math.round(keywordMatchRatio * 100)}% keywords)`)
+          }
+        }
+      }
+      
+      if (movie.titleEn) {
+        const movieTitleEn = normalizeTitle(movie.titleEn)
+        const movieKeywordsEn = extractKeywords(movie.titleEn)
+        
+        // Exact match (highest score)
+        if (movieTitleEn === normalizedTitleEn) {
+          score += 100
+          matchReasons.push('Exact English title match')
+        }
+        // Partial match (check if most keywords match)
+        else if (keywordsEn.length > 0) {
+          const matchingKeywords = keywordsEn.filter(keyword => 
+            movieKeywordsEn.some(movieKeyword => 
+              movieKeyword.includes(keyword) || keyword.includes(movieKeyword)
+            )
+          )
+          const keywordMatchRatio = matchingKeywords.length / keywordsEn.length
+          if (keywordMatchRatio >= 0.6) { // At least 60% keywords match
+            score += Math.round(60 * keywordMatchRatio)
+            matchReasons.push(`English title partial match (${Math.round(keywordMatchRatio * 100)}% keywords)`)
+          }
+        }
+      }
+      
+      // Additional parameter matching
+      if (releaseDate && movie.releaseDate) {
+        const movieReleaseDate = new Date(movie.releaseDate).toISOString().split('T')[0]
+        const searchReleaseDate = new Date(releaseDate).toISOString().split('T')[0]
+        if (movieReleaseDate === searchReleaseDate) {
+          score += 30
+          matchReasons.push('Same release date')
+        }
+      }
+      
+      if (studio && movie.studio) {
+        const studioMatch = movie.studio.toLowerCase().includes(studio.toLowerCase()) || 
+                           studio.toLowerCase().includes(movie.studio.toLowerCase())
+        if (studioMatch) {
+          score += 25
+          matchReasons.push('Studio match')
+        }
+      }
+      
+      if (series && movie.series) {
+        const seriesMatch = movie.series.toLowerCase().includes(series.toLowerCase()) || 
+                           series.toLowerCase().includes(movie.series.toLowerCase())
+        if (seriesMatch) {
+          score += 25
+          matchReasons.push('Series match')
+        }
+      }
+      
+      if (duration && movie.duration) {
+        // Extract duration numbers for comparison
+        const extractDuration = (dur: string) => {
+          const match = dur.match(/(\d+)/)
+          return match ? parseInt(match[1]) : 0
+        }
+        const movieDuration = extractDuration(movie.duration)
+        const searchDuration = extractDuration(duration)
+        if (movieDuration > 0 && searchDuration > 0 && Math.abs(movieDuration - searchDuration) <= 10) {
+          score += 20
+          matchReasons.push('Similar duration')
+        }
+      }
+      
+      return { movie, score, matchReasons }
+    }).filter(result => result.score > 0)
+    
+    // Sort by score (highest first)
+    potentialMatches.sort((a, b) => b.score - a.score)
+    
+    console.log('Potential matches found:', potentialMatches.length)
+    potentialMatches.forEach((match, index) => {
+      console.log(`Match ${index + 1}:`, {
+        code: match.movie.code,
+        titleJp: match.movie.titleJp,
+        titleEn: match.movie.titleEn,
+        score: match.score,
+        reasons: match.matchReasons
+      })
+    })
+    
+    // Consider it a duplicate if score is high enough
+    const bestMatch = potentialMatches[0]
+    const isDuplicate = bestMatch && bestMatch.score >= 80 // Threshold for considering it a duplicate
+    
+    console.log('Best match score:', bestMatch?.score || 0)
+    console.log('Is duplicate:', isDuplicate)
+    
+    return {
+      isDuplicate,
+      existingMovie: isDuplicate ? bestMatch.movie : undefined,
+      matchScore: bestMatch?.score
+    }
+  } catch (error) {
+    console.error('Error checking duplicate movie by title:', error)
+    return { isDuplicate: false }
+  }
 }
 
 /**
