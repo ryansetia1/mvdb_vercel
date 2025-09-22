@@ -22,7 +22,7 @@ import { toast } from 'sonner@2.0.3'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ActorForm } from '../ActorForm'
 
-export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onEditProfile }: ProfileContentProps) {
+export function ProfileContent({ type, name, accessToken, searchQuery = '', onBack, onMovieSelect, onPhotobookSelect, onGroupSelect, onSCMovieSelect, onProfileSelect, onEditProfile }: ProfileContentProps) {
   const { loadData: loadCachedData } = useCachedData()
   const [state, setState] = useState<ProfileState>({
     profile: null,
@@ -673,6 +673,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                       actorName={name}
                       movies={state.movies}
                       onMovieFilter={handleActressCollaboration}
+                      onProfileSelect={onProfileSelect}
                       accessToken={accessToken}
                     />
                   </TabsContent>
@@ -702,6 +703,7 @@ export function ProfileContent({ type, name, accessToken, searchQuery = '', onBa
                         actorName={name}
                         movies={state.movies}
                         onMovieFilter={handleActressCollaboration}
+                        onProfileSelect={onProfileSelect}
                         accessToken={accessToken}
                       />
                     </TabsContent>

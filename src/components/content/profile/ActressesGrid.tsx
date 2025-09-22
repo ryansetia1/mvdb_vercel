@@ -14,6 +14,7 @@ interface ActressesGridProps {
   actorName: string
   movies: Movie[]
   onMovieFilter: (actorName: string, actressName: string) => void
+  onProfileSelect?: (type: 'actor' | 'actress' | 'director', name: string) => void
   accessToken?: string
 }
 
@@ -36,6 +37,7 @@ export function ActressesGrid({
   actorName, 
   movies,
   onMovieFilter,
+  onProfileSelect,
   accessToken
 }: ActressesGridProps) {
   const [currentPage, setCurrentPage] = useState(1)
@@ -317,7 +319,11 @@ export function ActressesGrid({
                 
                 {/* Info */}
                 <div className="p-3 space-y-1">
-                  <h3 className="font-medium text-sm truncate" title={actress.name}>
+                  <h3 
+                    className={`font-medium text-sm truncate ${onProfileSelect ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer' : ''}`}
+                    title={actress.name}
+                    onClick={onProfileSelect ? () => onProfileSelect('actress', actress.name) : undefined}
+                  >
                     {actress.name || 'Unnamed'}
                   </h3>
                   

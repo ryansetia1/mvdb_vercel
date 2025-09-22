@@ -13,6 +13,7 @@ export interface ProfileContentProps {
   onSCMovieSelect?: (scMovie: SCMovie | string) => void
   onPhotobookSelect?: (photobook: Photobook) => void
   onGroupSelect?: (groupName: string) => void
+  onProfileSelect?: (type: 'actor' | 'actress' | 'director', name: string) => void
   onEditProfile?: (type: 'actor' | 'actress' | 'director', name: string) => void
 }
 

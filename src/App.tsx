@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter } from 'react-router-dom'
 import { LoginForm } from './components/LoginForm'
 import { UnifiedApp } from './components/UnifiedApp'
 import { MainContentContainer } from './components/MainContentContainer'
@@ -165,21 +166,23 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
-      <TypeColorsProvider accessToken={accessToken}>
-        <SimpleFavoritesProvider accessToken={accessToken}>
-          <div className="min-h-screen bg-background">
-            <MainContentContainer>
-              <UnifiedApp
-                accessToken={accessToken}
-                user={user}
-                onLogout={handleLogout}
-              />
-            </MainContentContainer>
-          </div>
-        </SimpleFavoritesProvider>
-      </TypeColorsProvider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
+        <TypeColorsProvider accessToken={accessToken}>
+          <SimpleFavoritesProvider accessToken={accessToken}>
+            <div className="min-h-screen bg-background">
+              <MainContentContainer>
+                <UnifiedApp
+                  accessToken={accessToken}
+                  user={user}
+                  onLogout={handleLogout}
+                />
+              </MainContentContainer>
+            </div>
+          </SimpleFavoritesProvider>
+        </TypeColorsProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   )
 }
 

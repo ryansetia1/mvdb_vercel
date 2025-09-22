@@ -1,6 +1,7 @@
 import React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTokenAwareDataLoad } from '../hooks/useTokenAwareEffect'
+import { useBrowserHistory } from '../hooks/useBrowserHistory'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Button } from './ui/button'
@@ -890,87 +891,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
 
-  const handleBack = () => {
-    // Check if there's a previous state in navigation history
-    if (navigationHistory.length > 0) {
-      // Get the most recent state from history
-      const previousState = navigationHistory[navigationHistory.length - 1]
-      
-      // Remove the last state from history
-      setNavigationHistory(prev => prev.slice(0, -1))
-      
-      // Restore the previous state
-      setContentState(previousState)
-      
-      // Update active nav item based on the restored state
-      if (previousState.mode === 'filteredMovies' || previousState.mode === 'filteredActresses') {
-        // For filtered content, keep the current active nav item
-        // since the filter could come from any main section
-      } else if (previousState.mode === 'customNavFiltered') {
-        // Find the custom nav item that matches this state
-        const customNav = customNavItems.find(item => 
-          item.filterType === previousState.data?.filterType && 
-          item.filterValue === previousState.data?.filterValue
-        )
-        if (customNav) {
-          setActiveNavItem(customNav.id)
-        }
-      } else if (previousState.mode === 'custom') {
-        // Find the custom nav item that matches this state
-        const customNav = customNavItems.find(item => 
-          item.filterType === previousState.data?.filterType && 
-          item.filterValue === previousState.data?.filterValue
-        )
-        if (customNav) {
-          setActiveNavItem(customNav.id)
-        }
-      } else {
-        // For regular modes, find the corresponding nav item
-        const navItem = navItems.find(item => item.type === previousState.mode)
-        if (navItem) {
-          setActiveNavItem(navItem.id)
-        }
-      }
-      
-      // Special handling for movies mode - restore pagination position
-      if (previousState.mode === 'movies') {
-        // Restore the moviesFilters state if it was saved in navigation history
-        if (previousState.moviesFilters) {
-          setMoviesFilters(previousState.moviesFilters)
-          console.log('Restored movies filters with pagination position:', previousState.moviesFilters.currentPage)
-        } else {
-          console.log('No movies filters found in history, using current state:', moviesFilters.currentPage)
-        }
-      }
-    } else {
-      // No history available, fall back to default behavior
-      const currentNav = navItems.find(item => item.id === activeNavItem)
-      if (currentNav) {
-        // Clear any filter data when going back to main navigation
-        if (currentNav.type === 'custom' && currentNav.filterType && currentNav.filterValue) {
-          // For group filters, show actresses instead of movies
-          const contentMode = currentNav.filterType === 'group' ? 'filteredActresses' : 'filteredMovies'
-          setContentState({ 
-            mode: contentMode, 
-            title: `${currentNav.label}`,
-            data: { filterType: currentNav.filterType, filterValue: currentNav.filterValue }
-          })
-        } else if (currentNav.type === 'admin') {
-          // If current nav is admin but no history, go back to movies instead
-          setContentState({ mode: 'movies', title: 'Movies' })
-          setActiveNavItem('movies')
-        } else {
-          setContentState({ 
-            mode: currentNav.type as ContentMode, 
-            title: currentNav.label 
-          })
-        }
-      } else {
-        setContentState({ mode: 'movies', title: 'Movies' })
-        setActiveNavItem('movies')
-      }
-    }
-  }
 
   const handleEditMovie = (movie: Movie) => {
     setShowEditMovie(movie)
@@ -1198,6 +1118,19 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   // Separate default and custom nav items
   const defaultNavItems = navItems.filter(item => item.type !== 'custom')
   const customNavItems = navItems.filter(item => item.type === 'custom')
+
+  // Initialize browser history integration
+  const { handleBack } = useBrowserHistory({
+    contentState,
+    setContentState,
+    navigationHistory,
+    setNavigationHistory,
+    setActiveNavItem,
+    setMoviesFilters,
+    moviesFilters,
+    navItems,
+    customNavItems
+  })
 
   // Navigation customizer helpers
   const categories = [
@@ -1772,6 +1705,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onSCMovieSelect={undefined}
                 onPhotobookSelect={handlePhotobookSelectProfile}
                 onGroupSelect={handleGroupSelect}
+                onProfileSelect={handleProfileSelect}
                 onEditProfile={handleEditProfile}
               />
             )}
