@@ -36,11 +36,17 @@ interface StatsData {
   series: number
   labels: number
   groups: number
+  generations: number
+  lineups: number
   tags: number
   photobooks: {
     total: number
     withImages: number
     byActress: { [key: string]: number }
+    groupLinked: number
+    generationLinked: number
+    lineupLinked: number
+    memberLinked: number
   }
   favorites: {
     total: number
@@ -55,6 +61,12 @@ interface StatsData {
   }
   movieLinks: {
     total: number
+  }
+  profilePhotos: {
+    total: number
+    withGenerationPhotos: number
+    withLineupPhotos: number
+    withVersionPhotos: number
   }
 }
 
@@ -84,6 +96,8 @@ export function StatsContent({ accessToken }: StatsContentProps) {
         series,
         labels,
         groups,
+        generations,
+        lineups,
         tags,
         photobooks,
         favorites,
@@ -99,6 +113,8 @@ export function StatsContent({ accessToken }: StatsContentProps) {
         masterDataApi.getByType('series', accessToken), // Series belum di-cache
         masterDataApi.getByType('label', accessToken), // Labels belum di-cache
         masterDataApi.getByType('group', accessToken), // Groups belum di-cache
+        masterDataApi.getByType('generation', accessToken), // Generations belum di-cache
+        masterDataApi.getByType('lineup', accessToken), // Lineups belum di-cache
         masterDataApi.getByType('tag', accessToken), // Tags belum di-cache
         loadCachedData('photobooks', () => photobookApi.getPhotobooks(accessToken)),
         simpleFavoritesApi.getFavorites(accessToken), // Favorites sudah ada cache internal
@@ -144,7 +160,11 @@ export function StatsContent({ accessToken }: StatsContentProps) {
             acc[pb.actress] = (acc[pb.actress] || 0) + 1
           }
           return acc
-        }, {} as { [key: string]: number })
+        }, {} as { [key: string]: number }),
+        groupLinked: photobooks.filter(pb => pb.linkedTo?.groupId).length,
+        generationLinked: photobooks.filter(pb => pb.linkedTo?.generationId).length,
+        lineupLinked: photobooks.filter(pb => pb.linkedTo?.lineupId).length,
+        memberLinked: photobooks.filter(pb => pb.linkedTo?.memberId).length
       }
 
       // Process favorites data
@@ -165,6 +185,18 @@ export function StatsContent({ accessToken }: StatsContentProps) {
         total: movieLinks.length
       }
 
+      // Process profile photos data
+      const profilePhotoStats = {
+        total: actresses.filter(a => a.profilePicture).length + actors.filter(a => a.profilePicture).length,
+        withGenerationPhotos: actresses.filter(a => a.generationData && Object.keys(a.generationData).some(genId => a.generationData?.[genId]?.profilePicture)).length,
+        withLineupPhotos: actresses.filter(a => a.lineupData && Object.keys(a.lineupData).some(lineupId => a.lineupData?.[lineupId]?.profilePicture)).length,
+        withVersionPhotos: actresses.filter(a => {
+          const hasGenVersions = a.generationData && Object.values(a.generationData).some(gen => gen.photoVersions && Object.keys(gen.photoVersions).length > 0)
+          const hasLineupVersions = a.lineupData && Object.values(a.lineupData).some(lineup => lineup.photoVersions && Object.keys(lineup.photoVersions).length > 0)
+          return hasGenVersions || hasLineupVersions
+        }).length
+      }
+
       const newStats: StatsData = {
         movies: movieStats,
         scMovies: scMovieStats,
@@ -175,11 +207,14 @@ export function StatsContent({ accessToken }: StatsContentProps) {
         series: series.length,
         labels: labels.length,
         groups: groups.length,
+        generations: generations.length,
+        lineups: lineups.length,
         tags: tags.length,
         photobooks: photobookStats,
         favorites: favoriteStats,
         templates: finalTemplateStats,
-        movieLinks: movieLinksStats
+        movieLinks: movieLinksStats,
+        profilePhotos: profilePhotoStats
       }
 
       setStats(newStats)
@@ -478,6 +513,20 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           shadeLevel="quaternary"
         />
         <StatCard 
+          title="Generations" 
+          value={stats.generations} 
+          icon={Calendar} 
+          color="indigo"
+          shadeLevel="quaternary"
+        />
+        <StatCard 
+          title="Lineups" 
+          value={stats.lineups} 
+          icon={Users} 
+          color="teal"
+          shadeLevel="quaternary"
+        />
+        <StatCard 
           title="Tags" 
           value={stats.tags} 
           icon={Tag} 
@@ -514,6 +563,38 @@ export function StatsContent({ accessToken }: StatsContentProps) {
               .sort(([,a], [,b]) => b - a)[0][1]} photobooks` : ''}
           color="purple"
           shadeLevel="tertiary"
+        />
+        <StatCard 
+          title="Group Linked" 
+          value={stats.photobooks.groupLinked} 
+          icon={LinkIcon} 
+          subtitle={`${Math.round((stats.photobooks.groupLinked / stats.photobooks.total) * 100)}% dari total`}
+          color="blue"
+          shadeLevel="quaternary"
+        />
+        <StatCard 
+          title="Generation Linked" 
+          value={stats.photobooks.generationLinked} 
+          icon={Calendar} 
+          subtitle={`${Math.round((stats.photobooks.generationLinked / stats.photobooks.total) * 100)}% dari total`}
+          color="indigo"
+          shadeLevel="quaternary"
+        />
+        <StatCard 
+          title="Lineup Linked" 
+          value={stats.photobooks.lineupLinked} 
+          icon={Users} 
+          subtitle={`${Math.round((stats.photobooks.lineupLinked / stats.photobooks.total) * 100)}% dari total`}
+          color="teal"
+          shadeLevel="quaternary"
+        />
+        <StatCard 
+          title="Member Linked" 
+          value={stats.photobooks.memberLinked} 
+          icon={User} 
+          subtitle={`${Math.round((stats.photobooks.memberLinked / stats.photobooks.total) * 100)}% dari total`}
+          color="orange"
+          shadeLevel="quaternary"
         />
       </StatSection>
 
@@ -559,6 +640,41 @@ export function StatsContent({ accessToken }: StatsContentProps) {
           value={stats.favorites.photobooks} 
           icon={BookOpen} 
           color="red"
+          shadeLevel="tertiary"
+        />
+      </StatSection>
+
+      {/* Profile Photos Section */}
+      <StatSection title="Profile Photos">
+        <StatCard 
+          title="Total Profile Photos" 
+          value={stats.profilePhotos.total} 
+          icon={Image} 
+          color="blue"
+          shadeLevel="primary"
+        />
+        <StatCard 
+          title="Dengan Generation Photos" 
+          value={stats.profilePhotos.withGenerationPhotos} 
+          icon={Calendar} 
+          subtitle={`${Math.round((stats.profilePhotos.withGenerationPhotos / stats.profilePhotos.total) * 100)}% dari total`}
+          color="indigo"
+          shadeLevel="secondary"
+        />
+        <StatCard 
+          title="Dengan Lineup Photos" 
+          value={stats.profilePhotos.withLineupPhotos} 
+          icon={Users} 
+          subtitle={`${Math.round((stats.profilePhotos.withLineupPhotos / stats.profilePhotos.total) * 100)}% dari total`}
+          color="teal"
+          shadeLevel="secondary"
+        />
+        <StatCard 
+          title="Dengan Version Photos" 
+          value={stats.profilePhotos.withVersionPhotos} 
+          icon={Settings} 
+          subtitle={`${Math.round((stats.profilePhotos.withVersionPhotos / stats.profilePhotos.total) * 100)}% dari total`}
+          color="purple"
           shadeLevel="tertiary"
         />
       </StatSection>

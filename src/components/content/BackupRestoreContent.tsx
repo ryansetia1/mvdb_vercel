@@ -326,7 +326,7 @@ export function BackupRestoreContent({ accessToken }: BackupRestoreContentProps)
       
       // Get Master Data
       setBackupProgress(40)
-      const masterDataTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'group']
+      const masterDataTypes = ['actor', 'actress', 'series', 'studio', 'type', 'tag', 'director', 'label', 'group', 'generation', 'lineup']
       for (const type of masterDataTypes) {
         try {
           const data = await masterDataApi.getByType(type, accessToken)
