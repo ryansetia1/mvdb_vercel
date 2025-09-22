@@ -203,7 +203,7 @@ export function ImageSearchIframe({
               <div className="border rounded-lg overflow-hidden">
                 <iframe
                   src={getSearchUrl(searchTerm)}
-                  className="w-full h-96"
+                  className="w-full h-[600px] min-h-[500px]"
                   title={`Bing Images - ${searchTerm}`}
                   sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-top-navigation"
                   loading="lazy"
