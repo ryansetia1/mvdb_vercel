@@ -24,9 +24,10 @@ interface SCMovieDetailContentProps {
   onEdit?: (scMovie: SCMovie) => void
   accessToken: string
   onMovieSelect?: (movie: Movie) => void
+  onProfileSelect?: (type: 'actor' | 'actress' | 'director', name: string) => void
 }
 
-export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onMovieSelect }: SCMovieDetailContentProps) {
+export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onMovieSelect, onProfileSelect }: SCMovieDetailContentProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [currentSCMovie, setCurrentSCMovie] = useState<SCMovie>(scMovie)
   const [hcMovieData, setHcMovieData] = useState<Movie | null>(null)
@@ -131,6 +132,43 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
     
     if (castList.length === 0) return null
 
+    const handleCastClick = async (castMember: string) => {
+      if (onProfileSelect) {
+        try {
+          // Try to determine if it's an actress or actor by checking the database
+          const movies = await movieApi.getMovies(accessToken)
+          
+          // Check if this name appears as an actress in any movie
+          const isActress = movies.some(movie => 
+            movie.actress && movie.actress.toLowerCase().includes(castMember.toLowerCase())
+          )
+          
+          // Check if this name appears as an actor in any movie
+          const isActor = movies.some(movie => 
+            movie.actors && movie.actors.toLowerCase().includes(castMember.toLowerCase())
+          )
+          
+          // Determine the type based on what we found
+          let castType: 'actor' | 'actress' | 'director' = 'actress' // default
+          
+          if (isActor && !isActress) {
+            castType = 'actor'
+          } else if (isActress && !isActor) {
+            castType = 'actress'
+          } else if (isActor && isActress) {
+            // If found in both, prefer actress (common case)
+            castType = 'actress'
+          }
+          
+          onProfileSelect(castType, castMember)
+        } catch (error) {
+          console.error('Error determining cast type:', error)
+          // Fallback to actress if we can't determine
+          onProfileSelect('actress', castMember)
+        }
+      }
+    }
+
     return (
       <div className="space-y-2">
         <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -139,7 +177,12 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
         </h3>
         <div className="flex flex-wrap gap-2">
           {castList.map((castMember, index) => (
-            <Badge key={index} variant="secondary" className="px-3 py-1">
+            <Badge 
+              key={index} 
+              variant="secondary" 
+              className={`px-3 py-1 ${onProfileSelect ? 'cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors' : ''}`}
+              onClick={() => onProfileSelect && handleCastClick(castMember)}
+            >
               {castMember}
             </Badge>
           ))}

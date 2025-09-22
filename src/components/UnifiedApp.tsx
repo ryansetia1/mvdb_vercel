@@ -1603,6 +1603,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 onBack={handleBack}
                 onEdit={handleEditSCMovie}
                 onMovieSelect={handleMovieSelect}
+                onProfileSelect={handleProfileSelect}
                 accessToken={accessToken}
               />
             )}

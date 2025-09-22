@@ -11,6 +11,7 @@ import { SCMovie, scMovieApi } from '../utils/scMovieApi'
 import { SearchableSelect } from './SearchableSelect'
 import { CombinedCastSelector } from './CombinedCastSelector'
 import { Movie, movieApi } from '../utils/movieApi'
+import { toast } from 'sonner'
 
 interface SCMovieFormProps {
   scMovie?: SCMovie
@@ -35,6 +36,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [availableHCCodes, setAvailableHCCodes] = useState<string[]>([])
+  const [isLoadingCast, setIsLoadingCast] = useState(false)
 
   useEffect(() => {
     if (scMovie) {
@@ -60,13 +62,66 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
     }
   }
 
+  const fetchHCMovieCast = async (hcCode: string) => {
+    setIsLoadingCast(true)
+    try {
+      // Find HC movie by code
+      const movies = await movieApi.getMovies(accessToken)
+      const hcMovie = movies.find(movie => 
+        movie.code?.toLowerCase() === hcCode.toLowerCase()
+      )
+      
+      if (hcMovie) {
+        // Extract cast data from HC movie
+        const castData: string[] = []
+        
+        // Add actresses
+        if (hcMovie.actress) {
+          const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name)
+          castData.push(...actresses)
+        }
+        
+        // Add actors
+        if (hcMovie.actors) {
+          const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name)
+          castData.push(...actors)
+        }
+        
+        // Update form data with cast from HC movie
+        if (castData.length > 0) {
+          setFormData(prev => ({ 
+            ...prev, 
+            cast: castData.join(', ')
+          }))
+          
+          // Show success message
+          toast.success(`Cast data otomatis dimuat dari HC movie ${hcCode}: ${castData.join(', ')}`)
+        } else {
+          toast.info(`HC movie ${hcCode} ditemukan, tetapi tidak ada data cast yang tersedia`)
+        }
+      } else {
+        toast.warning(`HC movie dengan code ${hcCode} tidak ditemukan di database`)
+      }
+    } catch (error) {
+      console.error('Failed to fetch HC movie cast:', error)
+      toast.error('Gagal memuat data cast dari HC movie')
+    } finally {
+      setIsLoadingCast(false)
+    }
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleSelectChange = async (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // If HC code is selected, automatically fetch cast data from HC movie
+    if (name === 'hcCode' && value) {
+      await fetchHCMovieCast(value)
+    }
   }
 
   const handleSwitchChange = (name: string, checked: boolean) => {
@@ -227,14 +282,26 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
 
             <div>
               <Label htmlFor="cast">Cast - Aktris/Aktor (Optional)</Label>
-              <CombinedCastSelector
-                value={getCastArray(formData.cast || '')}
-                onChange={handleCastChange}
-                placeholder="Pilih aktris/aktor..."
-                accessToken={accessToken}
-              />
+              <div className="relative">
+                <CombinedCastSelector
+                  value={getCastArray(formData.cast || '')}
+                  onChange={handleCastChange}
+                  placeholder="Pilih aktris/aktor..."
+                  accessToken={accessToken}
+                />
+                {isLoadingCast && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </div>
+                )}
+              </div>
               <div className="text-xs text-gray-500 mt-1">
                 Pilih dari database aktris/aktor yang ada atau tambah baru
+                {formData.hcCode && (
+                  <span className="text-blue-600 ml-1">
+                    • Cast akan otomatis dimuat dari HC movie {formData.hcCode}
+                  </span>
+                )}
               </div>
             </div>
 
