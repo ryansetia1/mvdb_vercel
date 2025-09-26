@@ -7,6 +7,7 @@ import { Label } from '../ui/label'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { ClickableProfileAvatar } from '../ClickableProfileAvatar'
 import { ModernLightbox } from '../ModernLightbox'
+import { PhotobookForm } from '../PhotobookForm'
 import { Photobook, photobookApi, photobookHelpers, ImageTag } from '../../utils/photobookApi'
 import { favoritesApi } from '../../utils/favoritesApi'
 import { simpleFavoritesApi } from '../../utils/simpleFavoritesApi'
@@ -44,6 +45,8 @@ export function PhotobookDetailContent({
   const [galleryTab, setGalleryTab] = useState<'all' | 'nn' | 'n'>('nn')
   const [isEditingRatings, setIsEditingRatings] = useState(false)
   const [isSavingRatings, setIsSavingRatings] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editingPhotobook, setEditingPhotobook] = useState<Photobook | null>(null)
 
 
   useEffect(() => {
@@ -128,6 +131,28 @@ export function PhotobookDetailContent({
     } else if (onProfileSelect) {
       onProfileSelect('actress', actressName)
     }
+  }
+
+  // Handle save from PhotobookForm
+  const handleSavePhotobook = async (updatedPhotobook: Photobook) => {
+    setShowForm(false)
+    setEditingPhotobook(null)
+    
+    // Update local state
+    setPhotobook(updatedPhotobook)
+    
+    // Notify parent
+    if (onPhotobookUpdated) {
+      onPhotobookUpdated(updatedPhotobook)
+    }
+
+    toast.success('Photobook updated successfully')
+  }
+
+  // Handle cancel from PhotobookForm  
+  const handleCancelForm = () => {
+    setShowForm(false)
+    setEditingPhotobook(null)
   }
 
   // Toggle content rating editing mode
@@ -340,6 +365,18 @@ export function PhotobookDetailContent({
     }
   }
 
+  // Show form if editing
+  if (showForm && editingPhotobook) {
+    return (
+      <PhotobookForm
+        photobook={editingPhotobook}
+        onSave={handleSavePhotobook}
+        onCancel={handleCancelForm}
+        accessToken={accessToken}
+      />
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -431,6 +468,24 @@ export function PhotobookDetailContent({
           <ArrowLeft className="h-4 w-4" />
           Back to Photobooks
         </Button>
+        
+        {/* Edit Button */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (photobook && onPhotobookUpdated) {
+                // Set the editing photobook which will show the form
+                setShowForm(true)
+                setEditingPhotobook(photobook)
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <Edit3 className="h-4 w-4" />
+            Edit Photobook
+          </Button>
+        </div>
       </div>
 
       {/* Photobook Info */}
@@ -655,7 +710,7 @@ export function PhotobookDetailContent({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs value={galleryTab} onValueChange={(value) => setGalleryTab(value as 'all' | 'nn' | 'n')}>
+              <Tabs value={galleryTab} onValueChange={(value: string) => setGalleryTab(value as 'all' | 'nn' | 'n')}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="nn" className="flex items-center gap-2" disabled={imageCounts.nn === 0}>
                     <Shield className="h-4 w-4" />
