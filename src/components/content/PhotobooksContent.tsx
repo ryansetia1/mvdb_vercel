@@ -297,15 +297,15 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
                 <CardContent className="p-0">
                   {/* Main Container with Fixed Height */}
                   <div className="relative">
-                    {/* Action Buttons - Always on top, outside image load cycle */}
-                    <div className="absolute top-2 right-2 z-20">
+                    {/* Action Buttons - Hidden by default, shown on group hover */}
+                    <div className="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <div className="flex gap-1">
                         {accessToken && (
                           <SimpleFavoriteButton
                             type="photobook"
                             itemId={photobook.id || ''}
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
                           />
                         )}
                         <Button
