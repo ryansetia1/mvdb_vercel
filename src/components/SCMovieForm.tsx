@@ -189,28 +189,33 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
           }));
         }
         
-        // Extract cast data from HC movie if not already set
-        if (!formData.cast || formData.cast.trim() === '') {
-          const castData: string[] = [];
+        // Extract cast data from HC movie and merge with existing cast
+        const newCastData: string[] = [];
+        
+        // Add actresses
+        if (hcMovie.actress) {
+          const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name);
+          newCastData.push(...actresses);
+        }
+        
+        // Add actors
+        if (hcMovie.actors) {
+          const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name);
+          newCastData.push(...actors);
+        }
+        
+        if (newCastData.length > 0) {
+          // Get existing cast and merge with new cast, removing duplicates
+          const existingCast = formData.cast ? formData.cast.split(',').map(name => name.trim()).filter(name => name) : [];
+          const combinedCast = [...existingCast, ...newCastData];
           
-          // Add actresses
-          if (hcMovie.actress) {
-            const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name);
-            castData.push(...actresses);
-          }
+          // Remove duplicates by converting to Set and back to array
+          const uniqueCast = [...new Set(combinedCast)];
           
-          // Add actors
-          if (hcMovie.actors) {
-            const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name);
-            castData.push(...actors);
-          }
-          
-          if (castData.length > 0) {
-            setFormData(prev => ({ 
-              ...prev, 
-              cast: castData.join(', ')
-            }));
-          }
+          setFormData(prev => ({ 
+            ...prev, 
+            cast: uniqueCast.join(', ')
+          }));
         }
         
         toast.success(`HC movie ${hcCode} berhasil ditambahkan`);
