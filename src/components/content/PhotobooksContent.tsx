@@ -274,8 +274,8 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
         </div>
       )}
 
-      {/* Content with Pagination */}
-      {!isLoading && filteredPhotobooks.length > 0 && (
+  {/* Content with Pagination */}
+  {(filteredPhotobooks.length > 0 || isLoading) && (
         <>
           {/* Pagination - Top */}
           <PaginationEnhanced
@@ -295,40 +295,24 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
             {paginatedPhotobooks.map((photobook) => (
               <Card key={photobook.id} className="group hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-0">
-                  {/* Cover Image */}
-                  <div 
-                    className="aspect-[3/4] relative overflow-hidden rounded-t-lg"
-                    onClick={() => onPhotobookSelect(photobook)}
-                  >
-                    {photobook.cover ? (
-                      <ImageWithFallback
-                        src={photobook.cover}
-                        alt={photobook.titleEn || 'Photobook cover'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <span className="text-muted-foreground">No Cover</span>
-                      </div>
-                    )}
-                    
-                    {/* Action Buttons Overlay */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Main Container with Fixed Height */}
+                  <div className="relative">
+                    {/* Action Buttons - Hidden by default, shown on group hover */}
+                    <div className="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <div className="flex gap-1">
                         {accessToken && (
                           <SimpleFavoriteButton
                             type="photobook"
                             itemId={photobook.id || ''}
                             size="sm"
-                            variant="secondary"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
                           />
                         )}
                         <Button
                           size="sm"
-                          variant="secondary"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
+                          variant="ghost"
+                          className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation()
                             handleEditPhotobook(photobook)
                           }}
@@ -337,9 +321,9 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
                         </Button>
                         <Button
                           size="sm"
-                          variant="destructive"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
+                          variant="outline"
+                          className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation()
                             handleDeletePhotobook(photobook)
                           }}
@@ -349,18 +333,34 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
                       </div>
                     </div>
 
-                    {/* Image Count Badge */}
-                    {getImageCount(photobook) > 0 && (
-                      <Badge 
-                        variant="secondary" 
-                        className="absolute bottom-2 right-2 text-xs"
-                      >
-                        {getImageCount(photobook)} images
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Info */}
+                    {/* Cover Image Container - Maintains aspect ratio */}
+                    <div 
+                      className="aspect-[3/4] relative overflow-hidden rounded-t-lg"
+                      onClick={() => onPhotobookSelect(photobook)}
+                    >
+                      {photobook.cover ? (
+                        <ImageWithFallback
+                          src={photobook.cover}
+                          alt={photobook.titleEn || 'Photobook cover'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <span className="text-muted-foreground">No Cover</span>
+                        </div>
+                      )}
+                      
+                      {/* Image Count Badge - On top of image */}
+                      {getImageCount(photobook) > 0 && (
+                        <Badge 
+                          variant="secondary" 
+                          className="absolute bottom-2 right-2 text-xs z-10"
+                        >
+                          {getImageCount(photobook)} images
+                        </Badge>
+                      )}
+                    </div>
+                  </div>                  {/* Info */}
                   <div className="p-3 space-y-2">
                     {/* Title */}
                     <div onClick={() => onPhotobookSelect(photobook)}>
@@ -396,7 +396,7 @@ export function PhotobooksContent({ accessToken, onPhotobookSelect, searchQuery 
                             size="sm"
                             variant="ghost"
                             className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation()
                               window.open(photobook.link, '_blank')
                             }}

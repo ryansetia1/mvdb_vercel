@@ -7,11 +7,12 @@ import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Switch } from './ui/switch'
 import { Trash2, Plus, RefreshCw } from 'lucide-react'
-import { SCMovie, scMovieApi } from '../utils/scMovieApi'
+import { SCMovie, HCMovieReference, scMovieApi } from '../utils/scMovieApi'
 import { SearchableSelect } from './SearchableSelect'
 import { CombinedCastSelector } from './CombinedCastSelector'
 import { Movie, movieApi } from '../utils/movieApi'
 import { toast } from 'sonner'
+import { Badge } from './ui/badge'
 
 interface SCMovieFormProps {
   scMovie?: SCMovie
@@ -29,7 +30,8 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
     releaseDate: '',
     hcReleaseDate: '',
     cast: '',
-    hcCode: '',
+    hcCode: '', // Backward compatibility
+    hcMovies: [], // New field for multiple HC movies
     hasEnglishSubs: false,
     scStreamingLinks: [''],
     hcStreamingLinks: ['']
@@ -145,6 +147,106 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
       await fetchHCMovieData(value)
     }
   }
+  
+  // New function to handle adding HC movie to the list
+  const addHCMovie = async (hcCode: string) => {
+    if (!hcCode.trim()) return;
+    
+    // Check if HC code already exists in the list
+    const existingHCMovie = formData.hcMovies?.find(hc => hc.hcCode === hcCode);
+    if (existingHCMovie) {
+      toast.error(`HC movie dengan kode ${hcCode} sudah ada dalam daftar`);
+      return;
+    }
+    
+    setIsLoadingCast(true);
+    try {
+      // Find HC movie by code
+      const movies = await movieApi.getMovies(accessToken);
+      const hcMovie = movies.find(movie => 
+        movie.code?.toLowerCase() === hcCode.toLowerCase()
+      );
+      
+      if (hcMovie) {
+        // Create new HC movie reference
+        const newHCMovie: HCMovieReference = {
+          hcCode: hcCode,
+          hcReleaseDate: hcMovie.releaseDate
+        };
+        
+        // Add to hcMovies array
+        setFormData(prev => ({
+          ...prev,
+          hcMovies: [...(prev.hcMovies || []), newHCMovie]
+        }));
+        
+        // For backward compatibility, if this is the first HC movie, also set hcCode and hcReleaseDate
+        if (!formData.hcCode) {
+          setFormData(prev => ({
+            ...prev,
+            hcCode: hcCode,
+            hcReleaseDate: hcMovie.releaseDate
+          }));
+        }
+        
+        // Extract cast data from HC movie and merge with existing cast
+        const newCastData: string[] = [];
+        
+        // Add actresses
+        if (hcMovie.actress) {
+          const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name);
+          newCastData.push(...actresses);
+        }
+        
+        // Add actors
+        if (hcMovie.actors) {
+          const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name);
+          newCastData.push(...actors);
+        }
+        
+        if (newCastData.length > 0) {
+          // Get existing cast and merge with new cast, removing duplicates
+          const existingCast = formData.cast ? formData.cast.split(',').map(name => name.trim()).filter(name => name) : [];
+          const combinedCast = [...existingCast, ...newCastData];
+          
+          // Remove duplicates by converting to Set and back to array
+          const uniqueCast = [...new Set(combinedCast)];
+          
+          setFormData(prev => ({ 
+            ...prev, 
+            cast: uniqueCast.join(', ')
+          }));
+        }
+        
+        toast.success(`HC movie ${hcCode} berhasil ditambahkan`);
+      } else {
+        toast.warning(`HC movie dengan code ${hcCode} tidak ditemukan di database`);
+      }
+    } catch (error) {
+      console.error('Failed to add HC movie:', error);
+      toast.error('Gagal menambahkan HC movie');
+    } finally {
+      setIsLoadingCast(false);
+    }
+  }
+  
+  // Remove HC movie from the list
+  const removeHCMovie = (hcCode: string) => {
+    setFormData(prev => ({
+      ...prev,
+      hcMovies: prev.hcMovies?.filter(hc => hc.hcCode !== hcCode) || []
+    }));
+    
+    // If we're removing the HC movie that's set as the main hcCode, clear it
+    if (formData.hcCode === hcCode) {
+      const remainingHCMovies = formData.hcMovies?.filter(hc => hc.hcCode !== hcCode) || [];
+      setFormData(prev => ({
+        ...prev,
+        hcCode: remainingHCMovies.length > 0 ? remainingHCMovies[0].hcCode : '',
+        hcReleaseDate: remainingHCMovies.length > 0 ? remainingHCMovies[0].hcReleaseDate : ''
+      }));
+    }
+  }
 
   const handleSwitchChange = (name: string, checked: boolean) => {
     setFormData(prev => ({ ...prev, [name]: checked }))
@@ -204,6 +306,23 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
         ...formData,
         scStreamingLinks: (formData.scStreamingLinks || []).filter(link => link.trim()),
         hcStreamingLinks: (formData.hcStreamingLinks || []).filter(link => link.trim())
+      }
+
+      // Ensure hcMovies is properly set
+      if (!cleanedData.hcMovies || cleanedData.hcMovies.length === 0) {
+        // If no hcMovies but hcCode exists (backward compatibility), create hcMovies from hcCode
+        if (cleanedData.hcCode) {
+          cleanedData.hcMovies = [{
+            hcCode: cleanedData.hcCode,
+            hcReleaseDate: cleanedData.hcReleaseDate
+          }];
+        }
+      } else {
+        // Ensure hcCode is set for backward compatibility (use first HC movie)
+        if (cleanedData.hcMovies.length > 0) {
+          cleanedData.hcCode = cleanedData.hcMovies[0].hcCode;
+          cleanedData.hcReleaseDate = cleanedData.hcMovies[0].hcReleaseDate;
+        }
       }
 
       console.log('SC Movie data to save:', cleanedData)
@@ -339,31 +458,60 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
             </div>
 
             <div>
-              <Label htmlFor="hcCode">HC Code (Movie Code dari HC counterpart)</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="hcCode">HC Movies (Multiple HC movies dapat ditambahkan)</Label>
+              <div className="flex gap-2 mb-2">
                 <SearchableSelect
-                  value={formData.hcCode || ''}
-                  onValueChange={(value) => handleSelectChange('hcCode', value)}
+                  value={''}
+                  onValueChange={(value) => addHCMovie(value)}
                   options={availableHCCodes.map(code => ({ value: code, label: code }))}
                   placeholder="Pilih atau ketik HC Code..."
                   allowCustomValue={true}
                   className="flex-1"
                 />
-                {formData.hcCode && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchHCMovieData(formData.hcCode!)}
-                    disabled={isLoadingCast}
-                    className="px-3"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const inputValue = document.querySelector('[role="combobox"]') as HTMLInputElement;
+                    if (inputValue && inputValue.value) {
+                      addHCMovie(inputValue.value);
+                      inputValue.value = '';
+                    }
+                  }}
+                  disabled={isLoadingCast}
+                  className="px-3"
+                >
+                  {isLoadingCast ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              {/* Display HC Movies as badges */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {(formData.hcMovies || []).map((hcMovie) => (
+                  <Badge 
+                    key={hcMovie.hcCode} 
+                    variant="secondary"
+                    className="flex items-center gap-1 px-3 py-1"
                   >
-                    {isLoadingCast ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
+                    <span>HC: {hcMovie.hcCode}</span>
+                    <button 
+                      type="button" 
+                      className="ml-1 text-gray-500 hover:text-red-500"
+                      onClick={() => removeHCMovie(hcMovie.hcCode)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {(formData.hcMovies?.length || 0) === 0 && (
+                  <div className="text-sm text-gray-500 italic">
+                    Belum ada HC movie yang ditambahkan
+                  </div>
                 )}
               </div>
             </div>

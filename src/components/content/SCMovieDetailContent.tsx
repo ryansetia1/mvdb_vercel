@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { CroppedImage } from '../CroppedImage'
-import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
+import { SCMovie, HCMovieReference, scMovieApi } from '../../utils/scMovieApi'
 import { Movie, movieApi } from '../../utils/movieApi'
 import { processCoverUrl } from './movieDetail/MovieDetailHelpers'
 
@@ -33,6 +33,7 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
   const [hcMovieData, setHcMovieData] = useState<Movie | null>(null)
   const [isHoverHCBadge, setIsHoverHCBadge] = useState(false)
   const [isLoadingHCPreview, setIsLoadingHCPreview] = useState(false)
+  const [activeHCCode, setActiveHCCode] = useState<string | null>(null)
 
   // Reload SC movie data if needed
   const reloadSCMovie = async () => {
@@ -118,11 +119,13 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
 
   const handleHCBadgeMouseEnter = (hcCode: string) => {
     setIsHoverHCBadge(true)
+    setActiveHCCode(hcCode)
     handleHCBadgeHover(hcCode)
   }
 
   const handleHCBadgeMouseLeave = () => {
     setIsHoverHCBadge(false)
+    setActiveHCCode(null)
   }
 
   const renderCastSection = () => {
@@ -310,8 +313,24 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
                   )}
                 </div>
 
-                {/* HC Code badge */}
-                {currentSCMovie.hcCode && (
+                {/* HC Code badges */}
+                {currentSCMovie.hcMovies && currentSCMovie.hcMovies.length > 0 ? (
+                  <div className="absolute bottom-4 right-4 flex flex-col gap-2 items-end">
+                    {currentSCMovie.hcMovies.map((hcMovie) => (
+                      <Badge 
+                        key={hcMovie.hcCode}
+                        variant="outline" 
+                        className="bg-white/95 text-black border-gray-300 cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => handleHCCodeClick(hcMovie.hcCode)}
+                        onMouseEnter={() => handleHCBadgeMouseEnter(hcMovie.hcCode)}
+                        onMouseLeave={handleHCBadgeMouseLeave}
+                        title="Click to view HC movie • Hover to preview HC cover"
+                      >
+                        HC: {hcMovie.hcCode}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : currentSCMovie.hcCode ? (
                   <div className="absolute bottom-4 right-4">
                     <Badge 
                       variant="outline" 
@@ -324,7 +343,7 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
                       HC: {currentSCMovie.hcCode}
                     </Badge>
                   </div>
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -366,7 +385,26 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
                     </Badge>
                   </div>
                   
-                  {currentSCMovie.hcCode && (
+                  {currentSCMovie.hcMovies && currentSCMovie.hcMovies.length > 0 ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium">HC Codes:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {currentSCMovie.hcMovies.map((hcMovie) => (
+                          <Badge 
+                            key={hcMovie.hcCode}
+                            variant="outline" 
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                            onClick={() => handleHCCodeClick(hcMovie.hcCode)}
+                            onMouseEnter={() => handleHCBadgeMouseEnter(hcMovie.hcCode)}
+                            onMouseLeave={handleHCBadgeMouseLeave}
+                            title="Click to view HC movie • Hover to preview HC cover"
+                          >
+                            {hcMovie.hcCode}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : currentSCMovie.hcCode ? (
                     <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium">HC Code:</span>
                       <Badge 
@@ -380,7 +418,7 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
                         {currentSCMovie.hcCode}
                       </Badge>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium">English Subs:</span>

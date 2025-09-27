@@ -13,6 +13,7 @@ export interface ParsedMovieData {
   studio: string
   series: string
   label?: string
+  labels?: string[]
   rating?: string
   actresses: string[]
   actors: string[]
@@ -230,19 +231,19 @@ function detectJapaneseFemaleName(name: string): boolean {
  */
 interface R18JsonData {
   actors: Array<{
-    id: number
-    image_url: string
-    name_kana: string
-    name_kanji: string
-    name_romaji: string
+    id?: number
+    image_url?: string
+    name_kana?: string
+    name_kanji?: string
+    name_romaji?: string
     name_en?: string
   }>
   actresses: Array<{
-    id: number
-    image_url: string
-    name_kana: string
-    name_kanji: string
-    name_romaji: string
+    id?: number
+    image_url?: string
+    name_kana?: string
+    name_kanji?: string
+    name_romaji?: string
     name_en?: string
   }>
   authors: any[]
@@ -250,15 +251,15 @@ interface R18JsonData {
     id: number
     name_en: string
     name_en_is_machine_translation: boolean
-    name_ja: string
+    name_ja: string | null
   }>
   comment_en: string | null
   content_id: string
   directors: Array<{
-    id: number
-    name_kana: string
-    name_kanji: string
-    name_romaji: string
+    id?: number
+    name_kana?: string
+    name_kanji?: string
+    name_romaji?: string
     name_en?: string
   }>
   dvd_id: string | null
@@ -274,20 +275,20 @@ interface R18JsonData {
   label_name_ja: string | null
   maker_id: number
   maker_name_en: string
-  maker_name_ja: string
+  maker_name_ja: string | null
   release_date: string
   runtime_mins: number
   sample_url: string | null
-  series_id: number
-  series_name_en: string
+  series_id: number | null
+  series_name_en: string | null
   series_name_en_is_machine_translation: boolean
-  series_name_ja: string
+  series_name_ja: string | null
   service_code: string
   site_id: number
-  title_en: string
+  title_en: string | null
   title_en_is_machine_translation: boolean
-  title_en_uncensored: string
-  title_ja: string
+  title_en_uncensored: string | null
+  title_ja: string | null
 }
 
 /**
@@ -299,12 +300,12 @@ function isR18JsonFormat(rawData: string): boolean {
     return (
       parsed &&
       typeof parsed === 'object' &&
-      'title_ja' in parsed &&
       'actresses' in parsed &&
       'release_date' in parsed &&
       'runtime_mins' in parsed &&
       'content_id' in parsed &&
-      'maker_name_en' in parsed
+      'dvd_id' in parsed &&
+      'title_en' in parsed
     )
   } catch {
     return false
@@ -511,82 +512,85 @@ function parseR18JsonData(rawData: string): ParsedMovieData | null {
     
     const parsed: ParsedMovieData = {
       code: data.dvd_id || data.content_id || '',
-      titleJp: data.title_ja || '',
+      titleJp: data.title_ja || data.title_en_uncensored || data.title_en || '',
       titleEn: data.title_en || data.title_en_uncensored || '',
       releaseDate: data.release_date || '',
       duration: data.runtime_mins ? `${data.runtime_mins} minutes` : '',
       director: data.directors.length > 0 ? (() => {
         const director = data.directors[0]
         const normalized = normalizeR18JapaneseName(director)
-        return normalized.jpname || normalized.name || director.name_kanji || director.name_kana || director.name_romaji
+        return normalized.jpname || normalized.name || director.name_romaji || director.name_kanji || director.name_kana || ''
       })() : '',
-      studio: data.maker_name_en || data.maker_name_ja || '',
-      series: data.series_name_en || data.series_name_ja || '',
-      label: data.label_name_en || data.label_name_ja || '',
+      studio: data.maker_name_en || '',
+      series: data.series_name_en || '',
+      label: data.label_name_en || '',
       actresses: data.actresses.map(actress => {
         const normalized = normalizeR18JapaneseName(actress)
-        return normalized.jpname || normalized.name || actress.name_romaji || actress.name_kanji || actress.name_kana
-      }),
+        const name = normalized.jpname || normalized.name || actress.name_romaji || actress.name_kanji || actress.name_kana || actress.name_en || ''
+        return name || ''
+      }).filter(Boolean),
       actors: data.actors.map(actor => {
         const normalized = normalizeR18JapaneseName(actor)
-        return normalized.jpname || normalized.name || actor.name_romaji || actor.name_kanji || actor.name_kana
-      }),
+        const name = normalized.jpname || normalized.name || actor.name_romaji || actor.name_kanji || actor.name_kana || actor.name_en || ''
+        return name || ''
+      }).filter(Boolean),
       dmcode: data.content_id || '', // Use content_id as DM code for R18 data
       rawData,
       // Additional R18.dev data
-      galleryImages: data.gallery.map(img => img.image_full),
+      galleryImages: data.gallery?.map(img => img.image_full) || [],
       coverImage: data.jacket_full_url,
-      sampleUrl: data.sample_url,
+      sampleUrl: data.sample_url || undefined,
+      labels: data.categories?.map(cat => cat.name_en || '').filter(Boolean),
       // Director info from R18.dev (normalized)
       directorInfo: data.directors.length > 0 ? (() => {
         const director = data.directors[0]
         const normalized = normalizeR18JapaneseName(director)
         return {
-          name_romaji: director.name_romaji,
-          name_kanji: normalized.kanjiName,
-          name_kana: normalized.kanaName,
-          name_en: director.name_en,
-          jpname: normalized.jpname, // Add normalized Japanese name
-          alias: normalized.alias // Add extracted aliases
+          name_romaji: director.name_romaji || undefined,
+          name_kanji: normalized.kanjiName || undefined,
+          name_kana: normalized.kanaName || undefined,
+          name_en: director.name_en || undefined,
+          jpname: normalized.jpname || undefined, // Add normalized Japanese name
+          alias: normalized.alias || undefined // Add extracted aliases
         }
       })() : undefined,
       // Series info from R18.dev
-      seriesInfo: data.series_name_ja || data.series_name_en ? {
-        name_en: data.series_name_en,
-        name_ja: data.series_name_ja
+      seriesInfo: data.series_name_en ? {
+        name_en: data.series_name_en || undefined,
+        name_ja: data.series_name_ja || undefined
       } : undefined,
       // Label info from R18.dev
-      labelInfo: data.label_name_ja || data.label_name_en ? {
-        name_en: data.label_name_en,
-        name_ja: data.label_name_ja
+      labelInfo: data.label_name_en ? {
+        name_en: data.label_name_en || undefined,
+        name_ja: data.label_name_ja || undefined
       } : undefined,
       // Studio info from R18.dev
-      studioInfo: data.maker_name_ja || data.maker_name_en ? {
-        name_en: data.maker_name_en,
-        name_ja: data.maker_name_ja
+      studioInfo: data.maker_name_en ? {
+        name_en: data.maker_name_en || undefined,
+        name_ja: data.maker_name_ja || undefined
       } : undefined,
       // Actress info from R18.dev (normalized)
       actressInfo: data.actresses.map(actress => {
         const normalized = normalizeR18JapaneseName(actress)
         return {
-          name_romaji: actress.name_romaji,
-          name_kanji: normalized.kanjiName,
-          name_kana: normalized.kanaName,
-          name_en: actress.name_en,
-          jpname: normalized.jpname, // Add normalized Japanese name
-          alias: normalized.alias // Add extracted aliases
+          name_romaji: actress.name_romaji || undefined,
+          name_kanji: normalized.kanjiName || undefined,
+          name_kana: normalized.kanaName || undefined,
+          name_en: actress.name_en || undefined,
+          jpname: normalized.jpname || undefined, // Add normalized Japanese name
+          alias: normalized.alias || undefined // Add extracted aliases
         }
       }),
       // Actor info from R18.dev (normalized)
       actorInfo: data.actors.map(actor => {
         const normalized = normalizeR18JapaneseName(actor)
         return {
-          name_romaji: actor.name_romaji,
-          name_kanji: normalized.kanjiName,
-          name_kana: normalized.kanaName,
-          name_en: actor.name_en,
-          jpname: normalized.jpname, // Add normalized Japanese name
-          alias: normalized.alias // Add extracted aliases
+          name_romaji: actor.name_romaji || undefined,
+          name_kanji: normalized.kanjiName || undefined,
+          name_kana: normalized.kanaName || undefined,
+          name_en: actor.name_en || undefined,
+          jpname: normalized.jpname || undefined, // Add normalized Japanese name
+          alias: normalized.alias || undefined // Add extracted aliases
         }
       })
     }
@@ -1742,7 +1746,7 @@ export async function matchWithDatabase(
     
     // Use normalized name for display (without aliases in parentheses)
     const normalizedActressName = r18ActressData ? 
-      (r18ActressData.jpname || r18ActressData.name_kanji || r18ActressData.name_kana || actressName) : 
+      ((r18ActressData as any).jpname || r18ActressData.name_kanji || r18ActressData.name_kana || actressName) : 
       actressName
     
     console.log('=== MATCHING ACTRESS ===')
@@ -1869,7 +1873,7 @@ export async function matchWithDatabase(
     
     // Use normalized name for display (without aliases in parentheses)
     const normalizedActorName = r18ActorData ? 
-      (r18ActorData.jpname || r18ActorData.name_kanji || r18ActorData.name_kana || actorName) : 
+      ((r18ActorData as any).jpname || r18ActorData.name_kanji || r18ActorData.name_kana || actorName) : 
       actorName
     
     console.log('=== MATCHING ACTOR ===')
@@ -1981,7 +1985,7 @@ export async function matchWithDatabase(
     
     // Use normalized name for display (without aliases in parentheses)
     const normalizedDirectorName = r18DirectorData ? 
-      (r18DirectorData.jpname || r18DirectorData.name_kanji || r18DirectorData.name_kana || parsedData.director) : 
+      ((r18DirectorData as any).jpname || r18DirectorData.name_kanji || r18DirectorData.name_kana || parsedData.director) : 
       parsedData.director
     
     console.log('=== MATCHING DIRECTOR ===')
@@ -2531,13 +2535,13 @@ export async function checkDuplicateMovieByTitle(titleJp: string, titleEn: strin
       }
       
       return { movie, score, matchReasons }
-    }).filter(result => result.score > 0)
+    }).filter((result: any) => result.score > 0)
     
     // Sort by score (highest first)
-    potentialMatches.sort((a, b) => b.score - a.score)
+    potentialMatches.sort((a: any, b: any) => b.score - a.score)
     
     console.log('Potential matches found:', potentialMatches.length)
-    potentialMatches.forEach((match, index) => {
+    potentialMatches.forEach((match: any, index: number) => {
       console.log(`Match ${index + 1}:`, {
         code: match.movie.code,
         titleJp: match.movie.titleJp,
@@ -2577,7 +2581,7 @@ export async function checkDuplicateMovieCode(code: string): Promise<{ isDuplica
     console.log('Total movies:', allMovies.length)
     
     // Show first few movie codes for debugging
-    const movieCodes = allMovies.slice(0, 10).map(m => m.code).filter(Boolean)
+    const movieCodes = allMovies.slice(0, 10).map((m: any) => m.code).filter(Boolean)
     console.log('Sample movie codes:', movieCodes)
     
     const existingMovie = allMovies.find((movie: Movie) => {
