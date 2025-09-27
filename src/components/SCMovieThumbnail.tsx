@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Badge } from './ui/badge'
-import { Subtitles } from 'lucide-react'
+import { Subtitles, Layers } from 'lucide-react'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
-import { SCMovie } from '../utils/scMovieApi'
+import { SCMovie, HCMovieReference } from '../utils/scMovieApi'
 
 interface SCMovieThumbnailProps {
   scMovie: SCMovie
@@ -98,7 +98,18 @@ export function SCMovieThumbnail({
         </div>
 
         {/* HC Code Badge */}
-        {scMovie.hcCode && (
+        {scMovie.hcMovies && scMovie.hcMovies.length > 0 ? (
+          <div className="absolute bottom-2 right-2">
+            <Badge 
+              variant="outline" 
+              className="bg-white/95 text-black border-gray-300 text-xs flex items-center gap-1"
+              title={`${scMovie.hcMovies.length} HC movies related`}
+            >
+              <Layers className="h-3 w-3" />
+              {scMovie.hcMovies.length}
+            </Badge>
+          </div>
+        ) : scMovie.hcCode ? (
           <div className="absolute bottom-2 right-2">
             <Badge 
               variant="outline" 
@@ -108,7 +119,7 @@ export function SCMovieThumbnail({
               {scMovie.hcCode}
             </Badge>
           </div>
-        )}
+        ) : null}
 
         {/* Favorite Button */}
         {showFavoriteButton && accessToken && (

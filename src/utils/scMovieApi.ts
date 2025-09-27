@@ -13,6 +13,11 @@ import { projectId, publicAnonKey } from './supabase/info'
  * This API follows consistent naming conventions to avoid confusion.
  */
 
+export interface HCMovieReference {
+  hcCode: string
+  hcReleaseDate?: string
+}
+
 export interface SCMovie {
   id?: string
   titleEn: string
@@ -20,9 +25,10 @@ export interface SCMovie {
   cover: string
   scType: 'real_cut' | 'regular_censorship'
   releaseDate?: string
-  hcReleaseDate?: string
+  hcReleaseDate?: string // Backward compatibility
   cast?: string
-  hcCode?: string
+  hcCode?: string // Backward compatibility
+  hcMovies?: HCMovieReference[] // New field for multiple HC movies
   hasEnglishSubs: boolean
   scStreamingLinks: string[]
   hcStreamingLinks: string[]
