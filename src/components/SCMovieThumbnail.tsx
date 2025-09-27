@@ -99,15 +99,26 @@ export function SCMovieThumbnail({
 
         {/* HC Code Badge */}
         {scMovie.hcMovies && scMovie.hcMovies.length > 0 ? (
-          <div className="absolute bottom-2 right-2">
-            <Badge 
-              variant="outline" 
-              className="bg-white/95 text-black border-gray-300 text-xs flex items-center gap-1"
-              title={`${scMovie.hcMovies.length} HC movies related`}
-            >
-              <Layers className="h-3 w-3" />
-              {scMovie.hcMovies.length}
-            </Badge>
+          <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end" style={{ maxWidth: '90%', zIndex: 10 }}>
+            {scMovie.hcMovies.slice(0, 3).map((hcMovie, index) => (
+              <Badge 
+                key={index}
+                variant="outline" 
+                className="bg-white/95 text-black border-gray-300 text-xs whitespace-nowrap"
+                title={`Related HC movie: ${hcMovie.hcCode}`}
+              >
+                {hcMovie.hcCode}
+              </Badge>
+            ))}
+            {scMovie.hcMovies.length > 3 && (
+              <Badge 
+                variant="outline" 
+                className="bg-white/95 text-black border-gray-300 text-xs whitespace-nowrap"
+                title={`${scMovie.hcMovies.length - 3} more HC movies`}
+              >
+                +{scMovie.hcMovies.length - 3}
+              </Badge>
+            )}
           </div>
         ) : scMovie.hcCode ? (
           <div className="absolute bottom-2 right-2">
