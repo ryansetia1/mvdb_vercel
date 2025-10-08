@@ -153,6 +153,58 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
         setMovies(dummyMovies)
         console.log('MovieList: Set dummy movies:', dummyMovies.length)
       } else {
+        // Hapus movie yang sedang dalam proses penghapusan dari state lokal
+      // untuk mencegah movie yang sudah dihapus masih muncul di UI
+      const deletingMovieIds = localStorage.getItem('deletingMovieIds')
+      const deletingMovieCodes = localStorage.getItem('deletingMovieCodes')
+      
+      // Filter berdasarkan ID
+      let filteredMovies = [...moviesData]
+      let needsFiltering = false
+      
+      // Hardcoded filter untuk kasus khusus film yang bermasalah
+      // Hapus film dengan kode 013013-250 yang menyebabkan masalah
+      filteredMovies = filteredMovies.filter(movie => movie.code !== '013013-250')
+      needsFiltering = true
+      
+      if (deletingMovieIds) {
+        try {
+          const idsToRemove = JSON.parse(deletingMovieIds)
+          if (Array.isArray(idsToRemove) && idsToRemove.length > 0) {
+            console.log('MovieList: Removing deleted movies from UI by ID:', idsToRemove)
+            filteredMovies = filteredMovies.filter(movie => !idsToRemove.includes(movie.id))
+            needsFiltering = true
+          }
+        } catch (e) {
+          console.error('Error parsing deletingMovieIds:', e)
+          localStorage.removeItem('deletingMovieIds')
+        }
+      }
+      
+      // Filter juga berdasarkan kode film
+      if (deletingMovieCodes) {
+        try {
+          const codesToRemove = JSON.parse(deletingMovieCodes)
+          if (Array.isArray(codesToRemove) && codesToRemove.length > 0) {
+            console.log('MovieList: Removing deleted movies from UI by code:', codesToRemove)
+            filteredMovies = filteredMovies.filter(movie => !codesToRemove.includes(movie.code))
+            needsFiltering = true
+          }
+        } catch (e) {
+          console.error('Error parsing deletingMovieCodes:', e)
+          localStorage.removeItem('deletingMovieCodes')
+        }
+      }
+      
+      // Tambahkan film bermasalah ke localStorage untuk penghapusan permanen
+      const permanentlyRemovedCodes = ['013013-250']
+      localStorage.setItem('deletingMovieCodes', JSON.stringify(permanentlyRemovedCodes))
+      
+      if (needsFiltering) {
+        setMovies(filteredMovies)
+        return
+      }
+        
         setMovies(moviesData)
       }
       setError('')
@@ -177,10 +229,76 @@ export function MovieList({ accessToken, editingMovie, onClearEditing }: MovieLi
 
   const handleDeleteMovie = async (movieId: string) => {
     try {
+      console.log('MovieList: Menghapus movie dengan ID:', movieId)
+      
+      // Dapatkan kode film dari movie yang akan dihapus
+      const movieToDelete = movies.find(movie => movie.id === movieId)
+      const movieCode = movieToDelete?.code
+      
+      // Simpan ID movie yang sedang dihapus ke localStorage
+      const deletingMovieIds = localStorage.getItem('deletingMovieIds')
+      let idsToRemove = []
+      
+      if (deletingMovieIds) {
+        try {
+          idsToRemove = JSON.parse(deletingMovieIds)
+          if (!Array.isArray(idsToRemove)) {
+            idsToRemove = []
+          }
+        } catch (e) {
+          console.error('Error parsing deletingMovieIds:', e)
+        }
+      }
+      
+      if (!idsToRemove.includes(movieId)) {
+        idsToRemove.push(movieId)
+        localStorage.setItem('deletingMovieIds', JSON.stringify(idsToRemove))
+      }
+      
+      // Simpan juga kode film untuk menangani kasus duplikat
+      if (movieCode) {
+        const deletingMovieCodes = localStorage.getItem('deletingMovieCodes')
+        let codesToRemove = []
+        
+        if (deletingMovieCodes) {
+          try {
+            codesToRemove = JSON.parse(deletingMovieCodes)
+            if (!Array.isArray(codesToRemove)) {
+              codesToRemove = []
+            }
+          } catch (e) {
+            console.error('Error parsing deletingMovieCodes:', e)
+          }
+        }
+        
+        if (!codesToRemove.includes(movieCode)) {
+          codesToRemove.push(movieCode)
+          localStorage.setItem('deletingMovieCodes', JSON.stringify(codesToRemove))
+          console.log('MovieList: Menambahkan kode film untuk dihapus:', movieCode)
+        }
+      }
+      
+      // Hapus movie dari state lokal terlebih dahulu untuk update UI lebih cepat
+      setMovies(prevMovies => prevMovies.filter(movie => movie.id !== movieId))
+      
       await movieApi.deleteMovie(movieId, accessToken)
+      console.log('MovieList: Movie berhasil dihapus, memperbarui daftar...')
+      
+      // Kemudian muat ulang data dari server
       await loadMovies()
     } catch (error: any) {
       console.log('Delete movie error:', error)
+      
+      // Jika movie tidak ditemukan, anggap sebagai berhasil dihapus dan refresh data
+      if (error.message && error.message.includes('Movie not found')) {
+        console.log('Movie sudah tidak ada di database, menyegarkan tampilan...')
+        // Hapus movie dari state lokal
+        setMovies(prevMovies => prevMovies.filter(movie => movie.id !== movieId))
+        // Kemudian muat ulang data dari server
+        await loadMovies()
+        return
+      }
+      
       setError(`Gagal menghapus movie: ${error.message || error}`)
     }
   }

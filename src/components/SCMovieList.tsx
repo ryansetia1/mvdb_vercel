@@ -112,6 +112,14 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
       setError('')
     } catch (error: any) {
       console.log('Delete SC movie error:', error)
+      
+      // Jika SC movie tidak ditemukan, anggap sebagai berhasil dihapus dan refresh data
+      if (error.message && error.message.includes('SC Movie not found')) {
+        console.log('SC Movie sudah tidak ada di database, menyegarkan tampilan...')
+        await loadSCMovies()
+        return
+      }
+      
       setError(`Gagal menghapus SC movie: ${error.message || error}`)
     }
   }

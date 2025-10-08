@@ -1452,6 +1452,43 @@ app.post('/make-server-e0516fcf/sc-movies', async (c) => {
     }
 
     const scMovieData = await c.req.json()
+    
+    // Check for duplicates based on titleEn and hcCode
+    if (scMovieData.titleEn || scMovieData.hcCode) {
+      const existingMovies = await kv.getByPrefix('scmovie:')
+      const existingMovie = existingMovies.find(movie => {
+        const movieValue = movie.value
+        
+        // Check for duplicate by title
+        if (scMovieData.titleEn && movieValue.titleEn === scMovieData.titleEn) {
+          return true
+        }
+        
+        // Check for duplicate by hcCode
+        if (scMovieData.hcCode && movieValue.hcCode === scMovieData.hcCode) {
+          return true
+        }
+        
+        // Check for duplicate in hcMovies array
+        if (scMovieData.hcMovies && scMovieData.hcMovies.length > 0 && movieValue.hcMovies) {
+          for (const newHcMovie of scMovieData.hcMovies) {
+            if (movieValue.hcMovies.some(existingHcMovie => existingHcMovie.hcCode === newHcMovie.hcCode)) {
+              return true
+            }
+          }
+        }
+        
+        return false
+      })
+      
+      if (existingMovie) {
+        return c.json({ 
+          error: 'Duplikasi data terdeteksi. Film dengan judul atau kode HC yang sama sudah ada.',
+          existingMovie: existingMovie.value
+        }, 409)
+      }
+    }
+    
     const scMovieId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     
     const scMovie = {
