@@ -466,13 +466,28 @@ export function replaceTemplateLinks(template: string, dmcode?: string, code?: s
   
   lines.forEach(line => {
     if (line.trim() && line.includes('#')) {
+      // Get hashtag pattern info to determine digit count
+      const hashtagInfo = getHashtagPattern(line)
+      if (!hashtagInfo) return
+      
+      const { pattern, digitCount } = hashtagInfo
+      
       // Generate multiple URLs with sequential numbers
-      // Default to generating 10 gallery images (01-10) unless specified otherwise
+      // Default to generating 10 gallery images unless specified otherwise
       const galleryCount = 10
       
       for (let i = 1; i <= galleryCount; i++) {
-        const twoDigitNumber = String(i).padStart(2, '0')
-        const processedLine = line.replace(/#/g, twoDigitNumber)
+        let numberStr: string
+        
+        if (digitCount === 1) {
+          // For single #, use plain numbers: 1, 2, 3, etc.
+          numberStr = i.toString()
+        } else {
+          // For multiple #, use zero-padded numbers: 01, 02, 03, etc.
+          numberStr = i.toString().padStart(digitCount, '0')
+        }
+        
+        const processedLine = line.replace(pattern, numberStr)
         processedLines.push(processedLine)
       }
     } else if (line.trim()) {
