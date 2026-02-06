@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
 import { movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
+import { toast } from 'sonner'
 
 interface SoftContentProps {
   searchQuery: string
@@ -213,6 +214,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
       console.log('Selected SC movie:', movie)
     }
   }
+
 
   const clearAllFilters = () => {
     setScTypeFilter('all')
