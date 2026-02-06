@@ -29,6 +29,8 @@ interface SortOption {
 const sortOptions: SortOption[] = [
   { key: 'titleEn-asc', label: 'Title A-Z', getValue: (movie) => movie.titleEn?.toLowerCase() || '' },
   { key: 'titleEn-desc', label: 'Title Z-A', getValue: (movie) => movie.titleEn?.toLowerCase() || '' },
+  { key: 'createdAt-desc', label: 'Date Added (Newest)', getValue: (movie) => movie.createdAt ? new Date(movie.createdAt).getTime() : 0 },
+  { key: 'createdAt-asc', label: 'Date Added (Oldest)', getValue: (movie) => movie.createdAt ? new Date(movie.createdAt).getTime() : 0 },
   { key: 'releaseDate-desc', label: 'SC Release Date (Newest)', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
   { key: 'releaseDate-asc', label: 'SC Release Date (Oldest)', getValue: (movie) => movie.releaseDate ? new Date(movie.releaseDate).getTime() : 0 },
   { key: 'hcReleaseDate-desc', label: 'HC Release Date (Newest)', getValue: (movie) => movie.hcReleaseDate ? new Date(movie.hcReleaseDate).getTime() : 0 },
