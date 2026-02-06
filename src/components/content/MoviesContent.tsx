@@ -12,7 +12,9 @@ import { SearchableFilterSelect } from '../ui/searchable-filter-select'
 import { VirtualizedFilterSelect } from '../ui/virtualized-filter-select'
 import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
-import { Search, Filter, X, SortAsc, SortDesc, Plus, FileText } from 'lucide-react'
+import { Search, Filter, X, SortAsc, SortDesc, Plus, FileText, Play } from 'lucide-react'
+import { Toggle } from '../ui/toggle'
+import { parseLinks } from './movieDetail/MovieDetailHelpers'
 import { AdvancedSearchTest } from '../AdvancedSearchTest'
 import { SearchDropdown } from '../SearchDropdown'
 import { CategorizedMovieGrid } from '../CategorizedMovieGrid'
@@ -29,7 +31,7 @@ interface MoviesContentProps {
   // External filter state props for preserving filters across navigation
   externalFilters?: {
     tagFilter?: string
-    studioFilter?: string 
+    studioFilter?: string
     seriesFilter?: string
     typeFilter?: string
     labelFilter?: string
@@ -71,14 +73,14 @@ const sortOptions: SortOption[] = [
   { key: 'actress-desc', label: 'Actress (Z-A)', getValue: (movie) => movie.actress?.toLowerCase() || '' },
 ]
 
-export function MoviesContent({ 
-  movies, 
-  searchQuery, 
-  onMovieSelect, 
-  onProfileSelect, 
-  accessToken, 
-  actresses = [], 
-  actors = [], 
+export function MoviesContent({
+  movies,
+  searchQuery,
+  onMovieSelect,
+  onProfileSelect,
+  accessToken,
+  actresses = [],
+  actors = [],
   directors = [],
   externalFilters,
   onFiltersChange,
@@ -98,6 +100,7 @@ export function MoviesContent({
   const [isRandomized, setIsRandomized] = useState(false)
   const [randomMovies, setRandomMovies] = useState<Movie[]>([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [showPlayableOnly, setShowPlayableOnly] = useState(false)
 
   // Determine which state to use
   const currentPage = externalFilters?.currentPage ?? localCurrentPage
@@ -151,38 +154,38 @@ export function MoviesContent({
   const nameMatchesQuery = (name: string, query: string): boolean => {
     const nameLower = name.toLowerCase()
     const queryLower = query.toLowerCase()
-    
+
     // Direct match
     if (nameLower.includes(queryLower)) return true
-    
+
     // Reverse name search for fallback when not in master data
     const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
     const nameWords = nameLower.split(/\s+/).filter(w => w.length > 0)
-    
+
     if (queryWords.length >= 2 && nameWords.length >= 2) {
       // Try reverse matching: if query is "hatano yui", check if name contains "yui hatano"
       const reversedQuery = [...queryWords].reverse().join(' ')
       if (nameLower.includes(reversedQuery)) return true
-      
+
       // Also try partial reverse matching with individual words
       const firstQueryWord = queryWords[0]
       const lastQueryWord = queryWords[queryWords.length - 1]
       const firstName = nameWords[0]
       const lastName = nameWords[nameWords.length - 1]
-      
+
       // Check if first word of query matches last word of name AND vice versa
       if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
         return true
       }
     }
-    
+
     return false
   }
 
   // Helper function to check if a movie contains a cast member that matches the search query
   const movieContainsCastWithQuery = (movie: Movie, query: string): boolean => {
     if (!query || !query.trim()) return true
-    
+
     // Check actress
     if (movie.actress) {
       const actressNames = movie.actress.split(',').map(name => name.trim())
@@ -197,7 +200,7 @@ export function MoviesContent({
         }
       }
     }
-    
+
     // Check actors
     if (movie.actors) {
       const actorNames = movie.actors.split(',').map(name => name.trim())
@@ -212,7 +215,7 @@ export function MoviesContent({
         }
       }
     }
-    
+
     // Check director
     if (movie.director) {
       const director = directors.find(d => d.name === movie.director)
@@ -224,7 +227,7 @@ export function MoviesContent({
         return true
       }
     }
-    
+
     return false
   }
 
@@ -255,6 +258,25 @@ export function MoviesContent({
   const filteredAndSortedMovies = useMemo(() => {
     let filtered = movies
 
+    // Helper to check if movie has playable links
+    const hasWatchLink = (movie: Movie): boolean => {
+      const clinks = parseLinks(movie.clinks)
+      if (clinks.length > 0) return true
+
+      const ulinks = parseLinks(movie.ulinks)
+      if (ulinks.length > 0) return true
+
+      const slinks = parseLinks(movie.slinks)
+      if (slinks.length > 0) return true
+
+      return false
+    }
+
+    // Playable filter
+    if (showPlayableOnly) {
+      filtered = filtered.filter(hasWatchLink)
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -273,7 +295,7 @@ export function MoviesContent({
 
     // Tag filter
     if (tagFilter !== 'all') {
-      filtered = filtered.filter(movie => 
+      filtered = filtered.filter(movie =>
         movie.tags?.split(',').some(tag => tag.trim() === tagFilter)
       )
     }
@@ -305,7 +327,7 @@ export function MoviesContent({
       filtered.sort((a, b) => {
         const aVal = sortOption.getValue(a)
         const bVal = sortOption.getValue(b)
-        
+
         if (aVal < bVal) return isDesc ? 1 : -1
         if (aVal > bVal) return isDesc ? -1 : 1
         return 0
@@ -313,7 +335,7 @@ export function MoviesContent({
     }
 
     return filtered
-  }, [movies, searchQuery, tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter, sortBy])
+  }, [movies, searchQuery, tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter, sortBy, showPlayableOnly])
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedMovies.length / itemsPerPage)
@@ -325,7 +347,7 @@ export function MoviesContent({
     const arr = [...array]
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+        ;[arr[i], arr[j]] = [arr[j], arr[i]]
     }
     return arr
   }
@@ -352,6 +374,13 @@ export function MoviesContent({
     }
   }, [searchQuery])
 
+  // Reset randomization when playable filter changes
+  useEffect(() => {
+    setIsRandomized(false)
+    setRandomMovies([])
+    updateFilters({ currentPage: 1 })
+  }, [showPlayableOnly])
+
   // Keyboard navigation for pagination using global hook
   useGlobalKeyboardPagination(
     currentPage,
@@ -369,7 +398,7 @@ export function MoviesContent({
   const handleFilterChange = (filterType: string, value: string) => {
     console.log('handleFilterChange called:', filterType, value)
     const updates: any = { currentPage: 1 }
-    
+
     switch (filterType) {
       case 'tag':
         updates.tagFilter = value
@@ -387,7 +416,7 @@ export function MoviesContent({
         updates.labelFilter = value
         break
     }
-    
+
     updateFilters(updates)
     // Reset randomization when filters change
     setIsRandomized(false)
@@ -407,12 +436,12 @@ export function MoviesContent({
     setRandomMovies([])
   }
 
-  const hasActiveFilters = tagFilter !== 'all' || studioFilter !== 'all' || seriesFilter !== 'all' || typeFilter !== 'all' || labelFilter !== 'all'
+  const hasActiveFilters = tagFilter !== 'all' || studioFilter !== 'all' || seriesFilter !== 'all' || typeFilter !== 'all' || labelFilter !== 'all' || showPlayableOnly
 
   // Prepare filter items for FilterIndicator
   const filterItems = useMemo(() => {
     const items = []
-    
+
     if (tagFilter !== 'all') {
       items.push({
         key: 'tag',
@@ -421,7 +450,7 @@ export function MoviesContent({
         onRemove: () => updateFilters({ tagFilter: 'all', currentPage: 1 })
       })
     }
-    
+
     if (studioFilter !== 'all') {
       items.push({
         key: 'studio',
@@ -430,7 +459,7 @@ export function MoviesContent({
         onRemove: () => updateFilters({ studioFilter: 'all', currentPage: 1 })
       })
     }
-    
+
     if (seriesFilter !== 'all') {
       items.push({
         key: 'series',
@@ -439,7 +468,7 @@ export function MoviesContent({
         onRemove: () => updateFilters({ seriesFilter: 'all', currentPage: 1 })
       })
     }
-    
+
     if (typeFilter !== 'all') {
       items.push({
         key: 'type',
@@ -448,7 +477,7 @@ export function MoviesContent({
         onRemove: () => updateFilters({ typeFilter: 'all', currentPage: 1 })
       })
     }
-    
+
     if (labelFilter !== 'all') {
       items.push({
         key: 'label',
@@ -457,9 +486,18 @@ export function MoviesContent({
         onRemove: () => updateFilters({ labelFilter: 'all', currentPage: 1 })
       })
     }
-    
+
+    if (showPlayableOnly) {
+      items.push({
+        key: 'playable',
+        label: 'Show',
+        value: 'Playable Only',
+        onRemove: () => setShowPlayableOnly(false)
+      })
+    }
+
     return items
-  }, [tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter])
+  }, [tagFilter, studioFilter, seriesFilter, typeFilter, labelFilter, showPlayableOnly])
 
   if (filteredAndSortedMovies.length === 0) {
     return (
@@ -470,8 +508,8 @@ export function MoviesContent({
             <Filter className="h-4 w-4" />
             <span className="text-sm font-medium">Filters:</span>
           </div>
-          
-          <Select value={tagFilter} onValueChange={(value) => handleFilterChange('tag', value)}>
+
+          <Select value={tagFilter} onValueChange={(value: string) => handleFilterChange('tag', value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All Tags" />
             </SelectTrigger>
@@ -483,7 +521,7 @@ export function MoviesContent({
             </SelectContent>
           </Select>
 
-          <Select value={studioFilter} onValueChange={(value) => handleFilterChange('studio', value)}>
+          <Select value={studioFilter} onValueChange={(value: string) => handleFilterChange('studio', value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All Studios" />
             </SelectTrigger>
@@ -495,7 +533,7 @@ export function MoviesContent({
             </SelectContent>
           </Select>
 
-          <Select value={seriesFilter} onValueChange={(value) => handleFilterChange('series', value)}>
+          <Select value={seriesFilter} onValueChange={(value: string) => handleFilterChange('series', value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All Series" />
             </SelectTrigger>
@@ -507,7 +545,7 @@ export function MoviesContent({
             </SelectContent>
           </Select>
 
-          <Select value={typeFilter} onValueChange={(value) => handleFilterChange('type', value)}>
+          <Select value={typeFilter} onValueChange={(value: string) => handleFilterChange('type', value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
@@ -519,7 +557,7 @@ export function MoviesContent({
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(value) => updateFilters({ sortBy: value })}>
+          <Select value={sortBy} onValueChange={(value: string) => updateFilters({ sortBy: value })}>
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
@@ -544,7 +582,7 @@ export function MoviesContent({
           <p className="text-muted-foreground">
             {searchQuery ? `No movies found for "${searchQuery}"` : 'No movies match the current filters'}
           </p>
-          
+
           {/* Admin Action Buttons untuk empty state */}
           <div className="flex justify-center gap-2">
             {onAddMovie && (
@@ -576,12 +614,12 @@ export function MoviesContent({
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
         </div>
-        
+
         {/* Use VirtualizedFilterSelect for large datasets, SearchableFilterSelect for smaller ones */}
         {allTags.length > 100 ? (
           <VirtualizedFilterSelect
             value={tagFilter}
-            onValueChange={(value) => handleFilterChange('tag', value)}
+            onValueChange={(value: string) => handleFilterChange('tag', value)}
             options={allTags}
             placeholder="All Tags"
             allLabel="All Tags"
@@ -590,7 +628,7 @@ export function MoviesContent({
         ) : (
           <SearchableFilterSelect
             value={tagFilter}
-            onValueChange={(value) => handleFilterChange('tag', value)}
+            onValueChange={(value: string) => handleFilterChange('tag', value)}
             options={allTags}
             placeholder="All Tags"
             allLabel="All Tags"
@@ -601,7 +639,7 @@ export function MoviesContent({
         {allStudios.length > 100 ? (
           <VirtualizedFilterSelect
             value={studioFilter}
-            onValueChange={(value) => handleFilterChange('studio', value)}
+            onValueChange={(value: string) => handleFilterChange('studio', value)}
             options={allStudios}
             placeholder="All Studios"
             allLabel="All Studios"
@@ -610,7 +648,7 @@ export function MoviesContent({
         ) : (
           <SearchableFilterSelect
             value={studioFilter}
-            onValueChange={(value) => handleFilterChange('studio', value)}
+            onValueChange={(value: string) => handleFilterChange('studio', value)}
             options={allStudios}
             placeholder="All Studios"
             allLabel="All Studios"
@@ -621,7 +659,7 @@ export function MoviesContent({
         {allSeries.length > 100 ? (
           <VirtualizedFilterSelect
             value={seriesFilter}
-            onValueChange={(value) => handleFilterChange('series', value)}
+            onValueChange={(value: string) => handleFilterChange('series', value)}
             options={allSeries}
             placeholder="All Series"
             allLabel="All Series"
@@ -630,7 +668,7 @@ export function MoviesContent({
         ) : (
           <SearchableFilterSelect
             value={seriesFilter}
-            onValueChange={(value) => handleFilterChange('series', value)}
+            onValueChange={(value: string) => handleFilterChange('series', value)}
             options={allSeries}
             placeholder="All Series"
             allLabel="All Series"
@@ -641,7 +679,7 @@ export function MoviesContent({
         {allTypes.length > 100 ? (
           <VirtualizedFilterSelect
             value={typeFilter}
-            onValueChange={(value) => handleFilterChange('type', value)}
+            onValueChange={(value: string) => handleFilterChange('type', value)}
             options={allTypes}
             placeholder="All Types"
             allLabel="All Types"
@@ -650,7 +688,7 @@ export function MoviesContent({
         ) : (
           <SearchableFilterSelect
             value={typeFilter}
-            onValueChange={(value) => handleFilterChange('type', value)}
+            onValueChange={(value: string) => handleFilterChange('type', value)}
             options={allTypes}
             placeholder="All Types"
             allLabel="All Types"
@@ -658,7 +696,7 @@ export function MoviesContent({
           />
         )}
 
-        <Select value={sortBy} onValueChange={(value) => updateFilters({ sortBy: value })}>
+        <Select value={sortBy} onValueChange={(value: string) => updateFilters({ sortBy: value })}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
@@ -686,8 +724,18 @@ export function MoviesContent({
               Parse Movie
             </Button>
           )}
-          
+
           {/* Randomize Buttons */}
+          <Button
+            variant={showPlayableOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowPlayableOnly(!showPlayableOnly)}
+            className={showPlayableOnly ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : ""}
+          >
+            <Play className={`h-4 w-4 mr-2 ${showPlayableOnly ? 'fill-current' : ''}`} />
+            Playable
+          </Button>
+
           {isRandomized && (
             <Button variant="outline" size="sm" onClick={handleResetRandom}>
               Reset
@@ -725,9 +773,9 @@ export function MoviesContent({
           totalItems={filteredAndSortedMovies.length}
           onPageChange={(page) => updateFilters({ currentPage: page })}
           onItemsPerPageChange={(newItemsPerPage) => {
-            updateFilters({ 
-              itemsPerPage: newItemsPerPage, 
-              currentPage: 1 
+            updateFilters({
+              itemsPerPage: newItemsPerPage,
+              currentPage: 1
             })
           }}
         />
