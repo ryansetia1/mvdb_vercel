@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 export interface ContentState {
-  mode: string
+  mode: any
   title?: string
   data?: any
   moviesFilters?: {
@@ -18,9 +18,9 @@ export interface ContentState {
 
 interface UseBrowserHistoryProps {
   contentState: ContentState
-  setContentState: (state: ContentState) => void
+  setContentState: (state: any) => void
   navigationHistory: ContentState[]
-  setNavigationHistory: (history: ContentState[] | ((prev: ContentState[]) => ContentState[])) => void
+  setNavigationHistory: (history: any) => void
   setActiveNavItem?: (item: string) => void
   setMoviesFilters?: (filters: any) => void
   moviesFilters?: any
@@ -86,15 +86,13 @@ export function useBrowserHistory({
     if (navigationHistory.length > 0) {
       // Use custom navigation history
       const previousState = navigationHistory[navigationHistory.length - 1]
-      setNavigationHistory(prev => prev.slice(0, -1))
+      setNavigationHistory((prev: any) => prev.slice(0, -1))
       setContentState(previousState)
 
       // Update active nav item based on the restored state
       if (previousState.mode === 'filteredMovies' || previousState.mode === 'filteredActresses') {
         // For filtered content, keep the current active nav item
-        // since the filter could come from any main section
       } else if (previousState.mode === 'customNavFiltered') {
-        // Find the custom nav item that matches this state
         const customNav = customNavItems.find((item: any) =>
           item.filterType === previousState.data?.filterType &&
           item.filterValue === previousState.data?.filterValue
@@ -103,7 +101,6 @@ export function useBrowserHistory({
           setActiveNavItem(customNav.id)
         }
       } else if (previousState.mode === 'custom') {
-        // Find the custom nav item that matches this state
         const customNav = customNavItems.find((item: any) =>
           item.filterType === previousState.data?.filterType &&
           item.filterValue === previousState.data?.filterValue
@@ -112,7 +109,6 @@ export function useBrowserHistory({
           setActiveNavItem(customNav.id)
         }
       } else {
-        // For regular modes, find the corresponding nav item
         const navItem = navItems.find((item: any) => item.type === previousState.mode)
         if (navItem && setActiveNavItem) {
           setActiveNavItem(navItem.id)
@@ -121,19 +117,43 @@ export function useBrowserHistory({
 
       // Special handling for movies mode - restore pagination position
       if (previousState.mode === 'movies' && setMoviesFilters) {
-        // Restore the moviesFilters state if it was saved in navigation history
         if (previousState.moviesFilters) {
           setMoviesFilters(previousState.moviesFilters)
-          console.log('Restored movies filters with pagination position:', previousState.moviesFilters.currentPage)
-        } else {
-          console.log('No movies filters found in history, using current state:', moviesFilters?.currentPage)
         }
       }
     } else {
-      // Fallback to browser back
-      window.history.back()
+      // Fallback: If history is empty (e.g. after refresh), navigate to sensible defaults
+      console.log('Navigation history is empty, using fallback for mode:', contentState.mode)
+
+      if (contentState.mode === 'movieDetail') {
+        setContentState({ mode: 'movies', title: 'Movies' })
+        if (setActiveNavItem) setActiveNavItem('movies')
+      } else if (contentState.mode === 'scMovieDetail') {
+        setContentState({ mode: 'soft', title: 'Soft Content' })
+        if (setActiveNavItem) setActiveNavItem('soft')
+      } else if (contentState.mode === 'photobookDetail') {
+        setContentState({ mode: 'photobooks', title: 'Photobooks' })
+        if (setActiveNavItem) setActiveNavItem('photobooks')
+      } else if (contentState.mode === 'groupDetail') {
+        setContentState({ mode: 'groups', title: 'Groups' })
+        if (setActiveNavItem) setActiveNavItem('groups')
+      } else if (contentState.mode === 'profile') {
+        // Try to go back to actresses or actors list based on type
+        const type = contentState.data?.type === 'actor' ? 'actors' : 'actresses'
+        setContentState({ mode: type, title: type.charAt(0).toUpperCase() + type.slice(1) })
+        if (setActiveNavItem) setActiveNavItem(type)
+      } else if (contentState.mode === 'filteredMovies') {
+        setContentState({ mode: 'movies', title: 'Movies' })
+        if (setActiveNavItem) setActiveNavItem('movies')
+      } else if (contentState.mode === 'customNavFiltered') {
+        setContentState({ mode: 'movies', title: 'Movies' })
+        if (setActiveNavItem) setActiveNavItem('movies')
+      } else {
+        // Ultimate fallback to browser back
+        window.history.back()
+      }
     }
-  }, [navigationHistory, setNavigationHistory, setContentState, setActiveNavItem, setMoviesFilters, moviesFilters, navItems, customNavItems])
+  }, [navigationHistory, setNavigationHistory, setContentState, setActiveNavItem, setMoviesFilters, moviesFilters, navItems, customNavItems, contentState])
 
   return {
     handleBack

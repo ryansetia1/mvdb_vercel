@@ -506,7 +506,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         const addMovieStats = (people: MasterDataItem[], type: 'actor' | 'actress' | 'director') => {
           return people.map(person => {
             const fieldToCheck = type === 'director' ? 'director' : type === 'actor' ? 'actors' : 'actress'
-            const personMovies = moviesData.filter(movie => {
+            const personMovies = moviesData.filter((movie: Movie) => {
               const field = movie[fieldToCheck as keyof Movie]
               if (typeof field === 'string') {
                 return field.toLowerCase().includes(person.name?.toLowerCase() || '')
@@ -532,17 +532,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         setDirectors(directorsWithStats)
 
         // Extract unique filter values
-        const uniqueActors = [...new Set(actorsData.map(a => a.name).filter(Boolean))]
-        const uniqueActresses = [...new Set(actressesData.map(a => a.name).filter(Boolean))]
-        const uniqueDirectors = [...new Set(directorsData.map(d => d.name).filter(Boolean))]
-        const uniqueSeries = [...new Set(moviesData.map(m => m.series).filter(Boolean))]
-        const uniqueStudios = [...new Set(moviesData.map(m => m.studio).filter(Boolean))]
-        const uniqueTypes = [...new Set(moviesData.map(m => m.type).filter(Boolean))]
-        const uniqueGroups = [...new Set(groupsData.map(g => g.name).filter(Boolean))]
+        const uniqueActors = actorsData.map(a => a.name).filter((a): a is string => !!a)
+        const uniqueActresses = actressesData.map(a => a.name).filter((a): a is string => !!a)
+        const uniqueDirectors = directorsData.map(d => d.name).filter((d): d is string => !!d)
+        const uniqueSeries = moviesData.map((m: Movie) => m.series).filter((m): m is string => !!m)
+        const uniqueStudios = moviesData.map((m: Movie) => m.studio).filter((m): m is string => !!m)
+        const uniqueTypes = moviesData.map((m: Movie) => m.type).filter((m): m is string => !!m)
+        const uniqueGroups = groupsData.map(g => g.name).filter((g): g is string => !!g)
 
         // Extract and flatten tags
-        const allTags = moviesData.flatMap(m =>
-          m.tags ? m.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
+        const allTags = moviesData.flatMap((m: Movie) =>
+          m.tags ? m.tags.split(',').map(tag => tag.trim()).filter((tag: string): tag is string => !!tag) : []
         )
         const uniqueTags = [...new Set(allTags)]
 
@@ -869,6 +869,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   const handleProfileSelect = (type: 'actor' | 'actress' | 'director', name: string) => {
+    // Save current state to history before navigating to profile
+    setNavigationHistory(prev => [...prev, contentState])
+
     // If director, check if they exist as actor or actress first
     if (type === 'director') {
       const actorExists = actors.find(actor => actor.name === name)

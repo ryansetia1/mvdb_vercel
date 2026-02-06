@@ -51,7 +51,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
   const [itemsPerPage, setItemsPerPage] = useState(24)
 
   // Sorting and filtering states
-  const [sortBy, setSortBy] = useState('createdAt-desc')
+  const [sortBy, setSortBy] = useState('createdAt-asc')
   const [scTypeFilter, setScTypeFilter] = useState('all')
   const [englishSubsFilter, setEnglishSubsFilter] = useState('all')
 
