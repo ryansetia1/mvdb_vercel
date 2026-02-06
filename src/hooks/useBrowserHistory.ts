@@ -14,6 +14,10 @@ export interface ContentState {
     currentPage: number
     itemsPerPage: number
   }
+  softContentFilters?: {
+    currentPage: number
+    itemsPerPage: number
+  }
 }
 
 interface UseBrowserHistoryProps {
@@ -23,6 +27,7 @@ interface UseBrowserHistoryProps {
   setNavigationHistory: (history: any) => void
   setActiveNavItem?: (item: string) => void
   setMoviesFilters?: (filters: any) => void
+  setSoftContentFilters?: (filters: any) => void
   moviesFilters?: any
   navItems?: any[]
   customNavItems?: any[]
@@ -35,6 +40,7 @@ export function useBrowserHistory({
   setNavigationHistory,
   setActiveNavItem,
   setMoviesFilters,
+  setSoftContentFilters,
   moviesFilters,
   navItems = [],
   customNavItems = []
@@ -119,6 +125,13 @@ export function useBrowserHistory({
       if (previousState.mode === 'movies' && setMoviesFilters) {
         if (previousState.moviesFilters) {
           setMoviesFilters(previousState.moviesFilters)
+        }
+      }
+
+      // Special handling for soft content mode - restore pagination position
+      if (previousState.mode === 'soft' && setSoftContentFilters) {
+        if (previousState.softContentFilters) {
+          setSoftContentFilters(previousState.softContentFilters)
         }
       }
     } else {

@@ -130,6 +130,10 @@ interface ContentState {
     currentPage: number
     itemsPerPage: number
   }
+  softContentFilters?: {
+    currentPage: number
+    itemsPerPage: number
+  }
 }
 
 // Helper functions for database operations
@@ -200,6 +204,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   // Core data states
   const [movies, setMovies] = useState<Movie[]>([])
   const [photobooks, setPhotobooks] = useState<Photobook[]>([])
+  const [scMovies, setScMovies] = useState<SCMovie[]>([])
   const [actors, setActors] = useState<MasterDataItem[]>([])
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [directors, setDirectors] = useState<MasterDataItem[]>([])
@@ -374,6 +379,12 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     itemsPerPage: 24
   })
 
+  // Soft content filter state - for preserving pagination across navigation
+  const [softContentFilters, setSoftContentFilters] = useState({
+    currentPage: 1,
+    itemsPerPage: 24
+  })
+
   // Custom nav items filter state - for preserving filters for each custom nav item
   const [customNavFilters, setCustomNavFilters] = useState<Record<string, {
     tagFilter: string
@@ -472,14 +483,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     try {
       setIsLoading(true)
 
-      // Load movies and photobooks
-      const [moviesData, photobooksData] = await Promise.all([
+      // Load movies, photobooks, and SC movies
+      const [moviesData, photobooksData, scMoviesData] = await Promise.all([
         movieApi.getMovies(accessToken),
-        photobookApi.getPhotobooks(accessToken).catch(() => [])
+        photobookApi.getPhotobooks(accessToken).catch(() => []),
+        scMovieApi.getSCMovies(accessToken).catch(() => [])
       ])
 
       setMovies(moviesData || [])
       setPhotobooks(photobooksData || [])
+      setScMovies(scMoviesData || [])
 
       // Load master data
       try {
@@ -535,16 +548,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         const uniqueActors = actorsData.map(a => a.name).filter((a): a is string => !!a)
         const uniqueActresses = actressesData.map(a => a.name).filter((a): a is string => !!a)
         const uniqueDirectors = directorsData.map(d => d.name).filter((d): d is string => !!d)
-        const uniqueSeries = moviesData.map((m: Movie) => m.series).filter((m): m is string => !!m)
-        const uniqueStudios = moviesData.map((m: Movie) => m.studio).filter((m): m is string => !!m)
-        const uniqueTypes = moviesData.map((m: Movie) => m.type).filter((m): m is string => !!m)
-        const uniqueGroups = groupsData.map(g => g.name).filter((g): g is string => !!g)
+        const uniqueSeries = moviesData.map((m: Movie) => m.series).filter((m: any): m is string => !!m)
+        const uniqueStudios = moviesData.map((m: Movie) => m.studio).filter((m: any): m is string => !!m)
+        const uniqueTypes = moviesData.map((m: Movie) => m.type).filter((m: any): m is string => !!m)
+        const uniqueGroups = groupsData.map(g => g.name).filter((g: any): g is string => !!g)
 
         // Extract and flatten tags
         const allTags = moviesData.flatMap((m: Movie) =>
           m.tags ? m.tags.split(',').map(tag => tag.trim()).filter((tag: string): tag is string => !!tag) : []
         )
-        const uniqueTags = [...new Set(allTags)]
+        const uniqueTags = [...new Set(allTags)] as string[]
 
         setAvailableFilters({
           actors: uniqueActors,
@@ -797,6 +810,23 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
 
     // Handle regular movie selection
+    if (typeof movie === 'string') {
+      const foundMovie = movies.find(m => m.code === movie);
+      if (foundMovie) {
+        handleMovieSelect(foundMovie);
+        return;
+      } else {
+        // Fallback: If not found, navigate with just the code
+        setNavigationHistory(prev => [...prev, contentState]);
+        setContentState({
+          mode: 'movieDetail',
+          title: `Movie: ${movie}`,
+          data: { code: movie }
+        });
+        return;
+      }
+    }
+
     if (typeof movie === 'object') {
       console.log('Handling regular movie selection')
       console.log('Movie object:', movie)
@@ -859,7 +889,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
 
     // Save current state to history before navigating to SC movie detail
-    setNavigationHistory(prev => [...prev, contentState])
+    setNavigationHistory(prev => [...prev, {
+      ...contentState,
+      softContentFilters
+    }])
 
     setContentState({
       mode: 'scMovieDetail',
@@ -1196,6 +1229,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setNavigationHistory,
     setActiveNavItem,
     setMoviesFilters,
+    setSoftContentFilters,
     moviesFilters,
     navItems,
     customNavItems
@@ -1634,10 +1668,20 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               <SoftContent
                 searchQuery={searchQuery}
                 accessToken={accessToken}
+                movies={movies}
+                scMovies={scMovies}
                 onSCMovieSelect={handleSCMovieSelect}
+                onMovieSelect={handleMovieSelect}
+                externalFilters={softContentFilters}
+                onFiltersChange={(filters) => {
+                  setSoftContentFilters(filters)
+                }}
                 onAddSCMovie={() => {
                   // Save current state to history before navigating to form
-                  setNavigationHistory(prev => [...prev, contentState])
+                  setNavigationHistory(prev => [...prev, {
+                    ...contentState,
+                    softContentFilters
+                  }])
                   setContentState({ mode: 'scMovieForm', title: 'Tambah SC Movie Baru' })
                 }}
               />

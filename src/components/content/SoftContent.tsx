@@ -6,19 +6,34 @@ import { Input } from '../ui/input'
 import { Badge } from '../ui/badge'
 import { FilterIndicator } from '../ui/filter-indicator'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
-import { Search, X, Plus, Filter } from 'lucide-react'
+import { CroppedImage } from '../CroppedImage'
+import { Search, X, Plus, Filter, Play } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { SCMovie, scMovieApi } from '../../utils/scMovieApi'
+import { Movie } from '../../utils/movieApi'
 import { movieCodeMatchesQuery } from '../../utils/masterDataApi'
 import { PaginationEnhanced } from '../ui/pagination-enhanced'
+import { processCoverUrl } from './movieDetail/MovieDetailHelpers'
 import { toast } from 'sonner'
 
 interface SoftContentProps {
   searchQuery: string
   accessToken: string
   onSCMovieSelect?: (scMovie: SCMovie) => void
+  onMovieSelect?: (movie: any) => void
   onAddSCMovie?: () => void
+  movies: Movie[]
+  scMovies: SCMovie[]
+  // External filter state props for preserving filters across navigation
+  externalFilters?: {
+    currentPage?: number
+    itemsPerPage?: number
+  }
+  onFiltersChange?: (filters: {
+    currentPage: number
+    itemsPerPage: number
+  }) => void
 }
 
 interface SortOption {
@@ -42,18 +57,49 @@ const sortOptions: SortOption[] = [
   { key: 'hcCode-desc', label: 'HC Code Z-A', getValue: (movie) => movie.hcCode?.toLowerCase() || '' }
 ]
 
-export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSCMovie }: SoftContentProps) {
-  const [scMovies, setScMovies] = useState<SCMovie[]>([])
+export function SoftContent({
+  searchQuery,
+  accessToken,
+  movies,
+  scMovies,
+  onSCMovieSelect,
+  onMovieSelect,
+  onAddSCMovie,
+  externalFilters,
+  onFiltersChange
+}: SoftContentProps) {
+  // Use external filters if provided, otherwise use local state
+  const [localCurrentPage, setLocalCurrentPage] = useState(1)
+  const [localItemsPerPage, setLocalItemsPerPage] = useState(24)
+
+  // Local UI states
   const [filteredMovies, setFilteredMovies] = useState<SCMovie[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [localSearchQuery, setLocalSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(24)
+  const [hoveredHcCode, setHoveredHcCode] = useState<string | null>(null)
 
   // Sorting and filtering states
   const [sortBy, setSortBy] = useState('createdAt-asc')
   const [scTypeFilter, setScTypeFilter] = useState('all')
   const [englishSubsFilter, setEnglishSubsFilter] = useState('all')
+
+  // Determine which state to use (external takes precedence)
+  const currentPage = externalFilters?.currentPage ?? localCurrentPage
+  const itemsPerPage = externalFilters?.itemsPerPage ?? localItemsPerPage
+
+  // Helper function to update filters
+  const updateFilters = (updates: Partial<{ currentPage: number; itemsPerPage: number }>) => {
+    if (onFiltersChange) {
+      const newFilters = {
+        currentPage: updates.currentPage ?? currentPage,
+        itemsPerPage: updates.itemsPerPage ?? itemsPerPage,
+      }
+      onFiltersChange(newFilters)
+    } else {
+      // Fallback to local state if no external handler
+      if (updates.currentPage !== undefined) setLocalCurrentPage(updates.currentPage)
+      if (updates.itemsPerPage !== undefined) setLocalItemsPerPage(updates.itemsPerPage)
+    }
+  }
 
   // Combine global search query with local search
   const effectiveSearchQuery = searchQuery || localSearchQuery
@@ -107,13 +153,27 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
     return items
   }, [effectiveSearchQuery, searchQuery, scTypeFilter, englishSubsFilter])
 
-  useEffect(() => {
-    loadSCMovies()
-  }, [accessToken])
+  // Track previous filter values to only reset page when they actually change
+  const prevFiltersRef = React.useRef({ effectiveSearchQuery, scTypeFilter, englishSubsFilter, sortBy })
 
-  // Reset to page 1 when search query or filters change
+  // Reset to page 1 when search query or filters change (but not on initial mount or when page changes)
   useEffect(() => {
-    setCurrentPage(1)
+    const prevFilters = prevFiltersRef.current
+    const filtersChanged =
+      prevFilters.effectiveSearchQuery !== effectiveSearchQuery ||
+      prevFilters.scTypeFilter !== scTypeFilter ||
+      prevFilters.englishSubsFilter !== englishSubsFilter ||
+      prevFilters.sortBy !== sortBy
+
+    if (filtersChanged && currentPage !== 1) {
+      if (onFiltersChange) {
+        onFiltersChange({ currentPage: 1, itemsPerPage })
+      } else {
+        setLocalCurrentPage(1)
+      }
+    }
+
+    prevFiltersRef.current = { effectiveSearchQuery, scTypeFilter, englishSubsFilter, sortBy }
   }, [effectiveSearchQuery, scTypeFilter, englishSubsFilter, sortBy])
 
   // Helper function to check if cast matches query with reverse search capability
@@ -191,21 +251,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
     setFilteredMovies(filtered)
   }, [scMovies, effectiveSearchQuery, scTypeFilter, englishSubsFilter, sortBy])
 
-  const loadSCMovies = async () => {
-    try {
-      setIsLoading(true)
-      console.log('Loading SC movies with accessToken:', accessToken ? 'Present' : 'Missing')
-      const data = await scMovieApi.getSCMovies(accessToken)
-      console.log('Loaded SC movies:', data)
-      setScMovies(data)
-    } catch (error) {
-      console.error('Failed to load SC movies:', error)
-      // Show empty state instead of mock data if API fails
-      setScMovies([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
+
 
   const handleMovieClick = (movie: SCMovie) => {
     if (onSCMovieSelect) {
@@ -234,21 +280,10 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
   useGlobalKeyboardPagination(
     currentPage,
     totalPages,
-    (page: number) => setCurrentPage(page),
+    (page: number) => updateFilters({ currentPage: page }),
     'soft-content',
     true
   )
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading Soft Content Movies...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -363,10 +398,9 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         totalPages={totalPages}
         itemsPerPage={itemsPerPage}
         totalItems={filteredMovies.length}
-        onPageChange={setCurrentPage}
+        onPageChange={(page) => updateFilters({ currentPage: page })}
         onItemsPerPageChange={(newItemsPerPage) => {
-          setItemsPerPage(newItemsPerPage)
-          setCurrentPage(1)
+          updateFilters({ itemsPerPage: newItemsPerPage, currentPage: 1 })
         }}
       />
 
@@ -378,74 +412,146 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {paginatedMovies.map((movie) => (
-            <Card
-              key={movie.id}
-              className="group cursor-pointer hover:shadow-lg transition-all duration-200 overflow-hidden"
-              onClick={() => handleMovieClick(movie)}
-            >
-              <div className="aspect-[3/4] relative overflow-hidden">
-                <ImageWithFallback
-                  src={movie.cover}
-                  alt={movie.titleEn}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                />
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {paginatedMovies.map((movie) => (
+              <Card
+                key={movie.id}
+                className="group cursor-pointer hover:shadow-lg transition-all duration-200 overflow-hidden"
+                onClick={() => handleMovieClick(movie)}
+              >
+                <div className="aspect-[3/4] relative overflow-hidden">
+                  <ImageWithFallback
+                    src={movie.cover}
+                    alt={movie.titleEn}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
 
-                {/* Badges overlay */}
-                <div className="absolute top-2 left-2 space-y-1">
-                  <Badge
-                    variant="secondary"
-                    className="text-xs bg-black/70 text-white border-none"
-                  >
-                    {movie.scType === 'real_cut' ? 'Real Cut' : 'Regular'}
-                  </Badge>
-                  {movie.hasEnglishSubs && (
+                  {/* Badges overlay */}
+                  <div className="absolute top-2 left-2 space-y-1">
                     <Badge
                       variant="secondary"
-                      className="text-xs bg-green-600/80 text-white border-none"
+                      className="text-xs bg-black/70 text-white border-none"
                     >
-                      EN SUB
+                      {movie.scType === 'real_cut' ? 'Real Cut' : 'Regular'}
                     </Badge>
+                    {movie.hasEnglishSubs && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-green-600/80 text-white border-none"
+                      >
+                        EN SUB
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Play Button Overlay */}
+                  {movie.scStreamingLinks && movie.scStreamingLinks.length > 0 && (
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 rounded-full bg-primary/90 hover:bg-primary text-primary-foreground shadow-lg border-none"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          window.open(movie.scStreamingLinks[0], '_blank');
+                        }}
+                      >
+                        <Play className="h-4 w-4 fill-current ml-0.5" />
+                      </Button>
+                    </div>
                   )}
+
+                  {/* HC Code badge */}
+                  {movie.hcCode && (
+                    <div className="absolute bottom-2 right-2 z-20">
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-white/90 text-black border-gray-300 hover:bg-primary hover:text-white cursor-pointer transition-colors"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          if (onMovieSelect) {
+                            onMovieSelect(movie.hcCode);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredHcCode(movie.id || null)}
+                        onMouseLeave={() => setHoveredHcCode(null)}
+                      >
+                        {movie.hcCode}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* HC Cover Overlay (shown on HC badge hover) */}
+                  {movie.hcCode && (() => {
+                    const foundMovie = movies.find((m: Movie) => m.code === movie.hcCode);
+                    if (foundMovie) {
+                      const shouldUseCrop = foundMovie.cropCover || foundMovie.type === 'cen';
+                      return (
+                        <div
+                          className={`absolute inset-0 z-[5] pointer-events-none transition-opacity duration-300 ease-in-out ${hoveredHcCode === movie.id ? 'opacity-100' : 'opacity-0'
+                            }`}
+                        >
+                          {shouldUseCrop ? (
+                            <CroppedImage
+                              src={processCoverUrl(foundMovie)}
+                              alt={foundMovie.titleEn || movie.hcCode || 'HC Cover'}
+                              className="w-full h-full"
+                              cropToRight={true}
+                              fixedSize={false}
+                            />
+                          ) : (
+                            <ImageWithFallback
+                              src={processCoverUrl(foundMovie)}
+                              alt={foundMovie.titleEn || movie.hcCode || 'HC Cover'}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
-                {/* HC Code badge */}
-                {movie.hcCode && (
-                  <div className="absolute bottom-2 right-2">
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-white/90 text-black border-gray-300"
-                    >
-                      {movie.hcCode}
-                    </Badge>
-                  </div>
-                )}
-              </div>
+                <CardContent className="p-3">
+                  <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                    {movie.titleEn}
+                  </h3>
+                  {movie.titleJp && (
+                    <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
+                      {movie.titleJp}
+                    </p>
+                  )}
+                  {movie.cast && (
+                    <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
+                      {movie.cast}
+                    </p>
+                  )}
+                  {movie.releaseDate && (
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(movie.releaseDate).getFullYear()}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-              <CardContent className="p-3">
-                <h3 className="font-medium text-sm line-clamp-2 mb-1">
-                  {movie.titleEn}
-                </h3>
-                {movie.titleJp && (
-                  <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
-                    {movie.titleJp}
-                  </p>
-                )}
-                {movie.cast && (
-                  <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
-                    {movie.cast}
-                  </p>
-                )}
-                {movie.releaseDate && (
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(movie.releaseDate).getFullYear()}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          {/* Pagination - Bottom Right */}
+          <div className="flex justify-end mt-6">
+            <PaginationEnhanced
+              currentPage={currentPage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredMovies.length}
+              onPageChange={(page) => updateFilters({ currentPage: page })}
+              onItemsPerPageChange={(newItemsPerPage) => {
+                updateFilters({ itemsPerPage: newItemsPerPage, currentPage: 1 })
+              }}
+            />
+          </div>
+        </>
       )}
     </div>
   )
