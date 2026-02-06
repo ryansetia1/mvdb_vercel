@@ -48,9 +48,9 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
   const [localSearchQuery, setLocalSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(24)
-  
+
   // Sorting and filtering states
-  const [sortBy, setSortBy] = useState('releaseDate-desc')
+  const [sortBy, setSortBy] = useState('createdAt-desc')
   const [scTypeFilter, setScTypeFilter] = useState('all')
   const [englishSubsFilter, setEnglishSubsFilter] = useState('all')
 
@@ -66,7 +66,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
       displayValue: string
       onRemove: () => void
     }> = []
-    
+
     if (effectiveSearchQuery.trim()) {
       items.push({
         key: 'search',
@@ -82,7 +82,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         }
       })
     }
-    
+
     if (scTypeFilter !== 'all') {
       items.push({
         key: 'scType',
@@ -92,7 +92,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         onRemove: () => setScTypeFilter('all')
       })
     }
-    
+
     if (englishSubsFilter !== 'all') {
       items.push({
         key: 'englishSubs',
@@ -102,7 +102,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         onRemove: () => setEnglishSubsFilter('all')
       })
     }
-    
+
     return items
   }, [effectiveSearchQuery, searchQuery, scTypeFilter, englishSubsFilter])
 
@@ -119,31 +119,31 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
   const castMatchesQueryEnhanced = (cast: string, query: string): boolean => {
     const castLower = cast.toLowerCase()
     const queryLower = query.toLowerCase()
-    
+
     // Direct match
     if (castLower.includes(queryLower)) return true
-    
+
     // Reverse name search
     const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
     const castWords = castLower.split(/\s+/).filter(w => w.length > 0)
-    
+
     if (queryWords.length >= 2 && castWords.length >= 2) {
       // Try reverse matching: if query is "hatano yui", check if cast contains "yui hatano"
       const reversedQuery = [...queryWords].reverse().join(' ')
       if (castLower.includes(reversedQuery)) return true
-      
+
       // Also try partial reverse matching with individual words
       const firstQueryWord = queryWords[0]
       const lastQueryWord = queryWords[queryWords.length - 1]
       const firstName = castWords[0]
       const lastName = castWords[castWords.length - 1]
-      
+
       // Check if first word of query matches last word of cast AND vice versa
       if (firstName.includes(lastQueryWord) && lastName.includes(firstQueryWord)) {
         return true
       }
     }
-    
+
     return false
   }
 
@@ -180,7 +180,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
       filtered.sort((a, b) => {
         const aVal = sortOption.getValue(a)
         const bVal = sortOption.getValue(b)
-        
+
         if (aVal < bVal) return isDesc ? 1 : -1
         if (aVal > bVal) return isDesc ? -1 : 1
         return 0
@@ -287,7 +287,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Sort:</span>
         </div>
-        
+
         <Select value={sortBy} onValueChange={setSortBy}>
           <SelectTrigger className="w-48">
             <SelectValue />
@@ -304,7 +304,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Type:</span>
         </div>
-        
+
         <Select value={scTypeFilter} onValueChange={setScTypeFilter}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All Types" />
@@ -319,7 +319,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">English Subs:</span>
         </div>
-        
+
         <Select value={englishSubsFilter} onValueChange={setEnglishSubsFilter}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All" />
@@ -389,18 +389,18 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
                   alt={movie.titleEn}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
-                
+
                 {/* Badges overlay */}
                 <div className="absolute top-2 left-2 space-y-1">
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="text-xs bg-black/70 text-white border-none"
                   >
                     {movie.scType === 'real_cut' ? 'Real Cut' : 'Regular'}
                   </Badge>
                   {movie.hasEnglishSubs && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="text-xs bg-green-600/80 text-white border-none"
                     >
                       EN SUB
@@ -411,8 +411,8 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
                 {/* HC Code badge */}
                 {movie.hcCode && (
                   <div className="absolute bottom-2 right-2">
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className="text-xs bg-white/90 text-black border-gray-300"
                     >
                       {movie.hcCode}
@@ -420,7 +420,7 @@ export function SoftContent({ searchQuery, accessToken, onSCMovieSelect, onAddSC
                   </div>
                 )}
               </div>
-              
+
               <CardContent className="p-3">
                 <h3 className="font-medium text-sm line-clamp-2 mb-1">
                   {movie.titleEn}

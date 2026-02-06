@@ -12,13 +12,13 @@ import { SCMovie, scMovieApi } from '../utils/scMovieApi'
 import { Photobook, photobookApi } from '../utils/photobookApi'
 import { MasterDataItem, masterDataApi, calculateAge } from '../utils/masterDataApi'
 import { toast } from 'sonner'
-import { 
-  Search, 
-  Film, 
-  Users, 
-  User, 
-  Building, 
-  Tag as TagIcon, 
+import {
+  Search,
+  Film,
+  Users,
+  User,
+  Building,
+  Tag as TagIcon,
   PlayCircle,
   BookOpen,
   Menu,
@@ -89,15 +89,15 @@ interface NavItem {
   icon?: React.ReactNode
 }
 
-type ContentMode = 
-  | 'movies' 
+type ContentMode =
+  | 'movies'
   | 'soft'
   | 'photobooks'
-  | 'actors' 
-  | 'actresses' 
+  | 'actors'
+  | 'actresses'
   | 'series'
   | 'studios'
-  | 'tags' 
+  | 'tags'
   | 'groups'
   | 'groupDetail'
   | 'favorites'
@@ -143,7 +143,7 @@ const saveCustomNavItemsToDatabase = async (accessToken: string, items: NavItem[
       filterType: rest.filterType || '',
       filterValue: rest.filterValue || ''
     }))
-    
+
     await customNavApi.saveCustomNavItems(accessToken, itemsToSave)
     console.log('Custom nav items saved to database successfully:', itemsToSave.length, 'items')
   } catch (error) {
@@ -155,12 +155,12 @@ const saveCustomNavItemsToDatabase = async (accessToken: string, items: NavItem[
 const loadCustomNavItemsFromDatabase = async (accessToken: string): Promise<NavItem[]> => {
   try {
     const savedItems = await customNavApi.getCustomNavItems(accessToken)
-    
+
     // Sort by order field, then convert CustomNavItem back to NavItem with recreated icons
-    const sortedItems = savedItems.sort((a: CustomNavItem, b: CustomNavItem) => 
+    const sortedItems = savedItems.sort((a: CustomNavItem, b: CustomNavItem) =>
       (a.order || 0) - (b.order || 0)
     )
-    
+
     return sortedItems.map((item: CustomNavItem) => ({
       id: item.id,
       label: item.label,
@@ -204,18 +204,18 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [actresses, setActresses] = useState<MasterDataItem[]>([])
   const [directors, setDirectors] = useState<MasterDataItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // Navigation states
   const [searchQuery, setSearchQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showNavCustomizer, setShowNavCustomizer] = useState(false)
-  
+
   // Search input ref for auto-focus
   const searchInputRef = useRef<HTMLInputElement>(null)
-  
+
   // Previous content state to detect navigation changes
   const [previousContentState, setPreviousContentState] = useState<ContentState | null>(null)
-  
+
   // Navigation customizer states
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedItem, setSelectedItem] = useState('')
@@ -223,7 +223,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const [itemOpen, setItemOpen] = useState(false)
   const [customNavLoading, setCustomNavLoading] = useState(false)
   const [editMode, setEditMode] = useState(false)
-  
+
   // Advanced search states
   const [advancedSearchFilters, setAdvancedSearchFilters] = useState({
     actors: '',
@@ -234,7 +234,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     tags: '',
     type: ''
   })
-  
+
   // Content state - what's currently displayed in main area
   const [contentState, setContentState] = useState<ContentState>({
     mode: 'movies',
@@ -258,7 +258,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       else {
         const mainSections = ['movies', 'soft', 'photobooks', 'favorites', 'actors', 'actresses', 'series', 'studios', 'groups', 'tags', 'admin', 'advancedSearch']
         const isMainSectionChange = mainSections.includes(contentState.mode) && mainSections.includes(previousContentState.mode)
-        
+
         if (isMainSectionChange) {
           setSearchQuery('')
         }
@@ -301,7 +301,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   // Navigation history stack for preserving filters and previous states
   const [navigationHistory, setNavigationHistory] = useState<ContentState[]>([])
-  
+
   // Movies content filter state - for preserving filters across navigation
   const [moviesFilters, setMoviesFilters] = useState({
     tagFilter: 'all',
@@ -313,7 +313,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     currentPage: 1,
     itemsPerPage: 24
   })
-  
+
   // Custom nav items filter state - for preserving filters for each custom nav item
   const [customNavFilters, setCustomNavFilters] = useState<Record<string, {
     tagFilter: string
@@ -324,17 +324,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     currentPage: number
     itemsPerPage: number
   }>>({})
-  
+
   // Admin mode state
   const [showEditMovie, setShowEditMovie] = useState<Movie | null>(null)
   const [showEditSCMovie, setShowEditSCMovie] = useState<SCMovie | null>(null)
   const [showEditProfile, setShowEditProfile] = useState<{ type: 'actor' | 'actress' | 'director', name: string } | null>(null)
   const [showParseMovie, setShowParseMovie] = useState<Movie | null>(null)
-  
+
   // Frontend form states
   const [showAddMovieForm, setShowAddMovieForm] = useState(false)
   const [showParseMovieForm, setShowParseMovieForm] = useState(false)
-  
+
   // Navigation items - start with default items only
   const [navItems, setNavItems] = useState<NavItem[]>([
     { id: 'movies', label: 'Movies', type: 'movies', icon: <Film className="h-4 w-4" /> },
@@ -348,9 +348,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     { id: 'groups', label: 'Groups', type: 'groups', icon: <Globe className="h-4 w-4" /> },
     { id: 'tags', label: 'Tags', type: 'tags', icon: <TagIcon className="h-4 w-4" /> },
   ])
-  
+
   const [activeNavItem, setActiveNavItem] = useState('movies')
-  
+
   // Derived data for filters
   const [availableFilters, setAvailableFilters] = useState<{
     actors: string[]
@@ -411,102 +411,102 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const loadData = async () => {
     try {
       setIsLoading(true)
-      
+
       // Load movies and photobooks
       const [moviesData, photobooksData] = await Promise.all([
         movieApi.getMovies(accessToken),
         photobookApi.getPhotobooks(accessToken).catch(() => [])
       ])
-      
+
       setMovies(moviesData || [])
       setPhotobooks(photobooksData || [])
-        
-        // Load master data
-        try {
-          const [actorsData, actressesData, directorsData, groupsData] = await Promise.all([
-            masterDataApi.getByType('actor', accessToken).catch((error) => {
-              console.error('Failed to load actors data:', error)
-              return []
-            }),
-            masterDataApi.getByType('actress', accessToken).catch((error) => {
-              console.error('Failed to load actresses data:', error)
-              return []
-            }),
-            masterDataApi.getByType('director', accessToken).catch((error) => {
-              console.error('Failed to load directors data:', error)
-              return []
-            }),
-            masterDataApi.getByType('group', accessToken).catch((error) => {
-              console.error('Failed to load groups data:', error)
-              return []
-            })
-          ])
-          
-          // Add calculated age and movie counts
-          const addMovieStats = (people: MasterDataItem[], type: 'actor' | 'actress' | 'director') => {
-            return people.map(person => {
-              const fieldToCheck = type === 'director' ? 'director' : type === 'actor' ? 'actors' : 'actress'
-              const personMovies = moviesData.filter(movie => {
-                const field = movie[fieldToCheck as keyof Movie]
-                if (typeof field === 'string') {
-                  return field.toLowerCase().includes(person.name?.toLowerCase() || '')
-                }
-                return false
-              })
 
-              return {
-                ...person,
-                age: person.birthdate ? calculateAge(person.birthdate) : undefined,
-                photoUrl: person.profilePicture || (person.photo && person.photo[0]),
-                movieCount: personMovies.length,
-              }
-            })
-          }
-
-          const actorsWithStats = addMovieStats(actorsData, 'actor')
-          const actressesWithStats = addMovieStats(actressesData, 'actress')
-          const directorsWithStats = addMovieStats(directorsData, 'director')
-          
-          setActors(actorsWithStats)
-          setActresses(actressesWithStats)
-          setDirectors(directorsWithStats)
-          
-          // Extract unique filter values
-          const uniqueActors = [...new Set(actorsData.map(a => a.name).filter(Boolean))]
-          const uniqueActresses = [...new Set(actressesData.map(a => a.name).filter(Boolean))]
-          const uniqueDirectors = [...new Set(directorsData.map(d => d.name).filter(Boolean))]
-          const uniqueSeries = [...new Set(moviesData.map(m => m.series).filter(Boolean))]
-          const uniqueStudios = [...new Set(moviesData.map(m => m.studio).filter(Boolean))]
-          const uniqueTypes = [...new Set(moviesData.map(m => m.type).filter(Boolean))]
-          const uniqueGroups = [...new Set(groupsData.map(g => g.name).filter(Boolean))]
-          
-          // Extract and flatten tags
-          const allTags = moviesData.flatMap(m => 
-            m.tags ? m.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
-          )
-          const uniqueTags = [...new Set(allTags)]
-          
-          setAvailableFilters({
-            actors: uniqueActors,
-            actresses: uniqueActresses,
-            directors: uniqueDirectors,
-            series: uniqueSeries,
-            studios: uniqueStudios,
-            types: uniqueTypes,
-            tags: uniqueTags,
-            groups: uniqueGroups
+      // Load master data
+      try {
+        const [actorsData, actressesData, directorsData, groupsData] = await Promise.all([
+          masterDataApi.getByType('actor', accessToken).catch((error) => {
+            console.error('Failed to load actors data:', error)
+            return []
+          }),
+          masterDataApi.getByType('actress', accessToken).catch((error) => {
+            console.error('Failed to load actresses data:', error)
+            return []
+          }),
+          masterDataApi.getByType('director', accessToken).catch((error) => {
+            console.error('Failed to load directors data:', error)
+            return []
+          }),
+          masterDataApi.getByType('group', accessToken).catch((error) => {
+            console.error('Failed to load groups data:', error)
+            return []
           })
-          
-        } catch (masterDataError) {
-          // Failed to load master data - continue with movies only
+        ])
+
+        // Add calculated age and movie counts
+        const addMovieStats = (people: MasterDataItem[], type: 'actor' | 'actress' | 'director') => {
+          return people.map(person => {
+            const fieldToCheck = type === 'director' ? 'director' : type === 'actor' ? 'actors' : 'actress'
+            const personMovies = moviesData.filter(movie => {
+              const field = movie[fieldToCheck as keyof Movie]
+              if (typeof field === 'string') {
+                return field.toLowerCase().includes(person.name?.toLowerCase() || '')
+              }
+              return false
+            })
+
+            return {
+              ...person,
+              age: person.birthdate ? calculateAge(person.birthdate) : undefined,
+              photoUrl: person.profilePicture || (person.photo && person.photo[0]),
+              movieCount: personMovies.length,
+            }
+          })
         }
-        
-      } catch (error) {
-        // Failed to load data - handled silently
-      } finally {
-        setIsLoading(false)
+
+        const actorsWithStats = addMovieStats(actorsData, 'actor')
+        const actressesWithStats = addMovieStats(actressesData, 'actress')
+        const directorsWithStats = addMovieStats(directorsData, 'director')
+
+        setActors(actorsWithStats)
+        setActresses(actressesWithStats)
+        setDirectors(directorsWithStats)
+
+        // Extract unique filter values
+        const uniqueActors = [...new Set(actorsData.map(a => a.name).filter(Boolean))]
+        const uniqueActresses = [...new Set(actressesData.map(a => a.name).filter(Boolean))]
+        const uniqueDirectors = [...new Set(directorsData.map(d => d.name).filter(Boolean))]
+        const uniqueSeries = [...new Set(moviesData.map(m => m.series).filter(Boolean))]
+        const uniqueStudios = [...new Set(moviesData.map(m => m.studio).filter(Boolean))]
+        const uniqueTypes = [...new Set(moviesData.map(m => m.type).filter(Boolean))]
+        const uniqueGroups = [...new Set(groupsData.map(g => g.name).filter(Boolean))]
+
+        // Extract and flatten tags
+        const allTags = moviesData.flatMap(m =>
+          m.tags ? m.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
+        )
+        const uniqueTags = [...new Set(allTags)]
+
+        setAvailableFilters({
+          actors: uniqueActors,
+          actresses: uniqueActresses,
+          directors: uniqueDirectors,
+          series: uniqueSeries,
+          studios: uniqueStudios,
+          types: uniqueTypes,
+          tags: uniqueTags,
+          groups: uniqueGroups
+        })
+
+      } catch (masterDataError) {
+        // Failed to load master data - continue with movies only
       }
+
+    } catch (error) {
+      // Failed to load data - handled silently
+    } finally {
+      setIsLoading(false)
     }
+  }
 
   // Use token-aware data loading to prevent unnecessary reloads on token refresh
   useTokenAwareDataLoad(loadData, accessToken)
@@ -514,11 +514,11 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   // Load custom navigation items from database after component mounts
   useTokenAwareDataLoad(async () => {
     if (!accessToken) return
-    
+
     try {
       setCustomNavLoading(true)
       const customItems = await loadCustomNavItemsFromDatabase(accessToken)
-      
+
       if (customItems.length > 0) {
         setNavItems(prev => {
           const defaultItems = prev.filter(item => item.type !== 'custom')
@@ -569,26 +569,26 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     const focusSearchBar = (retryCount = 0) => {
       if (searchInputRef.current) {
         console.log('Auto-focusing search bar...')
-        
+
         // Use requestAnimationFrame to ensure DOM is ready
         requestAnimationFrame(() => {
           if (searchInputRef.current) {
             // Scroll to search bar first to ensure it's visible
             searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            
+
             // Focus with a small delay to ensure scroll completes
             setTimeout(() => {
               if (searchInputRef.current) {
                 // Try multiple focus methods
                 searchInputRef.current.focus()
                 searchInputRef.current.click()
-                
+
                 // Also select all text for better UX
                 searchInputRef.current.select()
-                
+
                 // Force focus with preventDefault
                 searchInputRef.current.focus({ preventScroll: false })
-                
+
                 // Dispatch focus event manually
                 const focusEvent = new Event('focus', { bubbles: true })
                 searchInputRef.current.dispatchEvent(focusEvent)
@@ -604,10 +604,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         console.log('Search input ref not available after 5 retries')
       }
     }
-    
+
     // Use a longer timeout to ensure DOM is updated
     const timeoutId = setTimeout(() => focusSearchBar(), 500)
-    
+
     return () => clearTimeout(timeoutId)
   }, [activeNavItem])
 
@@ -616,7 +616,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     const focusOnLoad = (retryCount = 0) => {
       if (searchInputRef.current) {
         console.log('Auto-focusing search bar on app load...')
-        
+
         // Use requestAnimationFrame to ensure DOM is ready
         requestAnimationFrame(() => {
           if (searchInputRef.current) {
@@ -626,13 +626,13 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 // Try multiple focus methods
                 searchInputRef.current.focus()
                 searchInputRef.current.click()
-                
+
                 // Also select all text for better UX
                 searchInputRef.current.select()
-                
+
                 // Force focus with preventDefault
                 searchInputRef.current.focus({ preventScroll: false })
-                
+
                 // Dispatch focus event manually
                 const focusEvent = new Event('focus', { bubbles: true })
                 searchInputRef.current.dispatchEvent(focusEvent)
@@ -648,10 +648,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         console.log('Search input ref not available on load after 10 retries')
       }
     }
-    
+
     // Focus on initial load with longer timeout
     const timeoutId = setTimeout(() => focusOnLoad(), 2000)
-    
+
     return () => clearTimeout(timeoutId)
   }, []) // Empty dependency array means this runs only once on mount
 
@@ -660,7 +660,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setActiveNavItem(navItem.id)
     setMobileMenuOpen(false)
     setEditMode(false) // Clear edit mode when navigating
-    
+
     if (navItem.type === 'admin') {
       setContentState({ mode: 'admin', title: 'Admin Panel' })
     } else if (navItem.type === 'custom' && navItem.filterType && navItem.filterValue) {
@@ -670,16 +670,16 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         handleGroupSelect(navItem.filterValue)
         return
       }
-      
+
       // Save current state to navigation history before switching to custom nav
       setNavigationHistory(prev => [...prev, contentState])
-      
+
       // For other filters, show filtered movies with custom nav content
-      setContentState({ 
-        mode: 'customNavFiltered', 
+      setContentState({
+        mode: 'customNavFiltered',
         title: `${navItem.label}`,
-        data: { 
-          filterType: navItem.filterType, 
+        data: {
+          filterType: navItem.filterType,
           filterValue: navItem.filterValue,
           navItemId: navItem.id,
           customNavLabel: navItem.label
@@ -688,9 +688,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     } else {
       // Clear navigation history when starting fresh navigation for default nav items
       setNavigationHistory([])
-      setContentState({ 
-        mode: navItem.type as ContentMode, 
-        title: navItem.label 
+      setContentState({
+        mode: navItem.type as ContentMode,
+        title: navItem.label
       })
     }
   }
@@ -700,19 +700,19 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     console.log('=== UNIFIED APP HANDLE MOVIE SELECT ===')
     console.log('Movie received:', movie)
     console.log('Current contentState:', contentState)
-    
+
     // Handle collaboration filtering
     if (typeof movie === 'string' && movie.startsWith('collaboration:')) {
       const collaborationData = movie.substring('collaboration:'.length)
       const [actorName, actressName] = collaborationData.split('+')
-      
+
       // Handle collaboration filter (now handled internally by ProfileContent)
-      
+
       setContentState({
         mode: 'filteredMovies',
         title: `Collaboration: ${actorName} & ${actressName}`,
-        data: { 
-          filterType: 'collaboration', 
+        data: {
+          filterType: 'collaboration',
           filterValue: collaborationData,
           actorName,
           actressName
@@ -724,10 +724,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     // Handle profile navigation from search results
     if (typeof movie === 'string' && (movie.startsWith('actress:') || movie.startsWith('actor:') || movie.startsWith('director:'))) {
       const [profileType, profileName] = movie.split(':')
-      
+
       // Save current state to history before navigating to profile
       setNavigationHistory(prev => [...prev, contentState])
-      
+
       setContentState({
         mode: 'profile',
         title: profileName,
@@ -740,24 +740,24 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     if (typeof movie === 'object') {
       console.log('Handling regular movie selection')
       console.log('Movie object:', movie)
-      
+
       // Save current state to history before navigating to movie detail
       // Don't save admin mode to history - always go back to movies
-      const stateToSave = contentState.mode === 'admin' 
+      const stateToSave = contentState.mode === 'admin'
         ? { mode: 'movies' as ContentMode, title: 'Movies' }
         : contentState
-      
+
       setNavigationHistory(prev => [...prev, {
         ...stateToSave,
         moviesFilters: moviesFilters // Include current pagination state
       }])
-      
+
       const newContentState = {
         mode: 'movieDetail' as const,
         title: movie.titleEn || movie.titleJp || 'Movie Details',
         data: movie
       }
-      
+
       console.log('Setting new contentState:', newContentState)
       setContentState(newContentState)
       console.log('ContentState updated successfully')
@@ -771,21 +771,21 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       titleEn: photobook.titleEn,
       titleJp: photobook.titleJp
     })
-    
+
     setNavigationHistory(prev => [...prev, contentState])
     setContentState({
       mode: 'photobookDetail',
       title: photobook.titleEn || photobook.titleJp || 'Photobook Details',
       data: photobook
     })
-    
+
     console.log('Navigation state updated to photobookDetail mode')
   }
 
   const handleSCMovieSelect = async (scMovieInput: SCMovie | string) => {
     // Handle both SCMovie object and string ID
     let scMovie: SCMovie
-    
+
     if (typeof scMovieInput === 'string') {
       // Fetch SC movie by ID
       try {
@@ -798,10 +798,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       // Already an SCMovie object
       scMovie = scMovieInput
     }
-    
+
     // Save current state to history before navigating to SC movie detail
     setNavigationHistory(prev => [...prev, contentState])
-    
+
     setContentState({
       mode: 'scMovieDetail',
       title: scMovie.titleEn || scMovie.titleJp || 'SC Movie Details',
@@ -814,7 +814,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     if (type === 'director') {
       const actorExists = actors.find(actor => actor.name === name)
       const actressExists = actresses.find(actress => actress.name === name)
-      
+
       if (actorExists) {
         // Director exists as actor, navigate to actor profile
         setContentState({
@@ -824,7 +824,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         })
         return
       }
-      
+
       if (actressExists) {
         // Director exists as actress, navigate to actress profile
         setContentState({
@@ -835,7 +835,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         return
       }
     }
-    
+
     // Default behavior for regular cases
     setContentState({
       mode: 'profile',
@@ -847,7 +847,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const handleFilterSelect = (filterType: string, filterValue: string, title?: string) => {
     // Save current state to history before navigating to filtered view
     setNavigationHistory(prev => [...prev, contentState])
-    
+
     // For group filters, show actresses instead of movies
     const contentMode = filterType === 'group' ? 'filteredActresses' : 'filteredMovies'
     setContentState({
@@ -859,7 +859,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   const handleGroupSelect = async (group: MasterDataItem | string) => {
     let groupData: MasterDataItem
-    
+
     if (typeof group === 'string') {
       // Find group by name
       try {
@@ -879,10 +879,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     } else {
       groupData = group
     }
-    
+
     // Save current state to history before navigating to group detail
     setNavigationHistory(prev => [...prev, contentState])
-    
+
     setContentState({
       mode: 'groupDetail',
       title: `${groupData.name} - Group Details`,
@@ -925,15 +925,15 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     try {
       const savedMovie = await movieApi.createMovie(movie, accessToken)
       toast.success('Movie berhasil ditambahkan!')
-      
+
       // Reload movies data
       await loadMovies()
-      
+
       // Go back to movies list
       setShowAddMovieForm(false)
       setContentState({ mode: 'movies', title: 'Movies' })
       setActiveNavItem('movies')
-      
+
       // Navigate to the new movie detail
       handleMovieSelect(savedMovie)
     } catch (error) {
@@ -953,31 +953,31 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       // Check if movie has ID (means it's from merge mode, already saved)
       if (movie.id) {
         console.log('Movie has ID, this is from merge mode - no need to save again')
-        
+
         // Reload movies data
         await loadMovies()
-        
+
         // Go back to movies list
         setShowParseMovieForm(false)
         setContentState({ mode: 'movies', title: 'Movies' })
         setActiveNavItem('movies')
-        
+
         // Navigate to the movie detail
         handleMovieSelect(movie)
         return
       }
-      
+
       const savedMovie = await movieApi.createMovie(movie, accessToken)
       toast.success('Movie berhasil diparse dan disimpan!')
-      
+
       // Reload movies data
       await loadMovies()
-      
+
       // Go back to movies list
       setShowParseMovieForm(false)
       setContentState({ mode: 'movies', title: 'Movies' })
       setActiveNavItem('movies')
-      
+
       // Navigate to the new movie detail
       handleMovieSelect(savedMovie)
     } catch (error) {
@@ -1034,7 +1034,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       filterValue: value,
       icon: getCategoryIcon(type)
     }
-    
+
     try {
       const updatedItems = [...navItems, newNavItem]
       await saveCustomNavItemsToDatabase(accessToken, updatedItems)
@@ -1050,9 +1050,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   const removeNavItem = async (itemId: string) => {
     try {
       await customNavApi.deleteCustomNavItem(accessToken, itemId)
-      
+
       setNavItems(prev => prev.filter(item => item.id !== itemId))
-      
+
       if (activeNavItem === itemId) {
         setActiveNavItem('movies')
         setContentState({ mode: 'movies', title: 'Movies' })
@@ -1074,15 +1074,15 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       const newItems = [...prev]
       const customItems = newItems.filter(item => item.type === 'custom')
       const nonCustomItems = newItems.filter(item => item.type !== 'custom')
-      
+
       // Reorder only custom items
       const movedItem = customItems.splice(fromIndex, 1)[0]
       customItems.splice(toIndex, 0, movedItem)
-      
+
       // Combine back with non-custom items
       return [...nonCustomItems, ...customItems]
     })
-    
+
     // Auto-save after drag
     setTimeout(async () => {
       try {
@@ -1091,7 +1091,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
           id: item.id,
           order: index
         }))
-        
+
         await customNavApi.reorderCustomNavItems(accessToken, itemOrders)
         console.log('Custom nav items order saved automatically')
       } catch (error) {
@@ -1107,7 +1107,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
         id: item.id,
         order: index
       }))
-      
+
       await customNavApi.reorderCustomNavItems(accessToken, itemOrders)
       console.log('Custom nav items order saved manually')
     } catch (error) {
@@ -1184,9 +1184,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   // Handler for advanced search navigation
   const handleAdvancedSearch = () => {
-    setContentState({ 
-      mode: 'advancedSearch', 
-      title: 'Advanced Search' 
+    setContentState({
+      mode: 'advancedSearch',
+      title: 'Advanced Search'
     })
     setActiveNavItem('') // Clear active nav item for search mode
   }
@@ -1212,11 +1212,11 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       {/* Header */}
       <header className="border-b bg-card sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           {/* Top Row: Logo + Default Navigation + User Controls */}
           <div className="flex items-center justify-between h-16">
             {/* Logo/Brand */}
-            <div 
+            <div
               className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => {
                 const moviesNavItem = navItems.find(item => item.id === 'movies')
@@ -1243,7 +1243,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                   {item.label}
                 </Button>
               ))}
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -1294,7 +1294,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                   <SheetHeader>
                     <SheetTitle>Navigation</SheetTitle>
                   </SheetHeader>
-                  
+
                   <div className="mt-6 space-y-2">
                     {/* Default Navigation Items */}
                     {defaultNavItems.map(item => (
@@ -1308,7 +1308,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                         {item.label}
                       </Button>
                     ))}
-                    
+
                     {/* Custom Navigation Items */}
                     {customNavItems.length > 0 && (
                       <>
@@ -1336,7 +1336,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                         ))}
                       </>
                     )}
-                    
+
                     <Separator className="my-4" />
                     <Button
                       variant="outline"
@@ -1401,8 +1401,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                   </Button>
                 )}
               </div>
-              
-              
+
+
               {/* Advanced Search Button */}
               <Button
                 variant="outline"
@@ -1447,7 +1447,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
         {/* Admin Dashboard */}
         {contentState.mode === 'admin' && (
-          <Dashboard 
+          <Dashboard
             accessToken={accessToken}
             user={user}
             onLogout={onLogout}
@@ -1481,8 +1481,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 {(contentState.mode === 'filteredMovies' || contentState.mode === 'customNavFiltered') ? (
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={handleBack}
                         className="flex items-center gap-2"
                       >
@@ -1520,8 +1520,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             {contentState.mode === 'addMovie' && showAddMovieForm && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={handleAddMovieCancel}
                     className="flex items-center gap-2"
                   >
@@ -1542,8 +1542,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             {contentState.mode === 'parseMovie' && showParseMovieForm && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={handleParseMovieCancel}
                     className="flex items-center gap-2"
                   >
@@ -1565,7 +1565,11 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                 searchQuery={searchQuery}
                 accessToken={accessToken}
                 onSCMovieSelect={handleSCMovieSelect}
-                onAddSCMovie={() => setContentState({ mode: 'scMovieForm', title: 'Tambah SC Movie Baru' })}
+                onAddSCMovie={() => {
+                  // Save current state to history before navigating to form
+                  setNavigationHistory(prev => [...prev, contentState])
+                  setContentState({ mode: 'scMovieForm', title: 'Tambah SC Movie Baru' })
+                }}
               />
             )}
 
@@ -1795,7 +1799,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
               Create a quick access filter for your navigation bar.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Edit Mode Toggle */}
             {customNavItems.length > 0 && (
@@ -1862,9 +1866,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                           onSelect={handleCategorySelect}
                         >
                           <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedCategory === category.value ? "opacity-100" : "opacity-0"
-                            }`}
+                            className={`mr-2 h-4 w-4 ${selectedCategory === category.value ? "opacity-100" : "opacity-0"
+                              }`}
                           />
                           <div className="flex items-center gap-2">
                             {category.icon}
@@ -1908,9 +1911,8 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
                             }}
                           >
                             <Check
-                              className={`mr-2 h-4 w-4 ${
-                                selectedItem === item ? "opacity-100" : "opacity-0"
-                              }`}
+                              className={`mr-2 h-4 w-4 ${selectedItem === item ? "opacity-100" : "opacity-0"
+                                }`}
                             />
                             {item}
                           </CommandItem>
@@ -1927,7 +1929,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             <Button variant="outline" onClick={() => setShowNavCustomizer(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleAddCustomNavItem}
               disabled={!selectedCategory || !selectedItem || customNavLoading}
             >
