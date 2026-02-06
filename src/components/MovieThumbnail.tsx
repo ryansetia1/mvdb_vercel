@@ -3,6 +3,9 @@ import { ImageWithFallback } from './figma/ImageWithFallback'
 import { SimpleFavoriteButton } from './SimpleFavoriteButton'
 import { Movie } from '../utils/movieApi'
 import { processTemplate } from '../utils/templateUtils'
+import { parseLinks } from './content/movieDetail/MovieDetailHelpers'
+import { Button } from './ui/button'
+import { Play } from 'lucide-react'
 
 interface MovieThumbnailProps {
   movie: Movie
@@ -16,11 +19,11 @@ interface MovieThumbnailProps {
   accessToken?: string
 }
 
-export function MovieThumbnail({ 
-  movie, 
-  size = 'md', 
-  className = '', 
-  onClick, 
+export function MovieThumbnail({
+  movie,
+  size = 'md',
+  className = '',
+  onClick,
   showHoverEffect = true,
   forceAspectRatio,
   maxHeight = 'max-h-[300px]', // Default max height for full ratio images
@@ -30,16 +33,32 @@ export function MovieThumbnail({
   // Process the cover URL with template if needed
   const getCoverUrl = (movie: Movie): string => {
     if (!movie.cover) return ''
-    
+
     // If cover contains template variables (asterix * or curly braces) and we have dmcode, process it
     if ((movie.cover.includes('*') || movie.cover.includes('{{')) && movie.dmcode) {
       return processTemplate(movie.cover, { dmcode: movie.dmcode })
     }
-    
+
     return movie.cover
   }
 
   const coverUrl = getCoverUrl(movie)
+
+  // Get first available watch link (Priority: clinks > ulinks > slinks)
+  const getFirstWatchLink = (): string | null => {
+    const clinks = parseLinks(movie.clinks)
+    if (clinks.length > 0) return clinks[0]
+
+    const ulinks = parseLinks(movie.ulinks)
+    if (ulinks.length > 0) return ulinks[0]
+
+    const slinks = parseLinks(movie.slinks)
+    if (slinks.length > 0) return slinks[0]
+
+    return null
+  }
+
+  const watchLink = getFirstWatchLink()
 
   // Size mappings for responsive design (used for cropped images)
   const sizeClasses = {
@@ -54,9 +73,9 @@ export function MovieThumbnail({
   const shouldUseCrop = movie.cropCover || movie.type === 'cen'
   // Use exact 140:200 ratio (0.7) for cropped covers
   const aspectRatio = forceAspectRatio || (shouldUseCrop ? 'aspect-[7/10]' : '')
-  
+
   // Different container classes for cropped vs full ratio
-  const containerClasses = shouldUseCrop 
+  const containerClasses = shouldUseCrop
     ? `
         bg-gray-100 rounded overflow-hidden 
         ${aspectRatio}
@@ -82,12 +101,12 @@ export function MovieThumbnail({
 
   if (!coverUrl) {
     return (
-      <div 
+      <div
         className={containerClasses}
         onClick={onClick}
       >
-        <div className={shouldUseCrop 
-          ? "w-full h-full flex items-center justify-center bg-gray-200 text-gray-500" 
+        <div className={shouldUseCrop
+          ? "w-full h-full flex items-center justify-center bg-gray-200 text-gray-500"
           : "w-full min-h-[120px] flex items-center justify-center bg-gray-200 text-gray-500"
         }>
           <div className="text-center p-2">
@@ -100,7 +119,7 @@ export function MovieThumbnail({
   }
 
   return (
-    <div 
+    <div
       className={`${containerClasses} ${showFavoriteButton ? 'group relative' : ''}`}
       onClick={onClick}
     >
@@ -121,10 +140,10 @@ export function MovieThumbnail({
           className={imageClasses}
         />
       )}
-      
+
       {/* Movie Thumbnail Favorite Button */}
       {showFavoriteButton && accessToken && coverUrl && (
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
           <SimpleFavoriteButton
             type="movie"
             itemId={movie.id || ''}
@@ -132,6 +151,23 @@ export function MovieThumbnail({
             variant="ghost"
             className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
           />
+        </div>
+      )}
+
+      {/* Play Button - Bottom Left */}
+      {showFavoriteButton && watchLink && (
+        <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 rounded-full bg-primary/90 hover:bg-primary text-primary-foreground shadow-lg border-none"
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              window.open(watchLink, '_blank')
+            }}
+          >
+            <Play className="h-4 w-4 fill-current ml-0.5" />
+          </Button>
         </div>
       )}
     </div>
