@@ -267,6 +267,66 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     setPreviousContentState(contentState)
   }, [contentState, previousContentState])
 
+  // Fetch full data when restoring from URL (contentState has only identifier)
+  useEffect(() => {
+    const fetchDataFromIdentifier = async () => {
+      // Check if we need to fetch full data for detail pages
+      if (contentState.mode === 'scMovieDetail' && contentState.data?.code && !contentState.data?.titleEn) {
+        // We have only code/id, need to fetch full SC movie data
+        try {
+          const scMovie = await scMovieApi.getSCMovie(contentState.data.code)
+          setContentState({
+            mode: 'scMovieDetail',
+            title: scMovie.titleEn || scMovie.titleJp || 'SC Movie Details',
+            data: scMovie
+          })
+        } catch (error) {
+          console.error('Failed to fetch SC movie from identifier:', error)
+          // Fallback to soft content if fetch fails
+          setContentState({ mode: 'soft', title: 'Soft Content' })
+          setActiveNavItem('soft')
+        }
+      } else if (contentState.mode === 'movieDetail' && contentState.data?.code && !contentState.data?.titleEn) {
+        // We have only code/id, need to fetch full movie data
+        try {
+          const movies = await movieApi.getMovies(accessToken)
+          const movie = movies.find((m: Movie) => m.code === contentState.data.code || m.id === contentState.data.code)
+          if (movie) {
+            setContentState({
+              mode: 'movieDetail',
+              title: movie.titleEn || movie.titleJp || 'Movie Details',
+              data: movie
+            })
+          } else {
+            // Movie not found, go back to movies
+            setContentState({ mode: 'movies', title: 'Movies' })
+            setActiveNavItem('movies')
+          }
+        } catch (error) {
+          console.error('Failed to fetch movie from identifier:', error)
+          setContentState({ mode: 'movies', title: 'Movies' })
+          setActiveNavItem('movies')
+        }
+      } else if (contentState.mode === 'photobookDetail' && contentState.data?.id && !contentState.data?.titleEn) {
+        // We have only id, need to fetch full photobook data
+        try {
+          const photobook = await photobookApi.getPhotobook(contentState.data.id, accessToken)
+          setContentState({
+            mode: 'photobookDetail',
+            title: photobook.titleEn || photobook.titleJp || 'Photobook Details',
+            data: photobook
+          })
+        } catch (error) {
+          console.error('Failed to fetch photobook from identifier:', error)
+          setContentState({ mode: 'photobooks', title: 'Photobooks' })
+          setActiveNavItem('photobooks')
+        }
+      }
+    }
+
+    fetchDataFromIdentifier()
+  }, [contentState.mode, contentState.data, accessToken])
+
   // Get contextual search placeholder based on current page
   const getSearchPlaceholder = () => {
     switch (contentState.mode) {
@@ -993,6 +1053,9 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
   }
 
   const handleEditSCMovie = (scMovie: SCMovie) => {
+    // Save current state to history before navigating to edit form
+    setNavigationHistory(prev => [...prev, contentState])
+
     setShowEditSCMovie(scMovie)
     // Switch to admin mode to show the edit form
     setContentState({ mode: 'admin', title: 'Admin Panel - Edit SC Movie' })
@@ -1004,15 +1067,17 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       if (scMovie.id) {
         // Update existing SC movie
         await scMovieApi.updateSCMovie(scMovie.id, scMovie, accessToken)
+        toast.success('SC Movie berhasil diupdate!')
       } else {
         // Create new SC movie
         await scMovieApi.createSCMovie(scMovie, accessToken)
+        toast.success('SC Movie berhasil ditambahkan!')
       }
-      // Go back to soft content - data will be reloaded automatically by SoftContent
-      setContentState({ mode: 'soft', title: 'Soft Content' })
-      setActiveNavItem('soft')
+      // Use handleBack to return to previous page (scMovieDetail or soft content)
+      handleBack()
     } catch (error) {
       console.error('Failed to save SC movie:', error)
+      toast.error('Gagal menyimpan SC movie')
     }
   }
 

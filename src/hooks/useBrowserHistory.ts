@@ -50,6 +50,24 @@ export function useBrowserHistory({
     }
   }, [contentState, navigate, location.pathname])
 
+  // Restore state from URL on initial load/refresh
+  useEffect(() => {
+    const stateFromUrl = getContentStateFromPath(location.pathname, location.search)
+    if (stateFromUrl && contentState.mode === 'movies' && location.pathname !== '/movies') {
+      // Only restore if we're still on default state but URL indicates different page
+      console.log('Restoring state from URL:', stateFromUrl)
+      setContentState(stateFromUrl)
+
+      // Update active nav item based on restored state
+      if (setActiveNavItem) {
+        const navItem = navItems.find((item: any) => item.type === stateFromUrl.mode)
+        if (navItem) {
+          setActiveNavItem(navItem.id)
+        }
+      }
+    }
+  }, []) // Run only once on mount
+
   // Handle browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
@@ -70,15 +88,15 @@ export function useBrowserHistory({
       const previousState = navigationHistory[navigationHistory.length - 1]
       setNavigationHistory(prev => prev.slice(0, -1))
       setContentState(previousState)
-      
+
       // Update active nav item based on the restored state
       if (previousState.mode === 'filteredMovies' || previousState.mode === 'filteredActresses') {
         // For filtered content, keep the current active nav item
         // since the filter could come from any main section
       } else if (previousState.mode === 'customNavFiltered') {
         // Find the custom nav item that matches this state
-        const customNav = customNavItems.find((item: any) => 
-          item.filterType === previousState.data?.filterType && 
+        const customNav = customNavItems.find((item: any) =>
+          item.filterType === previousState.data?.filterType &&
           item.filterValue === previousState.data?.filterValue
         )
         if (customNav && setActiveNavItem) {
@@ -86,8 +104,8 @@ export function useBrowserHistory({
         }
       } else if (previousState.mode === 'custom') {
         // Find the custom nav item that matches this state
-        const customNav = customNavItems.find((item: any) => 
-          item.filterType === previousState.data?.filterType && 
+        const customNav = customNavItems.find((item: any) =>
+          item.filterType === previousState.data?.filterType &&
           item.filterValue === previousState.data?.filterValue
         )
         if (customNav && setActiveNavItem) {
@@ -100,7 +118,7 @@ export function useBrowserHistory({
           setActiveNavItem(navItem.id)
         }
       }
-      
+
       // Special handling for movies mode - restore pagination position
       if (previousState.mode === 'movies' && setMoviesFilters) {
         // Restore the moviesFilters state if it was saved in navigation history
@@ -178,7 +196,7 @@ function getPathFromContentState(state: ContentState): string {
 
 function getContentStateFromPath(pathname: string, search: string): ContentState | null {
   const urlParams = new URLSearchParams(search)
-  
+
   if (pathname.startsWith('/movie/')) {
     const movieIdentifier = pathname.split('/movie/')[1]
     return {
@@ -187,7 +205,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { code: movieIdentifier }
     }
   }
-  
+
   if (pathname.startsWith('/soft-movie/')) {
     const scMovieIdentifier = pathname.split('/soft-movie/')[1]
     return {
@@ -196,7 +214,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { code: scMovieIdentifier }
     }
   }
-  
+
   if (pathname.startsWith('/photobook/')) {
     const photobookIdentifier = pathname.split('/photobook/')[1]
     return {
@@ -205,7 +223,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { id: photobookIdentifier }
     }
   }
-  
+
   if (pathname.startsWith('/group/')) {
     const groupIdentifier = pathname.split('/group/')[1]
     return {
@@ -214,7 +232,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { id: groupIdentifier }
     }
   }
-  
+
   if (pathname.startsWith('/profile/')) {
     const parts = pathname.split('/profile/')[1].split('/')
     const type = parts[0]
@@ -225,7 +243,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { type, name }
     }
   }
-  
+
   if (pathname.startsWith('/custom/')) {
     const navItemId = pathname.split('/custom/')[1]
     return {
@@ -234,7 +252,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
       data: { navItemId }
     }
   }
-  
+
   if (pathname === '/movies') {
     const filter = urlParams.get('filter')
     const value = urlParams.get('value')
@@ -247,7 +265,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
     }
     return { mode: 'movies', title: 'Movies' }
   }
-  
+
   if (pathname === '/actresses') {
     const filter = urlParams.get('filter')
     const value = urlParams.get('value')
@@ -260,7 +278,7 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
     }
     return { mode: 'actresses', title: 'Actresses' }
   }
-  
+
   const modeMap: Record<string, string> = {
     '/actors': 'actors',
     '/series': 'series',
@@ -272,11 +290,11 @@ function getContentStateFromPath(pathname: string, search: string): ContentState
     '/soft': 'soft',
     '/admin': 'admin'
   }
-  
+
   const mode = modeMap[pathname]
   if (mode) {
     return { mode, title: mode.charAt(0).toUpperCase() + mode.slice(1) }
   }
-  
+
   return null
 }
