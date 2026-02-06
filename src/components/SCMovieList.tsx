@@ -17,9 +17,10 @@ interface SCMovieListProps {
   accessToken: string
   editingSCMovie?: SCMovie | null
   onClearEditing?: () => void
+  onSCMovieSelect?: (scMovie: SCMovie) => void
 }
 
-export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCMovieListProps) {
+export function SCMovieList({ accessToken, editingSCMovie, onClearEditing, onSCMovieSelect }: SCMovieListProps) {
   const [scMovies, setScMovies] = useState<SCMovie[]>([])
   const [filteredMovies, setFilteredMovies] = useState<SCMovie[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -58,8 +59,8 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
           movie.scType,
           movie.releaseDate
         ]
-        
-        return searchableFields.some(field => 
+
+        return searchableFields.some(field =>
           field?.toLowerCase().includes(searchLower)
         )
       })
@@ -73,11 +74,11 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
     try {
       setIsLoading(true)
       setError('')
-      
+
       if (!accessToken) {
         throw new Error('Access token is required')
       }
-      
+
       const moviesData = await scMovieApi.getSCMovies(accessToken)
       setScMovies(moviesData)
       setError('')
@@ -121,6 +122,11 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
     setLocalEditingMovie(null)
     onClearEditing?.()
     await loadSCMovies()
+
+    // Navigate to SC movie detail if callback provided
+    if (onSCMovieSelect && data) {
+      onSCMovieSelect(data)
+    }
   }
 
   const handleFormCancel = () => {
@@ -279,7 +285,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             </Button>
           </div>
         </div>
-        
+
         {/* Search */}
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -291,7 +297,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
             className="pl-10"
           />
         </div>
-        
+
         {/* Search Results Info */}
         {searchTerm.trim() && (
           <div className="text-sm text-muted-foreground">
@@ -318,7 +324,7 @@ export function SCMovieList({ accessToken, editingSCMovie, onClearEditing }: SCM
                 <PlayCircle className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No SC movies found</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {searchTerm.trim() 
+                  {searchTerm.trim()
                     ? `No SC movies match your search "${searchTerm}"`
                     : 'Get started by adding your first SC movie.'
                   }

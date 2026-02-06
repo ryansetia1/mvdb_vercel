@@ -839,7 +839,6 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       data: photobook
     })
 
-    console.log('Navigation state updated to photobookDetail mode')
   }
 
   const handleSCMovieSelect = async (scMovieInput: SCMovie | string) => {
@@ -1064,17 +1063,19 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
 
   const handleSCMovieSave = async (scMovie: SCMovie) => {
     try {
+      let savedSCMovie: SCMovie
       if (scMovie.id) {
         // Update existing SC movie
-        await scMovieApi.updateSCMovie(scMovie.id, scMovie, accessToken)
+        savedSCMovie = await scMovieApi.updateSCMovie(scMovie.id, scMovie, accessToken)
         toast.success('SC Movie berhasil diupdate!')
       } else {
         // Create new SC movie
-        await scMovieApi.createSCMovie(scMovie, accessToken)
+        savedSCMovie = await scMovieApi.createSCMovie(scMovie, accessToken)
         toast.success('SC Movie berhasil ditambahkan!')
       }
-      // Use handleBack to return to previous page (scMovieDetail or soft content)
-      handleBack()
+
+      // Navigate to SC movie detail page after successful save
+      handleSCMovieSelect(savedSCMovie)
     } catch (error) {
       console.error('Failed to save SC movie:', error)
       toast.error('Gagal menyimpan SC movie')
@@ -1533,6 +1534,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             }}
             onDataChanged={reloadData}
             onMovieSelect={handleMovieSelect}
+            onSCMovieSelect={handleSCMovieSelect}
           />
         )}
 
