@@ -143,30 +143,30 @@ export function MovieThumbnail({
 
       {/* Movie Thumbnail Favorite Button */}
       {showFavoriteButton && accessToken && coverUrl && (
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 group-hover:scale-110">
           <SimpleFavoriteButton
             type="movie"
             itemId={movie.id || ''}
             size="sm"
             variant="ghost"
-            className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-500 shadow-lg"
+            className="bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black text-gray-700 dark:text-white hover:text-red-500 shadow-lg border border-white/40 dark:border-white/10 backdrop-blur-md"
           />
         </div>
       )}
 
       {/* Play Button - Bottom Left */}
       {showFavoriteButton && watchLink && (
-        <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 group-hover:scale-110">
           <Button
             size="icon"
             variant="secondary"
-            className="h-8 w-8 rounded-full bg-primary/90 hover:bg-primary text-primary-foreground shadow-lg border-none"
+            className="h-10 w-10 rounded-full bg-white dark:bg-white hover:bg-white text-zinc-900 border border-white/40 shadow-[0_4px_15px_rgba(0,0,0,0.4)] backdrop-blur-md"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation()
               window.open(watchLink, '_blank')
             }}
           >
-            <Play className="h-4 w-4 fill-current ml-0.5" />
+            <Play className="h-5 w-5 fill-zinc-900 ml-0.5" />
           </Button>
         </div>
       )}
