@@ -1,8 +1,16 @@
 # ViolentMonkey Scripts untuk MVDB
 
-Koleksi script ViolentMonkey untuk meningkatkan workflow dengan MVDB dan JavDB.
+Koleksi script ViolentMonkey untuk meningkatkan workflow dengan MVDB dan JavDB / JavDatabase.
 
 ## Scripts yang Tersedia
+
+### v1.10 (2026-02-06)
+- **Feature**: Added full support for `javdatabase.com` movie detail pages
+- **Feature**: Implemented specific data extraction for JavDatabase HTML structure
+- **Feature**: Updated search bar detection for WordPress-based sites
+- **Fix**: Adjusted `@match` directives for broader coverage
+
+### v1.9 (2026-02-06)
 
 ### 1. JavDB Gender Fix V2 (`javdb-gender-fix-v2.user.js`)
 Script untuk mengekstrak data film dari halaman detail JavDB dengan deteksi gender aktor yang benar.
@@ -15,12 +23,12 @@ Script untuk mengekstrak data film dari halaman detail JavDB dengan deteksi gend
 
 **Cara Penggunaan:**
 1. Install script di ViolentMonkey
-2. Buka halaman detail film di JavDB (format: `https://javdb.com/v/[kode]`)
+2. Buka halaman detail film di JavDB atau JavDatabase (format: `/v/[kode]`)
 3. Klik tombol "🔧 MVDB COPIER" yang muncul di pojok kanan atas
 4. Data akan otomatis ter-copy ke clipboard
 
-### 2. JavDB Movie Code Auto Search (`javdb-movie-code-search.user.js`) - v1.7
-Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB.
+### 2. JavDB Movie Code Auto Search (`javdb-movie-code-search.user.js`) - v1.9
+Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB / JavDatabase.
 
 **Fitur:**
 - Deteksi otomatis movie code format `xxxxx-1234` dari clipboard
@@ -39,6 +47,8 @@ Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otom
 - **Dual button di detail**: Di halaman detail movie, kedua tombol (copy + search) bisa muncul bersamaan
 - **Simplified logic**: Logika tombol yang lebih sederhana dan konsisten
 - **Better state management**: State management yang lebih robust untuk clipboard content
+- **Current Version**: v1.10
+- **Last Updated**: 2026-02-06
 - **Robust search execution**: Search bar update yang lebih reliable dengan verification dan retry
 - **Keyboard simulation**: Fallback mechanism menggunakan keyboard simulation
 
@@ -46,12 +56,12 @@ Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otom
 
 **Untuk Search:**
 1. Copy movie code dari MVDB app (format: `xxxxx-1234`)
-2. Buka JavDB.com (homepage atau halaman manapun)
+2. Buka JavDB.com atau JavDatabase.com (homepage atau halaman manapun)
 3. Tombol "🔍 Search [movie-code]" akan muncul otomatis di pojok kanan atas
 4. Klik tombol untuk melakukan search otomatis
 
 **Untuk Copy Data Movie:**
-1. Masuk ke halaman detail movie di JavDB (format: `https://javdb.com/v/[kode]`)
+1. Masuk ke halaman detail movie di JavDB / JavDatabase (format: `/v/[kode]`)
 2. Tombol "📋 MVDB COPIER" akan muncul otomatis di pojok kanan atas
 3. Klik tombol untuk copy data movie lengkap ke clipboard
 4. Paste data ke MVDB app untuk import
@@ -77,7 +87,7 @@ Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otom
 
 ### Script tidak muncul
 - Pastikan ViolentMonkey extension aktif
-- Refresh halaman JavDB
+- Refresh halaman JavDB / JavDatabase
 - Check console browser untuk error messages
 
 ### Movie code tidak terdeteksi
@@ -87,7 +97,7 @@ Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otom
 - Jika clipboard monitoring tidak bekerja, coba paste movie code langsung di halaman JavDB
 
 ### Search tidak berfungsi
-- Pastikan berada di halaman JavDB yang memiliki search bar
+- Pastikan berada di halaman JavDB / JavDatabase yang memiliki search bar
 - Refresh halaman dan coba lagi
 - Check apakah search bar terlihat di halaman
 - Script akan mencoba berbagai cara untuk melakukan search (click button, submit form)

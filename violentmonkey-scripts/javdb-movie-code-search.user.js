@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         JavDB Movie Code Auto Search
 // @namespace    http://violentmonkey.com/
-// @version      1.8
-// @description  Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB
+// @version      1.10
+// @description  Script untuk mendeteksi movie code dari clipboard MVDB dan melakukan search otomatis di JavDB / JavDatabase
 // @author       MVDB Team
-// @match        https://javdb.com/*
+// @match        https://*.javdb.com/*
+// @match        https://*.javdatabase.com/*
+// @match        https://*.javdb521.com/*
+// @match        https://*.javdb007.com/*
 // @grant        GM_setClipboard
 // @grant        GM_getClipboard
 // @run-at       document-end
@@ -28,7 +31,7 @@ PERBAIKAN V1.2:
 - Improved compatibility dengan JavDB mobile navigation
 
 PERBAIKAN V1.3:
-- Added deteksi halaman detail movie (javdb.com/v/xxxxxx)
+- Added deteksi halaman detail movie (javdb.com / javdatabase.com /v/xxxxxx)
 - Added tombol copy untuk halaman detail movie
 - Added sistem dual button (search + copy) berdasarkan konteks halaman
 - Added ekstraksi data movie lengkap untuk copy ke MVDB
@@ -65,9 +68,13 @@ PERBAIKAN V1.8:
 - Added multiple methods untuk mengekstrak simbol gender dari berbagai struktur HTML
 - Improved actor parsing untuk mendukung multiple female actresses dengan benar
 - Enhanced logging untuk debugging actor extraction
+PERBAIKAN V1.9:
+- Added support for new domain javdatabase.com
+- Added wildcard @match for various JavDB mirrors (*.javdb.com, *.javdb521.com, etc.)
+- Updated documentation references
 */
 
-(function() {
+(function () {
     'use strict';
 
     let searchButton = null;
@@ -82,7 +89,14 @@ PERBAIKAN V1.8:
     // Fungsi untuk mendeteksi jenis halaman
     function detectPageType() {
         const path = window.location.pathname;
-        
+        const hostname = window.location.hostname;
+
+        if (hostname.includes('javdatabase.com')) {
+            if (path.match(/^\/movies\/[^\/]+\/?$/)) {
+                return 'movie-detail';
+            }
+        }
+
         if (path.match(/^\/v\/[A-Za-z0-9]+$/)) {
             return 'movie-detail';
         } else if (path === '/' || path === '') {
@@ -108,111 +122,155 @@ PERBAIKAN V1.8:
             tags: []
         };
 
-        // Ekstrak judul
-        const titleElement = document.querySelector('.current-title') || 
-                            document.querySelector('h2.title .current-title') ||
-                            document.querySelector('h2.title');
-        if (titleElement) {
-            data.title = titleElement.textContent.trim();
-        }
+        if (window.location.hostname.includes('javdb.com')) {
+            // Ekstrak judul
+            const titleElement = document.querySelector('.current-title') ||
+                document.querySelector('h2.title .current-title') ||
+                document.querySelector('h2.title');
+            if (titleElement) {
+                data.title = titleElement.textContent.trim();
+            }
 
-        // Ekstrak kode
-        const codeElement = document.querySelector('.panel-block.first-block .value') ||
-                           document.querySelector('[data-clipboard-text]');
-        if (codeElement) {
-            data.code = codeElement.textContent.trim();
-        }
+            // Ekstrak kode
+            const codeElement = document.querySelector('.panel-block.first-block .value') ||
+                document.querySelector('[data-clipboard-text]');
+            if (codeElement) {
+                data.code = codeElement.textContent.trim();
+            }
 
-        // Ekstrak data dari panel-block
-        const panelBlocks = document.querySelectorAll('.panel-block');
-        panelBlocks.forEach(block => {
-            const strong = block.querySelector('strong');
-            if (strong) {
-                const label = strong.textContent.trim();
-                const value = block.querySelector('.value');
-                
-                if (value) {
-                    switch (label) {
-                        case 'Released Date:':
-                            data.releaseDate = value.textContent.trim();
-                            break;
-                        case 'Duration:':
-                            data.duration = value.textContent.trim();
-                            break;
-                        case 'Director:':
-                            const directorLink = value.querySelector('a');
-                            data.director = directorLink ? directorLink.textContent.trim() : value.textContent.trim();
-                            break;
-                        case 'Maker:':
-                            const makerLink = value.querySelector('a');
-                            data.studio = makerLink ? makerLink.textContent.trim() : value.textContent.trim();
-                            break;
-                        case 'Series:':
-                            const seriesLink = value.querySelector('a');
-                            data.series = seriesLink ? seriesLink.textContent.trim() : value.textContent.trim();
-                            break;
-                        case 'Tags:':
-                            const tagLinks = value.querySelectorAll('a');
-                            data.tags = Array.from(tagLinks).map(a => a.textContent.trim());
-                            break;
-                        case 'Actor(s):':
-                            // Extract actors with gender symbols using multiple methods
-                            const actorLinks = value.querySelectorAll('a');
-                            console.log('JavDB Movie Code Search: Extracting actors, found', actorLinks.length, 'actor links');
-                            
-                            data.actors = Array.from(actorLinks).map((a, index) => {
-                                // Get the text content of the link
-                                let actorName = a.textContent.trim();
-                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Original name: "${actorName}"`);
-                                
-                                // Method 1: Check next sibling text node for gender symbol
-                                const nextSibling = a.nextSibling;
-                                if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
-                                    const textAfter = nextSibling.textContent.trim();
-                                    console.log(`JavDB Movie Code Search: Actor ${index + 1} - Text after link: "${textAfter}"`);
-                                    if (textAfter.includes('♀') || textAfter.includes('♂')) {
-                                        const genderMatch = textAfter.match(/[♀♂]/);
-                                        if (genderMatch) {
-                                            actorName += genderMatch[0];
-                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 1: "${actorName}"`);
+            // Ekstrak data dari panel-block
+            const panelBlocks = document.querySelectorAll('.panel-block');
+            panelBlocks.forEach(block => {
+                const strong = block.querySelector('strong');
+                if (strong) {
+                    const label = strong.textContent.trim();
+                    const value = block.querySelector('.value');
+
+                    if (value) {
+                        switch (label) {
+                            case 'Released Date:':
+                                data.releaseDate = value.textContent.trim();
+                                break;
+                            case 'Duration:':
+                                data.duration = value.textContent.trim();
+                                break;
+                            case 'Director:':
+                                const directorLink = value.querySelector('a');
+                                data.director = directorLink ? directorLink.textContent.trim() : value.textContent.trim();
+                                break;
+                            case 'Maker:':
+                                const makerLink = value.querySelector('a');
+                                data.studio = makerLink ? makerLink.textContent.trim() : value.textContent.trim();
+                                break;
+                            case 'Series:':
+                                const seriesLink = value.querySelector('a');
+                                data.series = seriesLink ? seriesLink.textContent.trim() : value.textContent.trim();
+                                break;
+                            case 'Tags:':
+                                const tagLinks = value.querySelectorAll('a');
+                                data.tags = Array.from(tagLinks).map(a => a.textContent.trim());
+                                break;
+                            case 'Actor(s):':
+                                // Extract actors with gender symbols using multiple methods
+                                const actorLinks = value.querySelectorAll('a');
+                                console.log('JavDB Movie Code Search: Extracting actors, found', actorLinks.length, 'actor links');
+
+                                data.actors = Array.from(actorLinks).map((a, index) => {
+                                    // Get the text content of the link
+                                    let actorName = a.textContent.trim();
+                                    console.log(`JavDB Movie Code Search: Actor ${index + 1} - Original name: "${actorName}"`);
+
+                                    // Method 1: Check next sibling text node for gender symbol
+                                    const nextSibling = a.nextSibling;
+                                    if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+                                        const textAfter = nextSibling.textContent.trim();
+                                        console.log(`JavDB Movie Code Search: Actor ${index + 1} - Text after link: "${textAfter}"`);
+                                        if (textAfter.includes('♀') || textAfter.includes('♂')) {
+                                            const genderMatch = textAfter.match(/[♀♂]/);
+                                            if (genderMatch) {
+                                                actorName += genderMatch[0];
+                                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 1: "${actorName}"`);
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // Method 2: Check parent element's text content for gender symbol after the link
-                                if (!actorName.includes('♀') && !actorName.includes('♂')) {
-                                    const parentText = a.parentElement.textContent;
-                                    const linkIndex = parentText.indexOf(actorName);
-                                    if (linkIndex !== -1) {
-                                        const textAfterLink = parentText.substring(linkIndex + actorName.length).trim();
-                                        console.log(`JavDB Movie Code Search: Actor ${index + 1} - Parent text after link: "${textAfterLink}"`);
-                                        const genderMatch = textAfterLink.match(/^[♀♂]/);
-                                        if (genderMatch) {
-                                            actorName += genderMatch[0];
-                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 2: "${actorName}"`);
+
+                                    // Method 2: Check parent element's text content for gender symbol after the link
+                                    if (!actorName.includes('♀') && !actorName.includes('♂')) {
+                                        const parentText = a.parentElement.textContent;
+                                        const linkIndex = parentText.indexOf(actorName);
+                                        if (linkIndex !== -1) {
+                                            const textAfterLink = parentText.substring(linkIndex + actorName.length).trim();
+                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Parent text after link: "${textAfterLink}"`);
+                                            const genderMatch = textAfterLink.match(/^[♀♂]/);
+                                            if (genderMatch) {
+                                                actorName += genderMatch[0];
+                                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Added gender symbol via Method 2: "${actorName}"`);
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // Method 3: Check if gender symbol is already in the link text
-                                if (!actorName.includes('♀') && !actorName.includes('♂')) {
-                                    // Look for gender symbol anywhere in the link's text content
-                                    const genderInLink = actorName.match(/[♀♂]/);
-                                    if (genderInLink) {
-                                        console.log(`JavDB Movie Code Search: Actor ${index + 1} - Gender symbol already in link: "${actorName}"`);
+
+                                    // Method 3: Check if gender symbol is already in the link text
+                                    if (!actorName.includes('♀') && !actorName.includes('♂')) {
+                                        // Look for gender symbol anywhere in the link's text content
+                                        const genderInLink = actorName.match(/[♀♂]/);
+                                        if (genderInLink) {
+                                            console.log(`JavDB Movie Code Search: Actor ${index + 1} - Gender symbol already in link: "${actorName}"`);
+                                        }
                                     }
-                                }
-                                
-                                console.log(`JavDB Movie Code Search: Actor ${index + 1} - Final result: "${actorName}"`);
-                                return actorName;
-                            });
-                            
-                            console.log('JavDB Movie Code Search: Final actors array:', data.actors);
-                            break;
+
+                                    console.log(`JavDB Movie Code Search: Actor ${index + 1} - Final result: "${actorName}"`);
+                                    return actorName;
+                                });
+
+                                console.log('JavDB Movie Code Search: Final actors array:', data.actors);
+                                break;
+                        }
                     }
                 }
+            });
+        } else if (window.location.hostname.includes('javdatabase.com')) {
+            // JavDatabase specific extraction
+            console.log('JavDB Movie Code Search: Extracting data for JavDatabase');
+
+            // Title
+            const titleEl = document.querySelector('.entry-header h1');
+            if (titleEl) data.title = titleEl.textContent.trim();
+
+            // Metadata fields in p.mb-1
+            const infoRows = document.querySelectorAll('.col-md-10 p.mb-1');
+            infoRows.forEach(row => {
+                const label = row.querySelector('b')?.textContent?.trim();
+                if (!label) return;
+
+                // Clean value by removing the label part
+                const valueNode = row.childNodes[row.childNodes.length - 1];
+                const textValue = valueNode.nodeType === 3 ? valueNode.textContent.trim() : '';
+
+                if (label.includes('DVD ID:')) data.code = textValue || row.textContent.replace('DVD ID:', '').trim();
+                if (label.includes('Release Date:')) data.releaseDate = textValue || row.textContent.replace('Release Date:', '').trim();
+                if (label.includes('Runtime:')) data.duration = textValue || row.textContent.replace('Runtime:', '').trim();
+
+                // For fields with links (Director, Studio, Series)
+                if (label.includes('Director:')) data.director = row.querySelector('a')?.textContent?.trim() || '';
+                if (label.includes('Studio:')) data.studio = row.querySelector('a')?.textContent?.trim() || '';
+                if (label.includes('Series:')) data.series = row.querySelector('a')?.textContent?.trim() || '';
+
+                // Actors
+                if (label.includes('Idol(s)/Actress(es):')) {
+                    const actors = Array.from(row.querySelectorAll('a')).map(a => a.textContent.trim());
+                    if (actors.length > 0) data.actors = actors;
+                }
+            });
+
+            // Fallback for code if not found
+            if (!data.code) {
+                const urlParts = window.location.pathname.split('/').filter(p => p);
+                const possibleCode = urlParts[urlParts.length - 1]; // /movies/jul-433/
+                if (possibleCode && possibleCode.match(/^[a-z]+-\d+$/i)) {
+                    data.code = possibleCode.toUpperCase();
+                }
             }
-        });
+        }
 
         return data;
     }
@@ -220,37 +278,37 @@ PERBAIKAN V1.8:
     // Format untuk parser MVDB
     function formatForParser(data) {
         const lines = [];
-        
+
         // Baris pertama: Kode + Judul (WAJIB untuk parser)
         if (data.code && data.title) {
             lines.push(`${data.code} ${data.title}`);
         }
-        
+
         // Data dalam format "Key: Value" yang diharapkan parser
         if (data.releaseDate) {
             lines.push(`Released Date: ${data.releaseDate}`);
         }
-        
+
         if (data.duration) {
             lines.push(`Duration: ${data.duration}`);
         }
-        
+
         if (data.director) {
             lines.push(`Director: ${data.director}`);
         }
-        
+
         if (data.studio) {
             lines.push(`Maker: ${data.studio}`);
         }
-        
+
         if (data.series) {
             lines.push(`Series: ${data.series}`);
         }
-        
+
         if (data.actors && data.actors.length > 0) {
             lines.push(`Actor(s): ${data.actors.join(' ')}`);
         }
-        
+
         if (data.tags && data.tags.length > 0) {
             lines.push(`Tags: ${data.tags.join(', ')}`);
         }
@@ -262,10 +320,10 @@ PERBAIKAN V1.8:
     function copyMovieData() {
         const data = extractMovieData();
         const formatted = formatForParser(data);
-        
+
         console.log('JavDB Movie Code Search: Extracted data:', data);
         console.log('JavDB Movie Code Search: Formatted output:', formatted);
-        
+
         try {
             if (typeof GM_setClipboard !== 'undefined') {
                 GM_setClipboard(formatted);
@@ -279,10 +337,10 @@ PERBAIKAN V1.8:
                 textarea.style.left = '-9999px';
                 document.body.appendChild(textarea);
                 textarea.select();
-                
+
                 const success = document.execCommand('copy');
                 document.body.removeChild(textarea);
-                
+
                 if (success) {
                     showCopySuccessState();
                 } else {
@@ -300,21 +358,21 @@ PERBAIKAN V1.8:
     // Fungsi untuk mendeteksi movie code dari clipboard
     function detectMovieCode(text) {
         if (!text || typeof text !== 'string') return null;
-        
+
         // Bersihkan text dari whitespace dan newlines
         const cleanText = text.trim();
-        
+
         // Cek apakah text cocok dengan format movie code
         if (movieCodeRegex.test(cleanText)) {
             return cleanText;
         }
-        
+
         // Cek jika ada movie code dalam text yang lebih panjang
         const matches = cleanText.match(movieCodeRegex);
         if (matches && matches.length > 0) {
             return matches[0];
         }
-        
+
         return null;
     }
 
@@ -346,11 +404,11 @@ PERBAIKAN V1.8:
     async function checkClipboardChange() {
         try {
             const currentClipboard = await getClipboardContent();
-            
+
             if (currentClipboard !== lastClipboardContent) {
                 lastClipboardContent = currentClipboard;
                 const movieCode = detectMovieCode(currentClipboard);
-                
+
                 if (movieCode) {
                     console.log('JavDB Movie Code Search: Movie code terdeteksi:', movieCode);
                     // Langsung panggil manageButtons untuk konsistensi
@@ -378,11 +436,13 @@ PERBAIKAN V1.8:
             '.search-input',
             '#search-input',
             'input[name="search"]',
+            'input[name="s"]', // JavDatabase standard WP search param
             'input[name="q"]',
+
             '.navbar input[type="text"]',
             '.header input[type="text"]'
         ];
-        
+
         for (const selector of selectors) {
             const element = document.querySelector(selector);
             if (element && element.offsetParent !== null) { // Pastikan element terlihat
@@ -390,7 +450,7 @@ PERBAIKAN V1.8:
                 return element;
             }
         }
-        
+
         console.log('JavDB Movie Code Search: Search bar tidak ditemukan');
         return null;
     }
@@ -411,7 +471,7 @@ PERBAIKAN V1.8:
             'button[class*="search"]',
             'button[id*="search"]'
         ];
-        
+
         for (const selector of selectors) {
             const element = document.querySelector(selector);
             if (element && element.offsetParent !== null) {
@@ -419,7 +479,7 @@ PERBAIKAN V1.8:
                 return element;
             }
         }
-        
+
         // Cari tombol dengan teks "Search" atau "search"
         const allButtons = document.querySelectorAll('button');
         for (const button of allButtons) {
@@ -429,7 +489,7 @@ PERBAIKAN V1.8:
                 return button;
             }
         }
-        
+
         console.log('JavDB Movie Code Search: Tombol search tidak ditemukan');
         return null;
     }
@@ -452,55 +512,55 @@ PERBAIKAN V1.8:
     // Fungsi untuk melakukan search otomatis
     function performAutoSearch(movieCode) {
         console.log('JavDB Movie Code Search: Memulai search untuk:', movieCode);
-        
+
         // Pastikan search bar terlihat terlebih dahulu
         const needsWait = ensureSearchBarVisible();
-        
+
         // Fungsi untuk melakukan search
         const doSearch = () => {
             const searchBar = findSearchBar();
             const searchBtn = findSearchButton();
-            
+
             if (!searchBar) {
                 console.log('JavDB Movie Code Search: Search bar tidak ditemukan');
                 showErrorState('Search bar tidak ditemukan');
                 return;
             }
-            
+
             console.log('JavDB Movie Code Search: Search bar ditemukan:', searchBar);
             console.log('JavDB Movie Code Search: Current search bar value:', searchBar.value);
-        
+
             try {
                 // Focus ke search bar
                 searchBar.focus();
-                
+
                 // Clear existing content dengan berbagai cara
                 searchBar.value = '';
                 searchBar.textContent = '';
-                
+
                 // Set value dengan berbagai cara untuk kompatibilitas
                 searchBar.value = movieCode;
                 if (searchBar.setAttribute) {
                     searchBar.setAttribute('value', movieCode);
                 }
-                
+
                 // Trigger berbagai events untuk memastikan perubahan terdeteksi
                 const events = ['input', 'change', 'keyup', 'keydown'];
                 events.forEach(eventType => {
                     const event = new Event(eventType, { bubbles: true, cancelable: true });
                     searchBar.dispatchEvent(event);
                 });
-                
+
                 console.log('JavDB Movie Code Search: Search bar value setelah update:', searchBar.value);
-                
+
                 // Verifikasi bahwa value benar-benar ter-set
                 if (searchBar.value !== movieCode) {
                     console.log('JavDB Movie Code Search: Value tidak ter-set dengan benar, retry dengan keyboard simulation...');
-                    
+
                     // Retry dengan keyboard simulation
                     searchBar.focus();
                     searchBar.select();
-                    
+
                     // Simulate keyboard input
                     const keyboardEvents = ['keydown', 'keypress', 'input', 'keyup'];
                     keyboardEvents.forEach(eventType => {
@@ -512,20 +572,20 @@ PERBAIKAN V1.8:
                         });
                         searchBar.dispatchEvent(event);
                     });
-                    
+
                     // Set value lagi
                     searchBar.value = movieCode;
-                    
+
                     // Trigger events lagi
                     const retryEvents = ['input', 'change', 'keyup', 'keydown'];
                     retryEvents.forEach(eventType => {
                         const event = new Event(eventType, { bubbles: true, cancelable: true });
                         searchBar.dispatchEvent(event);
                     });
-                    
+
                     console.log('JavDB Movie Code Search: Search bar value setelah keyboard simulation:', searchBar.value);
                 }
-                
+
                 // Tunggu sebentar lalu klik search button
                 setTimeout(() => {
                     if (searchBtn) {
@@ -562,13 +622,13 @@ PERBAIKAN V1.8:
                         }
                     }
                 }, 300); // Increased delay untuk memastikan value ter-set
-                
+
             } catch (error) {
                 console.error('JavDB Movie Code Search: Error performing search:', error);
                 showErrorState('Error melakukan search');
             }
         };
-        
+
         // Jika perlu tunggu, delay sedikit untuk memastikan search bar muncul
         if (needsWait) {
             setTimeout(doSearch, 500);
@@ -584,7 +644,7 @@ PERBAIKAN V1.8:
             searchButton.textContent = `🔍 Search ${movieCode}`;
             return;
         }
-        
+
         searchButton = document.createElement('button');
         searchButton.textContent = `🔍 Search ${movieCode}`;
         searchButton.style.cssText = `
@@ -605,24 +665,24 @@ PERBAIKAN V1.8:
             transition: all 0.3s ease;
             display: block;
         `;
-        
+
         // Hover effects
         searchButton.addEventListener('mouseenter', () => {
             searchButton.style.background = '#0056b3';
             searchButton.style.transform = 'translateY(-2px)';
             searchButton.style.boxShadow = '0 6px 16px rgba(0,123,255,0.4)';
         });
-        
+
         searchButton.addEventListener('mouseleave', () => {
             searchButton.style.background = '#007bff';
             searchButton.style.transform = 'translateY(0)';
             searchButton.style.boxShadow = '0 4px 12px rgba(0,123,255,0.3)';
         });
-        
+
         searchButton.addEventListener('click', () => {
             performAutoSearch(movieCode);
         });
-        
+
         document.body.appendChild(searchButton);
     }
 
@@ -632,7 +692,7 @@ PERBAIKAN V1.8:
             copyButton.style.display = 'block';
             return;
         }
-        
+
         copyButton = document.createElement('button');
         copyButton.textContent = '📋 MVDB COPIER';
         copyButton.style.cssText = `
@@ -653,22 +713,22 @@ PERBAIKAN V1.8:
             transition: all 0.3s ease;
             display: block;
         `;
-        
+
         // Hover effects
         copyButton.addEventListener('mouseenter', () => {
             copyButton.style.background = '#d63384';
             copyButton.style.transform = 'translateY(-2px)';
             copyButton.style.boxShadow = '0 6px 16px rgba(232,62,140,0.4)';
         });
-        
+
         copyButton.addEventListener('mouseleave', () => {
             copyButton.style.background = '#e83e8c';
             copyButton.style.transform = 'translateY(0)';
             copyButton.style.boxShadow = '0 4px 12px rgba(232,62,140,0.3)';
         });
-        
+
         copyButton.addEventListener('click', copyMovieData);
-        
+
         document.body.appendChild(copyButton);
     }
 
@@ -689,11 +749,11 @@ PERBAIKAN V1.8:
     // Fungsi untuk mengelola tombol berdasarkan jenis halaman
     function manageButtons() {
         const pageType = detectPageType();
-        
+
         if (pageType === 'movie-detail') {
             // Di halaman detail movie, tampilkan tombol copy
             showCopyButton();
-            
+
             // Cek apakah ada movie code di clipboard untuk menampilkan tombol search juga
             const currentClipboard = lastClipboardContent;
             const movieCode = detectMovieCode(currentClipboard);
@@ -707,7 +767,7 @@ PERBAIKAN V1.8:
         } else {
             // Di halaman lain, sembunyikan tombol copy
             hideCopyButton();
-            
+
             // Cek apakah ada movie code di clipboard untuk menampilkan tombol search
             const currentClipboard = lastClipboardContent;
             const movieCode = detectMovieCode(currentClipboard);
@@ -726,11 +786,11 @@ PERBAIKAN V1.8:
         if (searchButton) {
             const originalText = searchButton.textContent;
             const originalBg = searchButton.style.background;
-            
+
             searchButton.textContent = `✅ ${message}`;
             searchButton.style.background = '#28a745';
             searchButton.disabled = true;
-            
+
             setTimeout(() => {
                 searchButton.textContent = originalText;
                 searchButton.style.background = originalBg;
@@ -744,11 +804,11 @@ PERBAIKAN V1.8:
         if (searchButton) {
             const originalText = searchButton.textContent;
             const originalBg = searchButton.style.background;
-            
+
             searchButton.textContent = `❌ ${message}`;
             searchButton.style.background = '#dc3545';
             searchButton.disabled = true;
-            
+
             setTimeout(() => {
                 searchButton.textContent = originalText;
                 searchButton.style.background = originalBg;
@@ -762,11 +822,11 @@ PERBAIKAN V1.8:
         if (copyButton) {
             const originalText = copyButton.textContent;
             const originalBg = copyButton.style.background;
-            
+
             copyButton.textContent = '✅ Copied!';
             copyButton.style.background = '#28a745';
             copyButton.disabled = true;
-            
+
             setTimeout(() => {
                 copyButton.textContent = originalText;
                 copyButton.style.background = originalBg;
@@ -780,11 +840,11 @@ PERBAIKAN V1.8:
         if (copyButton) {
             const originalText = copyButton.textContent;
             const originalBg = copyButton.style.background;
-            
+
             copyButton.textContent = '❌ Failed';
             copyButton.style.background = '#dc3545';
             copyButton.disabled = true;
-            
+
             setTimeout(() => {
                 copyButton.textContent = originalText;
                 copyButton.style.background = originalBg;
@@ -798,10 +858,10 @@ PERBAIKAN V1.8:
         if (clipboardCheckInterval) {
             clearInterval(clipboardCheckInterval);
         }
-        
+
         // Check clipboard setiap 1000ms untuk mengurangi beban
         clipboardCheckInterval = setInterval(checkClipboardChange, 1000);
-        
+
         // Initial check dengan delay untuk memastikan halaman sudah siap
         setTimeout(checkClipboardChange, 500);
     }
@@ -883,13 +943,13 @@ PERBAIKAN V1.8:
 
         console.log('JavDB Movie Code Search: Script aktif!');
         console.log('Monitoring clipboard untuk movie code...');
-        
+
         // Mulai monitoring clipboard
         startClipboardMonitoring();
-        
+
         // Kelola tombol berdasarkan halaman saat ini
         manageButtons();
-        
+
         // Test dengan movie code contoh (untuk debugging)
         // setTimeout(() => {
         //     console.log('Testing dengan movie code: SSIS-001');
