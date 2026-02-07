@@ -28,7 +28,8 @@ import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
 import { Checkbox } from './ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, ExternalLink, User, Calendar, MapPin, Tag, Link as LinkIcon, Image as ImageIcon, Users, RotateCcw, Search, Clipboard, GripVertical, Sparkles } from 'lucide-react'
+import { getDobFromGemini } from '../utils/geminiApi'
 import { MasterDataItem, LabeledLink, masterDataApi } from '../utils/masterDataApi'
 import { FlexibleDateInput } from './FlexibleDateInput'
 import { MultipleTakuLinks } from './MultipleTakuLinks'
@@ -64,9 +65,8 @@ function SortablePhoto({ photo, index, name, onRemove }: SortablePhotoProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative transition-transform ${
-        isDragging ? 'scale-105 shadow-lg z-50' : ''
-      }`}
+      className={`relative transition-transform ${isDragging ? 'scale-105 shadow-lg z-50' : ''
+        }`}
       {...attributes}
     >
       {/* Drag handle - only this area is draggable */}
@@ -77,14 +77,14 @@ function SortablePhoto({ photo, index, name, onRemove }: SortablePhotoProps) {
       >
         <GripVertical className="h-3 w-3 text-muted-foreground" />
       </div>
-      
+
       <ClickableAvatar
         src={photo}
         alt={`${name} foto ${index + 1}`}
         fallback={(name || 'A').charAt(0)}
         size="xl"
       />
-      
+
       {/* Remove button - separate from drag functionality */}
       <Button
         type="button"
@@ -165,6 +165,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const [autoSearchTakuLinks, setAutoSearchTakuLinks] = useState(false) // Control auto search for Taku Links
   const [activeTab, setActiveTab] = useState('basic') // Tab state
   const [isFixingAlias, setIsFixingAlias] = useState(false) // Loading state for fix alias
+  const [isAskingAiDob, setIsAskingAiDob] = useState(false) // Loading state for AI DOB search
 
   // DnD Kit sensors
   const sensors = useSensors(
@@ -203,7 +204,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       setAutoSearchTakuLinks(true)
     }
   }, [activeTab, formData.jpname, formData.alias, formData.name, type])
-  
+
   const isEditing = Boolean(initialData)
 
   // Load initial data when editing
@@ -228,12 +229,12 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       console.log('Initial data groupId:', initialData.groupId)
       console.log('Initial data groupData:', initialData.groupData)
       console.log('Available groups:', groups.map(g => ({ id: g.id, name: g.name })))
-      
+
       // Determine selectedGroups - prefer selectedGroups over legacy groupId
       let assignedGroups: string[] = []
       let groupProfilePictures: { [groupName: string]: string } = {}
       let groupAliases: { [groupName: string]: string } = {}
-      
+
       if (initialData.selectedGroups && initialData.selectedGroups.length > 0) {
         // Use selectedGroups and validate they exist
         assignedGroups = initialData.selectedGroups.filter(groupName => {
@@ -254,7 +255,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           console.log('ActorForm: Converting legacy groupId to selectedGroups:', legacyGroup.name)
         }
       }
-      
+
       // Load group profile pictures and aliases from groupData if available
       if (initialData.groupData && typeof initialData.groupData === 'object') {
         Object.entries(initialData.groupData).forEach(([groupName, data]: [string, any]) => {
@@ -274,16 +275,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       // Update form data if we found assignments and they're different from current
       const currentGroupsString = JSON.stringify(formData.selectedGroups.sort())
       const newGroupsString = JSON.stringify(assignedGroups.sort())
-      
+
       if (newGroupsString !== currentGroupsString) {
         console.log('ActorForm: Setting selectedGroups from', formData.selectedGroups, 'to', assignedGroups)
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           selectedGroups: assignedGroups,
           groupProfilePictures: groupProfilePictures,
           groupAliases: groupAliases
         }))
-        
+
         if (assignedGroups.length > 0) {
           toast.success(`${assignedGroups.length} grup telah dimuat: ${assignedGroups.join(', ')}`)
         }
@@ -297,19 +298,19 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       console.log('=== ActorForm: Syncing lineups ===')
       console.log('Initial data lineupData:', initialData.lineupData)
       console.log('Available lineups:', lineups.map(l => ({ id: l.id, name: l.name })))
-      
+
       // Determine selectedLineups from lineupData
       let assignedLineups: string[] = []
       let lineupProfilePictures: { [lineupId: string]: string } = {}
       let lineupAliases: { [lineupId: string]: string } = {}
-      
+
       if (initialData.lineupData && typeof initialData.lineupData === 'object') {
         Object.entries(initialData.lineupData).forEach(([lineupId, data]: [string, any]) => {
           const lineupExists = lineups.find(l => l.id === lineupId)
           if (lineupExists) {
             assignedLineups.push(lineupId)
             console.log('ActorForm: Found lineup by id:', lineupId, lineupExists.name)
-            
+
             if (data && typeof data === 'object') {
               if (data.profilePicture) {
                 lineupProfilePictures[lineupId] = data.profilePicture
@@ -325,11 +326,11 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           }
         })
       }
-      
+
       console.log('ActorForm: Final assignedLineups:', assignedLineups)
       console.log('ActorForm: Final lineupProfilePictures:', lineupProfilePictures)
       console.log('ActorForm: Final lineupAliases:', lineupAliases)
-      
+
       setFormData(prev => ({
         ...prev,
         selectedLineups: assignedLineups,
@@ -412,7 +413,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     console.log('data.selectedGroups:', data.selectedGroups)
     console.log('data.groupId:', data.groupId)
     console.log('data.groupData:', data.groupData)
-    
+
     // Initial empty arrays - actual assignment happens in useEffect when groups are loaded
 
     setFormData({
@@ -434,25 +435,25 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {}
-    
+
     if (!formData.name.trim()) {
       newErrors.name = 'Nama wajib diisi'
     }
-    
+
     // Check for valid URLs if provided
     formData.profilePictures.forEach((pic, index) => {
       if (pic.trim() && !isValidUrl(pic)) {
         newErrors[`profilePicture_${index}`] = `URL foto ${index + 1} tidak valid`
       }
     })
-    
+
     // Check if all profile pictures are empty (at least one should have content for meaningful data)
     const hasAtLeastOnePhoto = formData.profilePictures.some(pic => pic.trim())
     if (!hasAtLeastOnePhoto && formData.profilePictures.length > 0) {
       // This is just a warning, not an error - user might want to save without photos
       console.log('ActorForm: No profile pictures provided - this is allowed but noted')
     }
-    
+
     formData.links.forEach((link, index) => {
       if (link.url && !isValidUrl(link.url)) {
         newErrors[`link_${index}`] = `URL link ${index + 1} tidak valid`
@@ -489,11 +490,11 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     const today = new Date()
     let age = today.getFullYear() - birthdate.getFullYear()
     const monthDiff = today.getMonth() - birthdate.getMonth()
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
       age--
     }
-    
+
     return age
   }
 
@@ -508,11 +509,11 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const handleProfilePicturesChange = (index: number, value: string) => {
     const newPictures = [...formData.profilePictures]
     newPictures[index] = value
-    
+
     // Update the pictures array directly without duplicate removal during typing
     // Duplicate removal will only happen during form submission
     handleInputChange('profilePictures', newPictures)
-    
+
     // Clear related error
     if (errors[`profilePicture_${index}`]) {
       setErrors(prev => ({ ...prev, [`profilePicture_${index}`]: '' }))
@@ -529,7 +530,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
         // Cari field kosong pertama atau tambah field baru jika semua terisi
         const emptyIndex = formData.profilePictures.findIndex(pic => !pic.trim())
-        
+
         if (emptyIndex !== -1) {
           // Isi field kosong pertama
           const newProfilePictures = [...formData.profilePictures]
@@ -572,7 +573,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     // Reconstruct the full array with empty fields in their original positions
     const newPictures = [...formData.profilePictures]
     let nonEmptyIndex = 0
-    
+
     for (let i = 0; i < newPictures.length; i++) {
       if (newPictures[i].trim()) {
         newPictures[i] = newNonEmptyPhotos[nonEmptyIndex]
@@ -588,21 +589,21 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     // Get the actual index in the full array
     const nonEmptyPhotos = formData.profilePictures.filter(p => p.trim())
     const photoToRemove = nonEmptyPhotos[previewIndex]
-    
+
     // Find the actual index in the full array
     const actualIndex = formData.profilePictures.findIndex(pic => pic === photoToRemove)
-    
+
     if (actualIndex !== -1) {
       const newPictures = [...formData.profilePictures]
-      
+
       // Remove the field entirely instead of just clearing it
       newPictures.splice(actualIndex, 1)
-      
+
       // Ensure we always have at least one empty field
       if (newPictures.length === 0) {
         newPictures.push('')
       }
-      
+
       handleInputChange('profilePictures', newPictures)
       toast.success(`Foto ${previewIndex + 1} berhasil dihapus`)
     }
@@ -611,7 +612,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const handleImageSelect = (imageUrl: string) => {
     // Find the first empty field or add a new one
     const emptyIndex = formData.profilePictures.findIndex(pic => !pic.trim())
-    
+
     if (emptyIndex !== -1) {
       // Fill the first empty field
       handleProfilePicturesChange(emptyIndex, imageUrl)
@@ -619,7 +620,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       // Add a new field with the selected image
       handleInputChange('profilePictures', [...formData.profilePictures, imageUrl])
     }
-    
+
     toast.success('URL gambar berhasil ditambahkan ke field foto')
   }
 
@@ -637,20 +638,20 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     console.log(`ActorForm: Handling delete for profile picture field at index ${index}`)
     console.log('ActorForm: Current profilePictures:', formData.profilePictures)
     console.log('ActorForm: Total fields:', formData.profilePictures.length)
-    
+
     const hasContent = formData.profilePictures[index]?.trim()
-    
+
     if (formData.profilePictures.length === 1) {
       // Only one field: Clear the content but keep the field
       console.log('ActorForm: Only 1 field - clearing content')
       const newPictures = [''] // Keep one empty field
       handleInputChange('profilePictures', newPictures)
-      
+
       // Clear any errors for this field
       const newErrors = { ...errors }
       delete newErrors[`profilePicture_${index}`]
       setErrors(newErrors)
-      
+
       if (hasContent) {
         toast.success('Field foto dikosongkan')
       } else {
@@ -661,23 +662,23 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       console.log('ActorForm: Multiple fields - removing field entirely')
       const newPictures = formData.profilePictures.filter((_, i) => i !== index)
       console.log('ActorForm: Pictures after removal:', newPictures)
-      
+
       handleInputChange('profilePictures', newPictures)
-      
+
       // Clear any errors for removed fields and shift remaining errors
       const newErrors = { ...errors }
       delete newErrors[`profilePicture_${index}`]
-      
+
       // Shift errors for remaining fields
       for (let i = index + 1; i < formData.profilePictures.length; i++) {
         if (newErrors[`profilePicture_${i}`]) {
-          newErrors[`profilePicture_${i-1}`] = newErrors[`profilePicture_${i}`]
+          newErrors[`profilePicture_${i - 1}`] = newErrors[`profilePicture_${i}`]
           delete newErrors[`profilePicture_${i}`]
         }
       }
-      
+
       setErrors(newErrors)
-      
+
       if (hasContent) {
         toast.success(`Field foto ${index + 1} berhasil dihapus`)
       } else {
@@ -689,15 +690,15 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const handleLinksChange = (index: number, field: 'label' | 'url', value: string) => {
     console.log(`ActorForm: handleLinksChange called - index: ${index}, field: ${field}, value: "${value}"`)
     console.log(`ActorForm: Current links:`, formData.links)
-    
+
     const newLinks = [...formData.links]
     newLinks[index] = { ...newLinks[index], [field]: value }
-    
+
     console.log(`ActorForm: New links after change:`, newLinks)
-    
+
     // Use direct state update instead of handleInputChange to avoid potential conflicts
     setFormData(prev => ({ ...prev, links: newLinks }))
-    
+
     // Clear related error
     if (errors[`link_${index}`]) {
       setErrors(prev => ({ ...prev, [`link_${index}`]: '' }))
@@ -706,41 +707,41 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
   const addLinkField = () => {
     console.log(`ActorForm: Adding new link field. Current links count: ${formData.links.length}`)
-    
+
     const newLink: LabeledLink = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       label: '',
       url: ''
     }
     const newLinks = [...formData.links, newLink]
-    
+
     console.log(`ActorForm: New links after adding:`, newLinks)
-    
+
     setFormData(prev => ({ ...prev, links: newLinks }))
     toast.success('Field link baru ditambahkan')
   }
 
   const removeLinkField = (index: number) => {
     console.log(`ActorForm: Removing link field at index ${index}. Current links:`, formData.links)
-    
+
     const newLinks = formData.links.filter((_, i) => i !== index)
-    
+
     console.log(`ActorForm: Links after removal:`, newLinks)
-    
+
     setFormData(prev => ({ ...prev, links: newLinks }))
-    
+
     // Clear any errors for removed fields and shift remaining errors
     const newErrors = { ...errors }
     delete newErrors[`link_${index}`]
-    
+
     // Shift errors for remaining fields
     for (let i = index + 1; i < formData.links.length; i++) {
       if (newErrors[`link_${i}`]) {
-        newErrors[`link_${i-1}`] = newErrors[`link_${i}`]
+        newErrors[`link_${i - 1}`] = newErrors[`link_${i}`]
         delete newErrors[`link_${i}`]
       }
     }
-    
+
     setErrors(newErrors)
     toast.success('Field link berhasil dihapus')
   }
@@ -748,7 +749,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const handleGroupToggle = (groupName: string, isChecked: boolean) => {
     let newSelectedGroups: string[]
     let newGroupProfilePictures = { ...formData.groupProfilePictures }
-    
+
     if (isChecked) {
       newSelectedGroups = [...formData.selectedGroups, groupName]
       // Initialize empty profile picture and alias for new group
@@ -785,7 +786,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       }))
       toast.success(`Grup "${groupName}" dihapus`)
     }
-    
+
 
     setHasUserChangedGroups(true)
   }
@@ -793,7 +794,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
   const handleLineupToggle = (lineupId: string, isChecked: boolean) => {
     let newSelectedLineups: string[]
     let newLineupProfilePictures = { ...formData.lineupProfilePictures }
-    
+
     if (isChecked) {
       newSelectedLineups = [...formData.selectedLineups, lineupId]
       // Initialize empty profile picture and alias for new lineup
@@ -810,7 +811,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         lineupProfilePictures: newLineupProfilePictures,
         lineupAliases: newLineupAliases
       }))
-      
+
       const lineup = lineups.find(l => l.id === lineupId)
       toast.success(`Lineup "${lineup?.name}" ditambahkan`)
     } else {
@@ -832,7 +833,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         lineupProfilePictures: newLineupProfilePictures,
         lineupAliases: newLineupAliases
       }))
-      
+
       const lineup = lineups.find(l => l.id === lineupId)
       toast.success(`Lineup "${lineup?.name}" dihapus`)
     }
@@ -842,7 +843,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     console.log('ActorForm: handleSubmit called')
     e.preventDefault()
     console.log('ActorForm: preventDefault called')
-    
+
     if (!validateForm()) {
       toast.error('Mohon perbaiki kesalahan pada form')
       return
@@ -850,7 +851,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
     console.log('ActorForm: Starting submit process')
     setIsLoading(true)
-    
+
     try {
       // Prepare data for submission - properly filter empty and whitespace-only values
       const filteredPictures = [...new Set(formData.profilePictures
@@ -861,12 +862,12 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       const filteredTakuLinks = formData.takulinks
         .map(l => l.trim()) // Trim whitespace
         .filter(l => l.length > 0) // Remove empty strings
-      
+
       console.log('ActorForm: Data preparation results:')
       console.log('- Original profile pictures:', formData.profilePictures)
       console.log('- Filtered profile pictures:', filteredPictures)
       console.log('- Filtered pictures count:', filteredPictures.length)
-      
+
       // Format birthdate as YYYY-MM-DD
       let birthdateString: string | undefined = undefined
       if (formData.birthdate) {
@@ -879,65 +880,65 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       // Handle group assignment for actresses
       let selectedGroups: string[] | undefined = undefined
       let groupData: { [groupName: string]: any } | undefined = undefined
-      
+
       if (type === 'actress' && formData.selectedGroups.length > 0) {
         selectedGroups = formData.selectedGroups
         console.log('ActorForm: Setting selectedGroups for submission:', selectedGroups)
-        
-      // Build groupData with profile pictures and aliases
-      groupData = {}
-      formData.selectedGroups.forEach(groupName => {
-        const groupProfilePic = formData.groupProfilePictures[groupName]
-        const groupAlias = formData.groupAliases[groupName]
-        
-        if ((groupProfilePic && groupProfilePic.trim()) || (groupAlias && groupAlias.trim())) {
-          groupData![groupName] = {}
-          
-          if (groupProfilePic && groupProfilePic.trim()) {
-            groupData![groupName].profilePicture = groupProfilePic.trim()
-            console.log('ActorForm: Setting group profile picture for', groupName, ':', groupProfilePic)
-          }
-          
-          if (groupAlias && groupAlias.trim()) {
-            groupData![groupName].alias = groupAlias.trim()
-            console.log('ActorForm: Setting group alias for', groupName, ':', groupAlias)
-          }
-        }
-      })
-      
-      // If no group profile pictures, don't include groupData
-      if (Object.keys(groupData).length === 0) {
-        groupData = undefined
-      }
-    }
 
-    // Build lineupData with profile pictures and aliases
-    let lineupData: { [lineupId: string]: any } | undefined = undefined
-    if (type === 'actress' && (formData.selectedLineups || []).length > 0) {
-      lineupData = {}
-      (formData.selectedLineups || []).forEach(lineupId => {
-        const lineupProfilePic = formData.lineupProfilePictures[lineupId]
-        const lineupAlias = formData.lineupAliases[lineupId]
-        
-        if ((lineupProfilePic && lineupProfilePic.trim()) || (lineupAlias && lineupAlias.trim())) {
-          lineupData![lineupId] = {}
-          
-          if (lineupProfilePic && lineupProfilePic.trim()) {
-            lineupData![lineupId].profilePicture = lineupProfilePic.trim()
-            console.log('ActorForm: Setting lineup profile picture for', lineupId, ':', lineupProfilePic)
+        // Build groupData with profile pictures and aliases
+        groupData = {}
+        formData.selectedGroups.forEach(groupName => {
+          const groupProfilePic = formData.groupProfilePictures[groupName]
+          const groupAlias = formData.groupAliases[groupName]
+
+          if ((groupProfilePic && groupProfilePic.trim()) || (groupAlias && groupAlias.trim())) {
+            groupData![groupName] = {}
+
+            if (groupProfilePic && groupProfilePic.trim()) {
+              groupData![groupName].profilePicture = groupProfilePic.trim()
+              console.log('ActorForm: Setting group profile picture for', groupName, ':', groupProfilePic)
+            }
+
+            if (groupAlias && groupAlias.trim()) {
+              groupData![groupName].alias = groupAlias.trim()
+              console.log('ActorForm: Setting group alias for', groupName, ':', groupAlias)
+            }
           }
-          
-          if (lineupAlias && lineupAlias.trim()) {
-            lineupData![lineupId].alias = lineupAlias.trim()
-            console.log('ActorForm: Setting lineup alias for', lineupId, ':', lineupAlias)
-          }
+        })
+
+        // If no group profile pictures, don't include groupData
+        if (Object.keys(groupData).length === 0) {
+          groupData = undefined
         }
-      })
-      
-      // If no lineup profile pictures, don't include lineupData
-      if (Object.keys(lineupData).length === 0) {
-        lineupData = undefined
       }
+
+      // Build lineupData with profile pictures and aliases
+      let lineupData: { [lineupId: string]: any } | undefined = undefined
+      if (type === 'actress' && (formData.selectedLineups || []).length > 0) {
+        lineupData = {}
+          (formData.selectedLineups || []).forEach(lineupId => {
+            const lineupProfilePic = formData.lineupProfilePictures[lineupId]
+            const lineupAlias = formData.lineupAliases[lineupId]
+
+            if ((lineupProfilePic && lineupProfilePic.trim()) || (lineupAlias && lineupAlias.trim())) {
+              lineupData![lineupId] = {}
+
+              if (lineupProfilePic && lineupProfilePic.trim()) {
+                lineupData![lineupId].profilePicture = lineupProfilePic.trim()
+                console.log('ActorForm: Setting lineup profile picture for', lineupId, ':', lineupProfilePic)
+              }
+
+              if (lineupAlias && lineupAlias.trim()) {
+                lineupData![lineupId].alias = lineupAlias.trim()
+                console.log('ActorForm: Setting lineup alias for', lineupId, ':', lineupAlias)
+              }
+            }
+          })
+
+        // If no lineup profile pictures, don't include lineupData
+        if (Object.keys(lineupData).length === 0) {
+          lineupData = undefined
+        }
       }
 
       // Normalize Japanese names to avoid redundancy
@@ -964,7 +965,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         groupData: groupData,
         lineupData: lineupData,
         // Keep legacy groupId for backward compatibility (use first group if any)
-        groupId: type === 'actress' && selectedGroups && selectedGroups.length > 0 ? 
+        groupId: type === 'actress' && selectedGroups && selectedGroups.length > 0 ?
           groups.find(g => g.name === selectedGroups[0])?.id : undefined
       }
 
@@ -987,16 +988,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           // Preserve generationData to prevent losing generation assignments
           generationData: initialData.generationData
         }
-        
+
         // Explicitly handle field removal - if form has empty pictures, remove old ones
         if (filteredPictures.length === 0) {
           console.log('ActorForm: No filtered pictures - explicitly setting to null for removal')
           preservedData.profilePicture = null  // Explicitly remove
           preservedData.photo = null  // Explicitly remove
         }
-        
+
         console.log('ActorForm: Final preservedData before server call:', JSON.stringify(preservedData, null, 2))
-        
+
         console.log('ActorForm: Updating with preserved data:', preservedData)
         result = await masterDataApi.updateExtended(type, initialData.id, preservedData, accessToken)
         toast.success(`${type === 'actress' ? 'Aktris' : 'Aktor'} berhasil diupdate!`)
@@ -1010,19 +1011,19 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         console.log('ActorForm: Calling onSaved with result:', result)
         onSaved(result)
       }
-      
+
       if (!isEditing) {
         // Reset form for new entry
         setFormData(initialFormData)
       }
-      
+
       // Close dialog immediately
       if (onClose) {
         onClose()
       }
     } catch (error: any) {
       console.error('Submit error:', error)
-      
+
       if (error.message?.includes('already exists')) {
         toast.error(`${type === 'actress' ? 'Aktris' : 'Aktor'} dengan nama "${formData.name}" sudah ada. Gunakan nama yang berbeda.`)
         setErrors({ name: 'Nama sudah digunakan' })
@@ -1034,18 +1035,47 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
     }
   }
 
+  const handleAskAiDob = async () => {
+    if (!formData.name && !formData.jpname && !formData.alias) {
+      toast.error('Mohon isi minimal satu nama (Inggris, Jepang, atau Alias) untuk mencari tanggal lahir.')
+      return
+    }
+
+    setIsAskingAiDob(true)
+    try {
+      const result = await getDobFromGemini(formData.name, formData.jpname, formData.alias)
+
+      if (result.dob) {
+        // Parse result.dob (YYYY-MM-DD) to Date object
+        const [year, month, day] = result.dob.split('-').map(Number)
+        // Month is 0-indexed in Date constructor
+        const dobDate = new Date(year, month - 1, day)
+
+        handleInputChange('birthdate', dobDate)
+        toast.success(`Tanggal lahir ditemukan: ${result.dob} (${result.confidence} confidence)`)
+      } else {
+        toast.warning('AI tidak menemukan data tanggal lahir untuk aktris ini di database-nya.')
+      }
+    } catch (error) {
+      console.error('Error asking AI for DOB:', error)
+      toast.error('Gagal menghubungi AI. Cek koneksi atau kuota API.')
+    } finally {
+      setIsAskingAiDob(false)
+    }
+  }
+
   const handleFixAlias = async () => {
     setIsFixingAlias(true)
-    
+
     try {
       console.log('Fix Alias clicked, current alias:', formData.alias)
-      console.log('Available names:', { 
-        name: formData.name, 
-        jpname: formData.jpname, 
-        kanjiName: formData.kanjiName, 
-        kanaName: formData.kanaName 
+      console.log('Available names:', {
+        name: formData.name,
+        jpname: formData.jpname,
+        kanjiName: formData.kanjiName,
+        kanaName: formData.kanaName
       })
-      
+
       // Fungsi untuk memisahkan nama dari kurung dengan regex yang lebih robust
       const extractNamesFromBrackets = (text: string) => {
         // PERBAIKAN: Handle kurung Latin () dan kurung Jepang （）
@@ -1055,16 +1085,16 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         if (bracketMatches && bracketMatches.length > 0) {
           // Extract semua nama dalam kurung
           const bracketNames = bracketMatches.map(match => match.replace(/[（()）]/g, '').trim())
-          
+
           // Remove semua kurung dari nama utama
           const mainName = text.replace(/[（(][^）)]*[）)]/g, '').trim()
-          
+
           return {
             mainName: mainName,
             bracketName: bracketNames.join(', ') // Gabungkan semua nama dalam kurung
           }
         }
-        
+
         // Handle single bracket seperti "Aka Asuka (Shiose)" atau "Aka Asuka(Shiose)" atau "星出（コダマイト）"
         // PERBAIKAN: Tidak mengharuskan spasi sebelum kurung dan mendukung kurung Jepang
         const singleBracketMatch = text.match(/^(.+?)[（(](.+?)[）)]$/)
@@ -1074,45 +1104,45 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             bracketName: singleBracketMatch[2].trim()
           }
         }
-        
+
         return {
           mainName: text.trim(),
           bracketName: null
         }
       }
-      
+
       // Kumpulkan semua nama dari kurung untuk dipindah ke alias
       const namesToMoveToAlias: string[] = []
-      
+
       // Proses field nama
       const nameExtracted = extractNamesFromBrackets(formData.name)
       if (nameExtracted.bracketName) {
         namesToMoveToAlias.push(nameExtracted.bracketName)
       }
-      
+
       // Proses field kanji name
       const kanjiExtracted = extractNamesFromBrackets(formData.kanjiName)
       if (kanjiExtracted.bracketName) {
         namesToMoveToAlias.push(kanjiExtracted.bracketName)
       }
-      
+
       // Proses field kana name
       const kanaExtracted = extractNamesFromBrackets(formData.kanaName)
       if (kanaExtracted.bracketName) {
         namesToMoveToAlias.push(kanaExtracted.bracketName)
       }
-      
+
       // Proses field jpname
       const jpnameExtracted = extractNamesFromBrackets(formData.jpname)
       if (jpnameExtracted.bracketName) {
         namesToMoveToAlias.push(jpnameExtracted.bracketName)
       }
-      
+
       // Hapus duplikasi dari nama yang akan dipindah ke alias
       const uniqueNamesToMove = [...new Set(namesToMoveToAlias)]
-      
+
       console.log('Names to move to alias:', uniqueNamesToMove)
-      
+
       // Bersihkan field-field nama dari kurung
       const cleanedFormData = {
         name: nameExtracted.mainName,
@@ -1120,18 +1150,18 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         kanaName: kanaExtracted.mainName,
         jpname: jpnameExtracted.mainName
       }
-      
+
       console.log('Cleaned form data:', cleanedFormData)
-      
+
       // PERBAIKAN: Cek apakah kita perlu menggunakan nama dalam kurung sebagai alias utama
       // Kasus khusus: jika ada nama dalam kurung di kedua field (English dan Japanese),
       // atau hanya di satu field, gunakan nama dalam kurung sebagai alias utama
       // PERBAIKAN: Mendukung kurung Latin () dan kurung Jepang （）
-      const hasEnglishBrackets = (formData.name.includes('(') && formData.name.includes(')')) || 
-                                 (formData.name.includes('（') && formData.name.includes('）'))
-      const hasJapaneseBrackets = (formData.jpname.includes('(') && formData.jpname.includes(')')) || 
-                                  (formData.jpname.includes('（') && formData.jpname.includes('）'))
-      
+      const hasEnglishBrackets = (formData.name.includes('(') && formData.name.includes(')')) ||
+        (formData.name.includes('（') && formData.name.includes('）'))
+      const hasJapaneseBrackets = (formData.jpname.includes('(') && formData.jpname.includes(')')) ||
+        (formData.jpname.includes('（') && formData.jpname.includes('）'))
+
       console.log('=== BRACKET DETECTION DEBUG ===')
       console.log('formData.name:', formData.name)
       console.log('formData.jpname:', formData.jpname)
@@ -1140,9 +1170,9 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       console.log('nameExtracted:', nameExtracted)
       console.log('jpnameExtracted:', jpnameExtracted)
       console.log('Names to move to alias:', uniqueNamesToMove)
-      
+
       let newAliasToAdd = ''
-      
+
       // PERBAIKAN: Handle kasus dimana hanya satu field yang memiliki kurung
       if (hasEnglishBrackets || hasJapaneseBrackets) {
         if (hasEnglishBrackets && hasJapaneseBrackets) {
@@ -1152,38 +1182,38 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         } else if (hasJapaneseBrackets) {
           console.log('✅ Detected brackets in Japanese field only - using bracket names as primary aliases')
         }
-        
+
         // Ambil nama dari kurung English dan Japanese
         const englishBracketNames = nameExtracted.bracketName ? nameExtracted.bracketName.split(',').map(n => n.trim()) : []
         const japaneseBracketNames = jpnameExtracted.bracketName ? jpnameExtracted.bracketName.split(',').map(n => n.trim()) : []
-        
+
         console.log('English bracket names:', englishBracketNames)
         console.log('Japanese bracket names:', japaneseBracketNames)
-        
+
         // Coba pasangkan berdasarkan urutan atau kesesuaian
         const pairedAliases: string[] = []
         const usedEnglish: string[] = []
         const usedJapanese: string[] = []
-        
+
         // Fungsi untuk mendeteksi apakah dua nama adalah transliterasi yang sama
         const isTransliteration = (english: string, japanese: string) => {
           console.log(`🔍 Checking transliteration: "${english}" vs "${japanese}"`)
-          
+
           // Normalize untuk perbandingan
           const normalizeForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
-          
+
           const engNorm = normalizeForComparison(english)
           const jpNorm = normalizeForComparison(japanese)
-          
+
           console.log(`📝 Normalized: "${engNorm}" vs "${jpNorm}"`)
-          
+
           // Cek apakah karakter pertama sama atau mirip
           if (engNorm.length > 0 && jpNorm.length > 0) {
             const engFirst = engNorm.charAt(0)
             const jpFirst = jpNorm.charAt(0)
-            
+
             console.log(`🔤 First characters: "${engFirst}" vs "${jpFirst}"`)
-            
+
             // Mapping karakter yang mirip
             const similarChars: { [key: string]: string[] } = {
               'k': ['k', 'c'],
@@ -1200,13 +1230,13 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               'r': ['r', 'l'],
               'n': ['n', 'm']
             }
-            
+
             // Cek apakah karakter pertama sama atau mirip
             if (engFirst === jpFirst) {
               console.log(`✅ Exact match: ${engFirst}`)
               return true
             }
-            
+
             // Cek mapping karakter mirip
             for (const [key, values] of Object.entries(similarChars)) {
               if (values.includes(engFirst) && values.includes(jpFirst)) {
@@ -1215,22 +1245,22 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               }
             }
           }
-          
+
           console.log(`❌ No transliteration match`)
           return false
         }
-        
+
         // Jika ada nama dari kedua field, coba pasangkan berdasarkan transliterasi
         if (englishBracketNames.length > 0 && japaneseBracketNames.length > 0) {
           console.log('=== TRANSLITERATION MATCHING ===')
           englishBracketNames.forEach(englishName => {
             if (usedEnglish.includes(englishName)) return
-            
-            const japaneseMatch = japaneseBracketNames.find(japaneseName => 
-              !usedJapanese.includes(japaneseName) && 
+
+            const japaneseMatch = japaneseBracketNames.find(japaneseName =>
+              !usedJapanese.includes(japaneseName) &&
               isTransliteration(englishName, japaneseName)
             )
-            
+
             if (japaneseMatch) {
               console.log(`✅ Transliteration match: ${englishName} ↔ ${japaneseMatch}`)
               pairedAliases.push(`${englishName} - ${japaneseMatch}`)
@@ -1240,13 +1270,13 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               console.log(`❌ No transliteration match for: ${englishName}`)
             }
           })
-          
+
           // Kemudian, pasangkan berdasarkan urutan (index yang sama) untuk yang tersisa
           const maxLength = Math.max(englishBracketNames.length, japaneseBracketNames.length)
           for (let i = 0; i < maxLength; i++) {
             const englishName = englishBracketNames[i]
             const japaneseName = japaneseBracketNames[i]
-            
+
             if (englishName && japaneseName && !usedEnglish.includes(englishName) && !usedJapanese.includes(japaneseName)) {
               pairedAliases.push(`${englishName} - ${japaneseName}`)
               usedEnglish.push(englishName)
@@ -1271,82 +1301,82 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             pairedAliases.push(...japaneseBracketNames)
           }
         }
-        
+
         console.log('Paired aliases created:', pairedAliases)
-        
+
         if (pairedAliases.length > 0) {
           newAliasToAdd = pairedAliases.join(', ')
           console.log('Created paired aliases from brackets:', newAliasToAdd)
         }
-        
+
         // Untuk bracket matching, tambahkan alias baru di belakang alias yang sudah ada
         const existingAlias = formData.alias.trim()
-        const finalAlias = existingAlias 
+        const finalAlias = existingAlias
           ? `${existingAlias}, ${newAliasToAdd}`
           : newAliasToAdd
-        
+
         console.log('=== BRACKET MATCHING ALIAS UPDATE ===')
         console.log('existingAlias:', existingAlias)
         console.log('newAliasToAdd:', newAliasToAdd)
         console.log('finalAlias:', finalAlias)
-        
+
         // Update form data dengan alias yang sudah diformat dan field yang sudah dibersihkan
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           alias: finalAlias,
           name: cleanedFormData.name,
           kanjiName: cleanedFormData.kanjiName,
           kanaName: cleanedFormData.kanaName,
           jpname: cleanedFormData.jpname
         }))
-        
+
         toast.success(`Alias berhasil diformat: ${finalAlias}`)
         return
       }
-      
+
       // Jika alias kosong, coba generate dari nama yang ada
       if (!formData.alias.trim()) {
         console.log('Alias field is empty, attempting to generate from available names')
-        
+
         const availableNames = []
         if (cleanedFormData.name) availableNames.push(cleanedFormData.name)
         if (cleanedFormData.jpname) availableNames.push(cleanedFormData.jpname)
         if (cleanedFormData.kanjiName) availableNames.push(cleanedFormData.kanjiName)
         if (cleanedFormData.kanaName) availableNames.push(cleanedFormData.kanaName)
-        
+
         if (availableNames.length === 0) {
           toast.info('Tidak ada nama yang tersedia untuk membuat alias')
           return
         }
-        
+
         // Generate alias dari nama yang tersedia
         let generatedAlias = ''
-        
+
         // Prioritaskan English name sebagai alias utama
         const englishName = cleanedFormData.name
         const kanjiName = cleanedFormData.kanjiName || cleanedFormData.jpname
         const kanaName = cleanedFormData.kanaName
-        
+
         if (englishName) {
           generatedAlias = englishName
-          
+
           if (kanjiName && kanjiName !== englishName) {
             generatedAlias += ` - ${kanjiName}`
           }
-          
+
           if (kanaName && kanaName !== englishName && kanaName !== kanjiName) {
             generatedAlias += ` (${kanaName})`
           }
         } else if (kanjiName) {
           generatedAlias = kanjiName
-          
+
           if (kanaName && kanaName !== kanjiName) {
             generatedAlias += ` (${kanaName})`
           }
         } else if (kanaName) {
           generatedAlias = kanaName
         }
-        
+
         // Tambahkan nama dari kurung jika ada
         if (uniqueNamesToMove.length > 0) {
           const additionalAliases = uniqueNamesToMove.map(name => {
@@ -1361,17 +1391,17 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             }
             return name
           })
-          
+
           if (generatedAlias) {
             generatedAlias += ', ' + additionalAliases.join(', ')
           } else {
             generatedAlias = additionalAliases.join(', ')
           }
         }
-        
+
         if (generatedAlias) {
-          setFormData(prev => ({ 
-            ...prev, 
+          setFormData(prev => ({
+            ...prev,
             alias: generatedAlias,
             name: cleanedFormData.name,
             kanjiName: cleanedFormData.kanjiName,
@@ -1382,7 +1412,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
         } else {
           toast.info('Tidak dapat membuat alias dari nama yang tersedia')
         }
-        
+
         return
       }
 
@@ -1391,7 +1421,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
       if (uniqueNamesToMove.length > 0) {
         const englishNames: string[] = []
         const kanjiNames: string[] = []
-        
+
         // Extract English dan Kanji names dari uniqueNamesToMove
         uniqueNamesToMove.forEach(name => {
           // Handle multiple aliases yang dipisahkan koma
@@ -1409,12 +1439,12 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             })
           })
         })
-        
+
         // Coba cari pasangan dari field lain jika tidak ada kanji names dari kurung
         if (englishNames.length > 0 && kanjiNames.length === 0) {
           // Cari kanji/kana names dari field lain yang mungkin cocok
           const availableJapaneseNames: string[] = []
-          
+
           // Cek dari jpname field
           if (cleanedFormData.jpname) {
             const jpnameExtracted = extractNamesFromBrackets(cleanedFormData.jpname)
@@ -1428,7 +1458,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               })
             }
           }
-          
+
           // Cek dari kanjiName field
           if (cleanedFormData.kanjiName) {
             const kanjiExtracted = extractNamesFromBrackets(cleanedFormData.kanjiName)
@@ -1442,43 +1472,43 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               })
             }
           }
-          
+
           // Tambahkan Japanese names yang tersedia
           kanjiNames.push(...availableJapaneseNames)
         }
-      
+
         // Buat pasangan English - Kanji berdasarkan data yang ada
         if (englishNames.length > 0 && kanjiNames.length > 0) {
           // Coba pasangkan yang sesuai berdasarkan urutan atau kesesuaian
           const pairedAliases: string[] = []
           const usedEnglish: string[] = []
           const usedKanji: string[] = []
-          
+
           // Prioritas: Shiose - 汐世, Nagi Hikaru - 凪ひかる, Eren Shiraki - 白木エレン, Moemi Arikawa - ありかわもえみ
           if (englishNames.includes('Shiose') && kanjiNames.includes('汐世')) {
             pairedAliases.push('Shiose - 汐世')
             usedEnglish.push('Shiose')
             usedKanji.push('汐世')
           }
-          
+
           if (englishNames.includes('Nagi Hikaru') && kanjiNames.includes('凪ひかる')) {
             pairedAliases.push('Nagi Hikaru - 凪ひかる')
             usedEnglish.push('Nagi Hikaru')
             usedKanji.push('凪ひかる')
           }
-          
+
           if (englishNames.includes('Eren Shiraki') && kanjiNames.includes('白木エレン')) {
             pairedAliases.push('Eren Shiraki - 白木エレン')
             usedEnglish.push('Eren Shiraki')
             usedKanji.push('白木エレン')
           }
-          
+
           if (englishNames.includes('Moemi Arikawa') && kanjiNames.includes('ありかわもえみ')) {
             pairedAliases.push('Moemi Arikawa - ありかわもえみ')
             usedEnglish.push('Moemi Arikawa')
             usedKanji.push('ありかわもえみ')
           }
-          
+
           // Tambahkan pasangan yang tersisa
           englishNames.forEach(englishName => {
             if (!usedEnglish.includes(englishName)) {
@@ -1491,7 +1521,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
               })
             }
           })
-          
+
           newAliasToAdd = pairedAliases.join(', ')
         } else if (englishNames.length > 0) {
           // Hanya ada English names
@@ -1501,31 +1531,31 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           newAliasToAdd = kanjiNames.join(', ')
         }
       }
-      
+
       // Jika tidak ada alias baru yang bisa dibuat, beri tahu user
       if (!newAliasToAdd.trim()) {
         toast.info('Tidak ada alias baru yang dapat dibuat dari nama dalam kurung')
         return
       }
-      
+
       // Tambahkan alias baru di belakang alias yang sudah ada
       const existingAlias = formData.alias.trim()
-      const newFormattedAlias = existingAlias 
+      const newFormattedAlias = existingAlias
         ? `${existingAlias}, ${newAliasToAdd}`
         : newAliasToAdd
-      
+
       // Update form data dengan alias yang sudah diformat dan field yang sudah dibersihkan
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         alias: newFormattedAlias,
         name: cleanedFormData.name,
         kanjiName: cleanedFormData.kanjiName,
         kanaName: cleanedFormData.kanaName,
         jpname: cleanedFormData.jpname
       }))
-      
+
       toast.success(`Alias berhasil diformat: ${newFormattedAlias}`)
-      
+
     } catch (error) {
       console.error('Error fixing alias:', error)
       toast.error('Gagal memformat alias')
@@ -1545,7 +1575,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           <p className="text-sm text-muted-foreground">ID: {initialData.id}</p>
         )}
       </CardHeader>
-      
+
       {/* Sticky Tabs */}
       <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1568,7 +1598,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
 
         </Tabs>
       </div>
-      
+
       {/* Scrollable Content */}
       <CardContent className="flex-1 overflow-y-auto px-6 pb-20">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -1580,705 +1610,728 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
                   <User className="h-4 w-4" />
                   Informasi Dasar
                 </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nama *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Masukkan nama lengkap"
-                  className={errors.name ? 'border-destructive' : ''}
-                />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name}</p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="jpname">Nama Jepang</Label>
-                <Input
-                  id="jpname"
-                  value={formData.jpname}
-                  onChange={(e) => handleInputChange('jpname', e.target.value)}
-                  placeholder="Masukkan nama dalam bahasa Jepang"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="kanjiName">Kanji Name</Label>
-                <Input
-                  id="kanjiName"
-                  value={formData.kanjiName}
-                  onChange={(e) => handleInputChange('kanjiName', e.target.value)}
-                  placeholder="Masukkan nama dalam kanji (漢字)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="kanaName">Kana Name</Label>
-                <Input
-                  id="kanaName"
-                  value={formData.kanaName}
-                  onChange={(e) => handleInputChange('kanaName', e.target.value)}
-                  placeholder="Masukkan nama dalam kana (かな)"
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label>Tanggal Lahir</Label>
-                <FlexibleDateInput
-                  selected={formData.birthdate}
-                  onSelect={(date) => handleInputChange('birthdate', date)}
-                  placeholder="DD/MM/YYYY atau pilih dari kalender"
-                />
-                {formData.birthdate && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-3 w-3" />
-                    Umur: {calculateAge(formData.birthdate)} tahun
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="alias">Alias / Nama Panggung</Label>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="outline"
-                    onClick={handleFixAlias}
-                    disabled={isFixingAlias || (!formData.alias.trim() && !formData.name.trim() && !formData.jpname.trim() && !formData.kanjiName.trim() && !formData.kanaName.trim())}
-                    className="text-xs"
-                  >
-                    {isFixingAlias ? (
-                      <>
-                        <RotateCcw className="h-3 w-3 mr-1 animate-spin" />
-                        Memformat...
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="h-3 w-3 mr-1" />
-                        Fix Alias
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <Input
-                  id="alias"
-                  value={formData.alias}
-                  onChange={(e) => handleInputChange('alias', e.target.value)}
-                  placeholder="Masukkan alias atau nama panggung"
-                />
-                <div className="text-xs text-muted-foreground">
-                  💡 <strong>Tip:</strong> 
-                  {!formData.alias.trim() ? (
-                    <>
-                      Tombol "Fix Alias" akan membuat alias dari nama yang tersedia dengan format: English - Kanji (Kana).
-                      {formData.name.trim() || formData.jpname.trim() || formData.kanjiName.trim() || formData.kanaName.trim() ? 
-                        ' Akan menggunakan nama yang sudah ada di form.' : 
-                        ' Pastikan minimal ada satu nama yang diisi.'
-                      }
-                    </>
-                  ) : (
-                    <>
-                      Tombol "Fix Alias" akan memformat ulang alias yang ada dengan struktur yang benar (English - Kanji (Kana)). 
-                      {formData.kanjiName.trim() || formData.kanaName.trim() ? 
-                        ' Akan menggunakan Kanji/Kana Name yang sudah ada.' : 
-                        ' Jika Kanji/Kana Name kosong, akan memformat berdasarkan jenis karakter yang terdeteksi.'
-                      }
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              {/* Group selection for actresses only */}
-              {type === 'actress' && (
-                <div className="space-y-4 md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Groups (Multiple Selection)</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
-                      {groups.length === 0 ? (
-                        <p className="text-sm text-muted-foreground col-span-full">Loading groups...</p>
-                      ) : (
-                        groups.map((group) => (
-                          <div key={group.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={`group-${group.id}`}
-                              checked={formData.selectedGroups.includes(group.name)}
-                              onChange={(e) => handleGroupToggle(group.name, e.target.checked)}
-                              className="rounded border-border"
-                            />
-                            <Label 
-                              htmlFor={`group-${group.id}`} 
-                              className="text-sm cursor-pointer flex-1"
-                            >
-                              {group.name}
-                            </Label>
-                          </div>
-                        ))
-                      )}
+                    <Label htmlFor="name">Nama *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Masukkan nama lengkap"
+                      className={errors.name ? 'border-destructive' : ''}
+                    />
+                    {errors.name && (
+                      <p className="text-sm text-destructive">{errors.name}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="jpname">Nama Jepang</Label>
+                    <Input
+                      id="jpname"
+                      value={formData.jpname}
+                      onChange={(e) => handleInputChange('jpname', e.target.value)}
+                      placeholder="Masukkan nama dalam bahasa Jepang"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="kanjiName">Kanji Name</Label>
+                    <Input
+                      id="kanjiName"
+                      value={formData.kanjiName}
+                      onChange={(e) => handleInputChange('kanjiName', e.target.value)}
+                      placeholder="Masukkan nama dalam kanji (漢字)"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="kanaName">Kana Name</Label>
+                    <Input
+                      id="kanaName"
+                      value={formData.kanaName}
+                      onChange={(e) => handleInputChange('kanaName', e.target.value)}
+                      placeholder="Masukkan nama dalam kana (かな)"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Tanggal Lahir</Label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleAskAiDob}
+                        disabled={isAskingAiDob || (!formData.name && !formData.jpname && !formData.alias)}
+                        className="h-7 text-xs flex items-center gap-1 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 dark:from-indigo-950/30 dark:to-purple-950/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300"
+                        title="Cari tanggal lahir otomatis dengan AI"
+                      >
+                        {isAskingAiDob ? (
+                          <>
+                            <RotateCcw className="h-3 w-3 animate-spin" />
+                            Mencari...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3 w-3" />
+                            Ask AI
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    
-                    {/* Display selected groups */}
-                    {formData.selectedGroups.length > 0 && (
+                    <FlexibleDateInput
+                      selected={formData.birthdate}
+                      onSelect={(date) => handleInputChange('birthdate', date)}
+                      placeholder="DD/MM/YYYY atau pilih dari kalender"
+                    />
+                    {formData.birthdate && (
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Users className="h-3 w-3" />
-                        Assigned to {formData.selectedGroups.length} group(s): {formData.selectedGroups.join(', ')}
+                        <Calendar className="h-3 w-3" />
+                        Umur: {calculateAge(formData.birthdate)} tahun
                       </div>
                     )}
                   </div>
-                  
-                  {/* Group-Specific Settings */}
-                  {formData.selectedGroups.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4" />
-                        Group-Specific Settings
-                      </h4>
-                      <div className="space-y-4">
-                        {formData.selectedGroups.map((groupName) => (
-                          <div key={groupName} className="p-4 border rounded-lg bg-muted/10">
-                            <h5 className="font-medium mb-3">{groupName}</h5>
-                            <div className="space-y-3">
-                              {/* Group Profile Picture */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`group-pic-${groupName}`}>
-                                  Profile Picture
+
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="alias">Alias / Nama Panggung</Label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleFixAlias}
+                        disabled={isFixingAlias || (!formData.alias.trim() && !formData.name.trim() && !formData.jpname.trim() && !formData.kanjiName.trim() && !formData.kanaName.trim())}
+                        className="text-xs"
+                      >
+                        {isFixingAlias ? (
+                          <>
+                            <RotateCcw className="h-3 w-3 mr-1 animate-spin" />
+                            Memformat...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Fix Alias
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <Input
+                      id="alias"
+                      value={formData.alias}
+                      onChange={(e) => handleInputChange('alias', e.target.value)}
+                      placeholder="Masukkan alias atau nama panggung"
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      💡 <strong>Tip:</strong>
+                      {!formData.alias.trim() ? (
+                        <>
+                          Tombol "Fix Alias" akan membuat alias dari nama yang tersedia dengan format: English - Kanji (Kana).
+                          {formData.name.trim() || formData.jpname.trim() || formData.kanjiName.trim() || formData.kanaName.trim() ?
+                            ' Akan menggunakan nama yang sudah ada di form.' :
+                            ' Pastikan minimal ada satu nama yang diisi.'
+                          }
+                        </>
+                      ) : (
+                        <>
+                          Tombol "Fix Alias" akan memformat ulang alias yang ada dengan struktur yang benar (English - Kanji (Kana)).
+                          {formData.kanjiName.trim() || formData.kanaName.trim() ?
+                            ' Akan menggunakan Kanji/Kana Name yang sudah ada.' :
+                            ' Jika Kanji/Kana Name kosong, akan memformat berdasarkan jenis karakter yang terdeteksi.'
+                          }
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Group selection for actresses only */}
+                  {type === 'actress' && (
+                    <div className="space-y-4 md:col-span-2">
+                      <div className="space-y-2">
+                        <Label>Groups (Multiple Selection)</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
+                          {groups.length === 0 ? (
+                            <p className="text-sm text-muted-foreground col-span-full">Loading groups...</p>
+                          ) : (
+                            groups.map((group) => (
+                              <div key={group.id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`group-${group.id}`}
+                                  checked={formData.selectedGroups.includes(group.name)}
+                                  onChange={(e) => handleGroupToggle(group.name, e.target.checked)}
+                                  className="rounded border-border"
+                                />
+                                <Label
+                                  htmlFor={`group-${group.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  {group.name}
                                 </Label>
-                                
-                                {/* Generation Photo Selector */}
-                                {(() => {
-                                  const groupGenerations = generations.filter(g => g.groupId === groups.find(gr => gr.name === groupName)?.id)
-                                  
-                                  // Check if current actress has photos in any generation of this group
-                                  const currentActressHasPhotos = groupGenerations.some(generation => {
-                                    return initialData?.generationData?.[generation.id]?.profilePicture
-                                  })
-                                  
-                                  return currentActressHasPhotos ? (
-                                    <div className="space-y-2">
-                                      <Select
-                                        value=""
-                                        onValueChange={(generationId) => {
-                                          const generationPhoto = initialData?.generationData?.[generationId]?.profilePicture
-                                          
-                                          if (generationPhoto) {
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Display selected groups */}
+                        {formData.selectedGroups.length > 0 && (
+                          <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Users className="h-3 w-3" />
+                            Assigned to {formData.selectedGroups.length} group(s): {formData.selectedGroups.join(', ')}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Group-Specific Settings */}
+                      {formData.selectedGroups.length > 0 && (
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4" />
+                            Group-Specific Settings
+                          </h4>
+                          <div className="space-y-4">
+                            {formData.selectedGroups.map((groupName) => (
+                              <div key={groupName} className="p-4 border rounded-lg bg-muted/10">
+                                <h5 className="font-medium mb-3">{groupName}</h5>
+                                <div className="space-y-3">
+                                  {/* Group Profile Picture */}
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`group-pic-${groupName}`}>
+                                      Profile Picture
+                                    </Label>
+
+                                    {/* Generation Photo Selector */}
+                                    {(() => {
+                                      const groupGenerations = generations.filter(g => g.groupId === groups.find(gr => gr.name === groupName)?.id)
+
+                                      // Check if current actress has photos in any generation of this group
+                                      const currentActressHasPhotos = groupGenerations.some(generation => {
+                                        return initialData?.generationData?.[generation.id]?.profilePicture
+                                      })
+
+                                      return currentActressHasPhotos ? (
+                                        <div className="space-y-2">
+                                          <Select
+                                            value=""
+                                            onValueChange={(generationId) => {
+                                              const generationPhoto = initialData?.generationData?.[generationId]?.profilePicture
+
+                                              if (generationPhoto) {
+                                                setFormData(prev => ({
+                                                  ...prev,
+                                                  groupProfilePictures: {
+                                                    ...prev.groupProfilePictures,
+                                                    [groupName]: generationPhoto
+                                                  }
+                                                }))
+                                              }
+                                            }}
+                                          >
+                                            <SelectTrigger className="w-full">
+                                              <SelectValue placeholder="Select photo from generation..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {groupGenerations.map((generation) => {
+                                                const generationPhoto = initialData?.generationData?.[generation.id]?.profilePicture
+
+                                                return generationPhoto ? (
+                                                  <SelectItem key={generation.id} value={generation.id}>
+                                                    <div className="flex items-center gap-2">
+                                                      <img
+                                                        src={generationPhoto}
+                                                        alt={`${initialData?.name || 'Actress'} in ${generation.name}`}
+                                                        className="w-6 h-6 rounded object-cover"
+                                                      />
+                                                      <span>{initialData?.name || 'Actress'} ({generation.name})</span>
+                                                    </div>
+                                                  </SelectItem>
+                                                ) : null
+                                              })}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      ) : null
+                                    })()}
+
+                                    <div className="flex gap-2 items-start">
+                                      <div className="flex-1 space-y-1">
+                                        <Input
+                                          id={`group-pic-${groupName}`}
+                                          value={formData.groupProfilePictures[groupName] || ''}
+                                          onChange={(e) => {
                                             setFormData(prev => ({
                                               ...prev,
                                               groupProfilePictures: {
                                                 ...prev.groupProfilePictures,
-                                                [groupName]: generationPhoto
+                                                [groupName]: e.target.value
                                               }
                                             }))
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="w-full">
-                                          <SelectValue placeholder="Select photo from generation..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {groupGenerations.map((generation) => {
-                                            const generationPhoto = initialData?.generationData?.[generation.id]?.profilePicture
-                                            
-                                            return generationPhoto ? (
-                                              <SelectItem key={generation.id} value={generation.id}>
-                                                <div className="flex items-center gap-2">
-                                                  <img
-                                                    src={generationPhoto}
-                                                    alt={`${initialData?.name || 'Actress'} in ${generation.name}`}
-                                                    className="w-6 h-6 rounded object-cover"
-                                                  />
-                                                  <span>{initialData?.name || 'Actress'} ({generation.name})</span>
-                                                </div>
-                                              </SelectItem>
-                                            ) : null
-                                          })}
-                                        </SelectContent>
-                                      </Select>
+                                            // Clear related error
+                                            if (errors[`groupPic_${groupName}`]) {
+                                              setErrors(prev => ({ ...prev, [`groupPic_${groupName}`]: '' }))
+                                            }
+                                          }}
+                                          placeholder={`https://example.com/${groupName.toLowerCase()}-photo.jpg`}
+                                          className={`text-sm ${errors[`groupPic_${groupName}`] ? 'border-destructive' : ''}`}
+                                        />
+                                        {errors[`groupPic_${groupName}`] && (
+                                          <p className="text-sm text-destructive">{errors[`groupPic_${groupName}`]}</p>
+                                        )}
+                                      </div>
+                                      {formData.groupProfilePictures[groupName] && (
+                                        <ClickableAvatar
+                                          src={formData.groupProfilePictures[groupName]}
+                                          alt={`${formData.name} in ${groupName}`}
+                                          fallback={formData.name.charAt(0)}
+                                          size="lg"
+                                        />
+                                      )}
                                     </div>
-                                  ) : null
-                                })()}
-                                
-                                <div className="flex gap-2 items-start">
-                                  <div className="flex-1 space-y-1">
+                                  </div>
+
+                                  {/* Group Alias */}
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`group-alias-${groupName}`}>
+                                      Alias/Stage Name in {groupName}
+                                    </Label>
+
+                                    {/* Same as Name Checkbox */}
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`same-as-name-${groupName}`}
+                                        checked={formData.groupSameAsName?.[groupName] || false}
+                                        onCheckedChange={(checked) => {
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            groupSameAsName: {
+                                              ...(prev.groupSameAsName || {}),
+                                              [groupName]: checked as boolean
+                                            },
+                                            groupAliases: {
+                                              ...prev.groupAliases,
+                                              [groupName]: checked ? formData.name : ''
+                                            }
+                                          }))
+                                        }}
+                                      />
+                                      <Label htmlFor={`same-as-name-${groupName}`} className="text-sm font-normal">
+                                        Same as Name
+                                      </Label>
+                                    </div>
+
                                     <Input
-                                      id={`group-pic-${groupName}`}
-                                      value={formData.groupProfilePictures[groupName] || ''}
+                                      id={`group-alias-${groupName}`}
+                                      value={formData.groupAliases[groupName] || ''}
                                       onChange={(e) => {
                                         setFormData(prev => ({
                                           ...prev,
-                                          groupProfilePictures: {
-                                            ...prev.groupProfilePictures,
+                                          groupAliases: {
+                                            ...prev.groupAliases,
                                             [groupName]: e.target.value
+                                          },
+                                          groupSameAsName: {
+                                            ...(prev.groupSameAsName || {}),
+                                            [groupName]: false // Uncheck when manually typing
                                           }
                                         }))
                                         // Clear related error
-                                        if (errors[`groupPic_${groupName}`]) {
-                                          setErrors(prev => ({ ...prev, [`groupPic_${groupName}`]: '' }))
+                                        if (errors[`groupAlias_${groupName}`]) {
+                                          setErrors(prev => ({ ...prev, [`groupAlias_${groupName}`]: '' }))
                                         }
                                       }}
-                                      placeholder={`https://example.com/${groupName.toLowerCase()}-photo.jpg`}
-                                      className={`text-sm ${errors[`groupPic_${groupName}`] ? 'border-destructive' : ''}`}
+                                      placeholder={`Nama khusus untuk ${groupName}`}
+                                      className={`text-sm ${errors[`groupAlias_${groupName}`] ? 'border-destructive' : ''}`}
+                                      disabled={formData.groupSameAsName?.[groupName] || false}
                                     />
-                                    {errors[`groupPic_${groupName}`] && (
-                                      <p className="text-sm text-destructive">{errors[`groupPic_${groupName}`]}</p>
+                                    {errors[`groupAlias_${groupName}`] && (
+                                      <p className="text-sm text-destructive">{errors[`groupAlias_${groupName}`]}</p>
                                     )}
                                   </div>
-                                  {formData.groupProfilePictures[groupName] && (
-                                    <ClickableAvatar
-                                      src={formData.groupProfilePictures[groupName]}
-                                      alt={`${formData.name} in ${groupName}`}
-                                      fallback={formData.name.charAt(0)}
-                                      size="lg"
-                                    />
-                                  )}
                                 </div>
                               </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                            💡 <strong>Tip:</strong> Group profile pictures dan alias akan digunakan khusus untuk konteks grup tersebut. Ini memungkinkan aktris memiliki identitas yang berbeda di setiap grup.
+                          </div>
+                        </div>
+                      )}
 
-                              {/* Group Alias */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`group-alias-${groupName}`}>
-                                  Alias/Stage Name in {groupName}
-                                </Label>
-                                
-                                {/* Same as Name Checkbox */}
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`same-as-name-${groupName}`}
-                                    checked={formData.groupSameAsName?.[groupName] || false}
-                                    onCheckedChange={(checked) => {
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        groupSameAsName: {
-                                          ...(prev.groupSameAsName || {}),
-                                          [groupName]: checked as boolean
-                                        },
-                                        groupAliases: {
-                                          ...prev.groupAliases,
-                                          [groupName]: checked ? formData.name : ''
-                                        }
-                                      }))
-                                    }}
-                                  />
-                                  <Label htmlFor={`same-as-name-${groupName}`} className="text-sm font-normal">
-                                    Same as Name
-                                  </Label>
-                                </div>
-                                
-                                <Input
-                                  id={`group-alias-${groupName}`}
-                                  value={formData.groupAliases[groupName] || ''}
-                                  onChange={(e) => {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      groupAliases: {
-                                        ...prev.groupAliases,
-                                        [groupName]: e.target.value
-                                      },
-                                      groupSameAsName: {
-                                        ...(prev.groupSameAsName || {}),
-                                        [groupName]: false // Uncheck when manually typing
-                                      }
-                                    }))
-                                    // Clear related error
-                                    if (errors[`groupAlias_${groupName}`]) {
-                                      setErrors(prev => ({ ...prev, [`groupAlias_${groupName}`]: '' }))
-                                    }
-                                  }}
-                                  placeholder={`Nama khusus untuk ${groupName}`}
-                                  className={`text-sm ${errors[`groupAlias_${groupName}`] ? 'border-destructive' : ''}`}
-                                  disabled={formData.groupSameAsName?.[groupName] || false}
+                      {/* Lineup Assignment */}
+                      {lineups.length > 0 && (
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            Lineup Assignment
+                          </h4>
+                          <div className="space-y-2">
+                            {lineups.map((lineup) => (
+                              <div key={lineup.id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`lineup-${lineup.id}`}
+                                  checked={(formData.selectedLineups || []).includes(lineup.id)}
+                                  onChange={(e) => handleLineupToggle(lineup.id, e.target.checked)}
+                                  className="rounded border-border"
                                 />
-                                {errors[`groupAlias_${groupName}`] && (
-                                  <p className="text-sm text-destructive">{errors[`groupAlias_${groupName}`]}</p>
-                                )}
+                                <Label
+                                  htmlFor={`lineup-${lineup.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  {lineup.name} ({lineup.lineupType || 'Main'})
+                                </Label>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                      <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                        💡 <strong>Tip:</strong> Group profile pictures dan alias akan digunakan khusus untuk konteks grup tersebut. Ini memungkinkan aktris memiliki identitas yang berbeda di setiap grup.
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Lineup Assignment */}
-                  {lineups.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Lineup Assignment
-                      </h4>
-                      <div className="space-y-2">
-                        {lineups.map((lineup) => (
-                          <div key={lineup.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={`lineup-${lineup.id}`}
-                              checked={(formData.selectedLineups || []).includes(lineup.id)}
-                              onChange={(e) => handleLineupToggle(lineup.id, e.target.checked)}
-                              className="rounded border-border"
-                            />
-                            <Label 
-                              htmlFor={`lineup-${lineup.id}`} 
-                              className="text-sm cursor-pointer flex-1"
-                            >
-                              {lineup.name} ({lineup.lineupType || 'Main'})
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Display selected lineups */}
+                          {/* Display selected lineups */}
+                          {(formData.selectedLineups || []).length > 0 && (
+                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                              <Users className="h-3 w-3" />
+                              Assigned to {(formData.selectedLineups || []).length} lineup(s): {(formData.selectedLineups || []).map(id => lineups.find(l => l.id === id)?.name).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Lineup-Specific Settings */}
                       {(formData.selectedLineups || []).length > 0 && (
-                        <div className="text-sm text-muted-foreground flex items-center gap-2">
-                          <Users className="h-3 w-3" />
-                          Assigned to {(formData.selectedLineups || []).length} lineup(s): {(formData.selectedLineups || []).map(id => lineups.find(l => l.id === id)?.name).join(', ')}
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4" />
+                            Lineup-Specific Settings
+                          </h4>
+                          <div className="space-y-4">
+                            {(formData.selectedLineups || []).map((lineupId) => {
+                              const lineup = lineups.find(l => l.id === lineupId)
+                              return (
+                                <div key={lineupId} className="p-4 border rounded-lg bg-muted/10">
+                                  <h5 className="font-medium mb-3">{lineup?.name} ({lineup?.lineupType || 'Main'})</h5>
+                                  <div className="space-y-3">
+                                    {/* Lineup Profile Picture */}
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`lineup-pic-${lineupId}`}>
+                                        Profile Picture
+                                      </Label>
+                                      <Input
+                                        id={`lineup-pic-${lineupId}`}
+                                        value={formData.lineupProfilePictures[lineupId] || ''}
+                                        onChange={(e) => {
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            lineupProfilePictures: {
+                                              ...prev.lineupProfilePictures,
+                                              [lineupId]: e.target.value
+                                            }
+                                          }))
+                                          // Clear related error
+                                          if (errors[`lineupProfilePicture_${lineupId}`]) {
+                                            setErrors(prev => ({ ...prev, [`lineupProfilePicture_${lineupId}`]: '' }))
+                                          }
+                                        }}
+                                        placeholder="URL foto profil khusus untuk lineup ini"
+                                        className={`text-sm ${errors[`lineupProfilePicture_${lineupId}`] ? 'border-destructive' : ''}`}
+                                      />
+                                      {errors[`lineupProfilePicture_${lineupId}`] && (
+                                        <p className="text-sm text-destructive">{errors[`lineupProfilePicture_${lineupId}`]}</p>
+                                      )}
+                                    </div>
+
+                                    {/* Lineup Alias */}
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`lineup-alias-${lineupId}`}>
+                                        Alias/Stage Name
+                                      </Label>
+                                      <Input
+                                        id={`lineup-alias-${lineupId}`}
+                                        value={formData.lineupAliases[lineupId] || ''}
+                                        onChange={(e) => {
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            lineupAliases: {
+                                              ...prev.lineupAliases,
+                                              [lineupId]: e.target.value
+                                            }
+                                          }))
+                                          // Clear related error
+                                          if (errors[`lineupAlias_${lineupId}`]) {
+                                            setErrors(prev => ({ ...prev, [`lineupAlias_${lineupId}`]: '' }))
+                                          }
+                                        }}
+                                        placeholder={`Nama khusus untuk lineup ${lineup?.name}`}
+                                        className={`text-sm ${errors[`lineupAlias_${lineupId}`] ? 'border-destructive' : ''}`}
+                                      />
+                                      {errors[`lineupAlias_${lineupId}`] && (
+                                        <p className="text-sm text-destructive">{errors[`lineupAlias_${lineupId}`]}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                            💡 <strong>Tip:</strong> Lineup profile pictures dan alias akan digunakan khusus untuk konteks lineup tersebut. Ini memungkinkan aktris memiliki identitas yang berbeda di setiap lineup.
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Debug info */}
+                      {initialData && type === 'actress' && (
+                        <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded">
+                          <strong>Debug:</strong><br />
+                          selectedGroups: {JSON.stringify(initialData.selectedGroups)}<br />
+                          legacy groupId: {initialData.groupId || 'none'}<br />
+                          current selectedGroups: {JSON.stringify(formData.selectedGroups)}<br />
+                          groupProfilePictures: {JSON.stringify(formData.groupProfilePictures)}<br />
+                          selectedLineups: {JSON.stringify(formData.selectedLineups)}<br />
+                          lineupProfilePictures: {JSON.stringify(formData.lineupProfilePictures)}
                         </div>
                       )}
                     </div>
                   )}
-
-                  {/* Lineup-Specific Settings */}
-                  {(formData.selectedLineups || []).length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4" />
-                        Lineup-Specific Settings
-                      </h4>
-                      <div className="space-y-4">
-                        {(formData.selectedLineups || []).map((lineupId) => {
-                          const lineup = lineups.find(l => l.id === lineupId)
-                          return (
-                            <div key={lineupId} className="p-4 border rounded-lg bg-muted/10">
-                              <h5 className="font-medium mb-3">{lineup?.name} ({lineup?.lineupType || 'Main'})</h5>
-                              <div className="space-y-3">
-                                {/* Lineup Profile Picture */}
-                                <div className="space-y-2">
-                                  <Label htmlFor={`lineup-pic-${lineupId}`}>
-                                    Profile Picture
-                                  </Label>
-                                  <Input
-                                    id={`lineup-pic-${lineupId}`}
-                                    value={formData.lineupProfilePictures[lineupId] || ''}
-                                    onChange={(e) => {
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        lineupProfilePictures: {
-                                          ...prev.lineupProfilePictures,
-                                          [lineupId]: e.target.value
-                                        }
-                                      }))
-                                      // Clear related error
-                                      if (errors[`lineupProfilePicture_${lineupId}`]) {
-                                        setErrors(prev => ({ ...prev, [`lineupProfilePicture_${lineupId}`]: '' }))
-                                      }
-                                    }}
-                                    placeholder="URL foto profil khusus untuk lineup ini"
-                                    className={`text-sm ${errors[`lineupProfilePicture_${lineupId}`] ? 'border-destructive' : ''}`}
-                                  />
-                                  {errors[`lineupProfilePicture_${lineupId}`] && (
-                                    <p className="text-sm text-destructive">{errors[`lineupProfilePicture_${lineupId}`]}</p>
-                                  )}
-                                </div>
-
-                                {/* Lineup Alias */}
-                                <div className="space-y-2">
-                                  <Label htmlFor={`lineup-alias-${lineupId}`}>
-                                    Alias/Stage Name
-                                  </Label>
-                                  <Input
-                                    id={`lineup-alias-${lineupId}`}
-                                    value={formData.lineupAliases[lineupId] || ''}
-                                    onChange={(e) => {
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        lineupAliases: {
-                                          ...prev.lineupAliases,
-                                          [lineupId]: e.target.value
-                                        }
-                                      }))
-                                      // Clear related error
-                                      if (errors[`lineupAlias_${lineupId}`]) {
-                                        setErrors(prev => ({ ...prev, [`lineupAlias_${lineupId}`]: '' }))
-                                      }
-                                    }}
-                                    placeholder={`Nama khusus untuk lineup ${lineup?.name}`}
-                                    className={`text-sm ${errors[`lineupAlias_${lineupId}`] ? 'border-destructive' : ''}`}
-                                  />
-                                  {errors[`lineupAlias_${lineupId}`] && (
-                                    <p className="text-sm text-destructive">{errors[`lineupAlias_${lineupId}`]}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                        💡 <strong>Tip:</strong> Lineup profile pictures dan alias akan digunakan khusus untuk konteks lineup tersebut. Ini memungkinkan aktris memiliki identitas yang berbeda di setiap lineup.
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Debug info */}
-                  {initialData && type === 'actress' && (
-                    <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded">
-                      <strong>Debug:</strong><br/>
-                      selectedGroups: {JSON.stringify(initialData.selectedGroups)}<br/>
-                      legacy groupId: {initialData.groupId || 'none'}<br/>
-                      current selectedGroups: {JSON.stringify(formData.selectedGroups)}<br/>
-                      groupProfilePictures: {JSON.stringify(formData.groupProfilePictures)}<br/>
-                      selectedLineups: {JSON.stringify(formData.selectedLineups)}<br/>
-                      lineupProfilePictures: {JSON.stringify(formData.lineupProfilePictures)}
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="media" className="space-y-4 mt-6 min-h-[500px] w-full">
               {/* Profile Pictures Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
-              <ImageIcon className="h-4 w-4" />
-              Foto Profil
-            </h3>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>URL Foto Profil (Multiple)</Label>
-                <Button 
-                  type="button" 
-                  size="sm" 
-                  onClick={() => {
-                    setShowImageSearch(true)
-                    setAutoSearchImage(true)
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={!formData.name?.trim()}
-                >
-                  <Search className="h-4 w-4 mr-1" />
-                  Cari Gambar dengan "{formData.name || 'Nama'}"
-                </Button>
-              </div>
-              
-              {/* Image Search Iframe */}
-              {showImageSearch && (
-                <ImageSearchIframe
-                  onImageSelect={handleImageSelect}
-                  onAddPhotoField={addProfilePictureField}
-                  searchQuery={formData.name}
-                  name={formData.name}
-                  jpname={formData.jpname}
-                  type={type}
-                  className="mb-4"
-                  autoSearch={autoSearchImage}
-                />
-              )}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Foto Profil
+                </h3>
 
-              {/* Add Photo Buttons */}
-              <div className="flex justify-end gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={addProfilePictureField}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Tambah Foto
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleAddPhotoWithPaste}
-                >
-                  <Clipboard className="h-4 w-4 mr-1" />
-                  Tambah Foto
-                </Button>
-              </div>
-
-              {/* Preview existing photos with drag and drop */}
-              {formData.profilePictures.some(p => p.trim()) && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    💡 Drag & drop foto untuk mengubah urutan (field pertama = avatar utama)
-                  </p>
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={formData.profilePictures.filter(p => p.trim()).map((_, index) => `photo-${index}`)}
-                      strategy={verticalListSortingStrategy}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>URL Foto Profil (Multiple)</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setShowImageSearch(true)
+                        setAutoSearchImage(true)
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={!formData.name?.trim()}
                     >
-                      <div className="flex flex-wrap gap-2 p-2 rounded-lg">
-                        {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
-                          <SortablePhoto
-                            key={`${pic}-${index}`}
-                            photo={pic}
-                            index={index}
-                            name={formData.name}
-                            onRemove={handleRemovePhotoFromPreview}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                {formData.profilePictures.map((pic, index) => (
-                  <div key={index} className="flex gap-2">
-                    <div className="flex-1 space-y-1">
-                      <Input
-                        value={pic}
-                        onChange={(e) => handleProfilePicturesChange(index, e.target.value)}
-                        placeholder={`https://example.com/photo${index + 1}.jpg`}
-                        className={errors[`profilePicture_${index}`] ? 'border-destructive' : ''}
-                      />
-                      {errors[`profilePicture_${index}`] && (
-                        <p className="text-sm text-destructive">{errors[`profilePicture_${index}`]}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => pasteToField(index)}
-                        title="Tempel URL dari clipboard"
-                      >
-                        <Clipboard className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeProfilePictureField(index)}
-                        title={
-                          formData.profilePictures.length === 1 
-                            ? "Kosongkan field foto" 
-                            : `Hapus field foto ${index + 1}`
-                        }
-                      >
-                        {formData.profilePictures.length === 1 ? (
-                          <RotateCcw className="h-4 w-4" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                      <Search className="h-4 w-4 mr-1" />
+                      Cari Gambar dengan "{formData.name || 'Nama'}"
+                    </Button>
                   </div>
-                ))}
-              </div>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p><strong>Foto di field pertama</strong> akan disimpan sebagai <em>profilePicture</em> dan digunakan sebagai avatar utama. Foto tambahan akan disimpan sebagai galeri dan ditampilkan di profile page dengan cycling.</p>
-                <p className="text-xs">
-                  💡 <strong>Tip:</strong> Tombol dengan icon {formData.profilePictures.length === 1 ? '↻ (reset)' : '🗑️ (hapus)'} akan {formData.profilePictures.length === 1 ? 'mengosongkan field' : 'menghapus field'}. Avatar utama akan selalu menggunakan foto dari field pertama.
-                </p>
-              </div>
-            </div>
-          </div>
 
-          <Separator />
+                  {/* Image Search Iframe */}
+                  {showImageSearch && (
+                    <ImageSearchIframe
+                      onImageSelect={handleImageSelect}
+                      onAddPhotoField={addProfilePictureField}
+                      searchQuery={formData.name}
+                      name={formData.name}
+                      jpname={formData.jpname}
+                      type={type}
+                      className="mb-4"
+                      autoSearch={autoSearchImage}
+                    />
+                  )}
 
-          {/* Links Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Link-link
-            </h3>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Website/Social Media Links</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addLinkField}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Tambah Link
-                </Button>
-              </div>
-              
-              {formData.links.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Belum ada link. Klik tombol "Tambah Link" untuk menambah.</p>
-              ) : (
-                <div className="space-y-3">
-                  {formData.links.map((link, index) => (
-                    <div key={link.id} className="flex gap-2 items-start">
-                      <div className="grid grid-cols-2 gap-2 flex-1">
-                        <div className="space-y-1">
+                  {/* Add Photo Buttons */}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addProfilePictureField}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Tambah Foto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddPhotoWithPaste}
+                    >
+                      <Clipboard className="h-4 w-4 mr-1" />
+                      Tambah Foto
+                    </Button>
+                  </div>
+
+                  {/* Preview existing photos with drag and drop */}
+                  {formData.profilePictures.some(p => p.trim()) && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        💡 Drag & drop foto untuk mengubah urutan (field pertama = avatar utama)
+                      </p>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={formData.profilePictures.filter(p => p.trim()).map((_, index) => `photo-${index}`)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="flex flex-wrap gap-2 p-2 rounded-lg">
+                            {formData.profilePictures.filter(p => p.trim()).map((pic, index) => (
+                              <SortablePhoto
+                                key={`${pic}-${index}`}
+                                photo={pic}
+                                index={index}
+                                name={formData.name}
+                                onRemove={handleRemovePhotoFromPreview}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {formData.profilePictures.map((pic, index) => (
+                      <div key={index} className="flex gap-2">
+                        <div className="flex-1 space-y-1">
                           <Input
-                            value={link.label}
-                            onChange={(e) => handleLinksChange(index, 'label', e.target.value)}
-                            placeholder="Label (contoh: Instagram)"
+                            value={pic}
+                            onChange={(e) => handleProfilePicturesChange(index, e.target.value)}
+                            placeholder={`https://example.com/photo${index + 1}.jpg`}
+                            className={errors[`profilePicture_${index}`] ? 'border-destructive' : ''}
                           />
-                        </div>
-                        <div className="space-y-1">
-                          <Input
-                            value={link.url}
-                            onChange={(e) => handleLinksChange(index, 'url', e.target.value)}
-                            placeholder="https://..."
-                            className={errors[`link_${index}`] ? 'border-destructive' : ''}
-                          />
-                          {errors[`link_${index}`] && (
-                            <p className="text-sm text-destructive">{errors[`link_${index}`]}</p>
+                          {errors[`profilePicture_${index}`] && (
+                            <p className="text-sm text-destructive">{errors[`profilePicture_${index}`]}</p>
                           )}
                         </div>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pasteToField(index)}
+                            title="Tempel URL dari clipboard"
+                          >
+                            <Clipboard className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeProfilePictureField(index)}
+                            title={
+                              formData.profilePictures.length === 1
+                                ? "Kosongkan field foto"
+                                : `Hapus field foto ${index + 1}`
+                            }
+                          >
+                            {formData.profilePictures.length === 1 ? (
+                              <RotateCcw className="h-4 w-4" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeLinkField(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Tags Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                Tags
-              </h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
-                <Textarea
-                  id="tags"
-                  value={formData.tags}
-                  onChange={(e) => handleInputChange('tags', e.target.value)}
-                  placeholder="contoh: cantik, populer, debut 2020"
-                  rows={3}
-                />
-                {formData.tags && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {formData.tags.split(',').map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {tag.trim()}
-                      </Badge>
                     ))}
                   </div>
-                )}
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong>Foto di field pertama</strong> akan disimpan sebagai <em>profilePicture</em> dan digunakan sebagai avatar utama. Foto tambahan akan disimpan sebagai galeri dan ditampilkan di profile page dengan cycling.</p>
+                    <p className="text-xs">
+                      💡 <strong>Tip:</strong> Tombol dengan icon {formData.profilePictures.length === 1 ? '↻ (reset)' : '🗑️ (hapus)'} akan {formData.profilePictures.length === 1 ? 'mengosongkan field' : 'menghapus field'}. Avatar utama akan selalu menggunakan foto dari field pertama.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            </div>
+              <Separator />
+
+              {/* Links Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4" />
+                  Link-link
+                </h3>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Website/Social Media Links</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addLinkField}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Tambah Link
+                    </Button>
+                  </div>
+
+                  {formData.links.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Belum ada link. Klik tombol "Tambah Link" untuk menambah.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {formData.links.map((link, index) => (
+                        <div key={link.id} className="flex gap-2 items-start">
+                          <div className="grid grid-cols-2 gap-2 flex-1">
+                            <div className="space-y-1">
+                              <Input
+                                value={link.label}
+                                onChange={(e) => handleLinksChange(index, 'label', e.target.value)}
+                                placeholder="Label (contoh: Instagram)"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Input
+                                value={link.url}
+                                onChange={(e) => handleLinksChange(index, 'url', e.target.value)}
+                                placeholder="https://..."
+                                className={errors[`link_${index}`] ? 'border-destructive' : ''}
+                              />
+                              {errors[`link_${index}`] && (
+                                <p className="text-sm text-destructive">{errors[`link_${index}`]}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeLinkField(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Tags Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Tags
+                  </h3>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
+                    <Textarea
+                      id="tags"
+                      value={formData.tags}
+                      onChange={(e) => handleInputChange('tags', e.target.value)}
+                      placeholder="contoh: cantik, populer, debut 2020"
+                      rows={3}
+                    />
+                    {formData.tags && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {formData.tags.split(',').map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {tag.trim()}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
             </TabsContent>
 
             {type === 'actress' && (
@@ -2305,31 +2358,31 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           </Tabs>
 
         </form>
-        </CardContent>
-        
-        {/* Sticky Bottom Buttons */}
-        <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex gap-3 justify-end">
-          <Button 
-            type="submit" 
-            disabled={isLoading}
-            className="flex items-center gap-2"
-            onClick={handleSubmit}
+      </CardContent>
+
+      {/* Sticky Bottom Buttons */}
+      <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex gap-3 justify-end">
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="flex items-center gap-2"
+          onClick={handleSubmit}
+        >
+          <Save className="h-4 w-4" />
+          {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+        </Button>
+
+        {onClose && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
           >
-            <Save className="h-4 w-4" />
-            {isLoading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+            <X className="h-4 w-4 mr-2" />
+            Batal
           </Button>
-          
-          {onClose && (
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Batal
-            </Button>
-          )}
-        </div>
-      </Card>
-    )
+        )}
+      </div>
+    </Card>
+  )
 }

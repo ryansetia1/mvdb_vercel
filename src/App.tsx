@@ -9,7 +9,8 @@ import { SimpleFavoritesProvider } from './contexts/SimpleFavoritesContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { TypeColorsProvider } from './contexts/TypeColorsContext'
 import { auth } from './utils/auth'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
+import { Toaster } from './components/ui/sonner'
 
 interface User {
   id: string
@@ -52,7 +53,7 @@ function App() {
     const { data: { subscription } } = auth.client.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.access_token ? 'token present' : 'no token')
-        
+
         if (event === 'SIGNED_OUT' || !session) {
           setAccessToken(null)
           setUser(null)
@@ -61,7 +62,7 @@ function App() {
           // Only update state if token actually changed to prevent unnecessary reloads
           const currentToken = accessToken
           const newToken = session.access_token
-          
+
           if (currentToken !== newToken) {
             console.log('Token changed, updating state')
             setAccessToken(newToken)
@@ -70,7 +71,7 @@ function App() {
           } else {
             console.log('Token unchanged, skipping state update')
           }
-          
+
           if (event === 'TOKEN_REFRESHED') {
             console.log('Token refreshed successfully')
           }
@@ -101,7 +102,7 @@ function App() {
     }
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection)
-    
+
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection)
     }
@@ -121,7 +122,7 @@ function App() {
 
     // Add global error listener for images
     document.addEventListener('error', handleImageError, true)
-    
+
     return () => {
       document.removeEventListener('error', handleImageError, true)
     }
@@ -140,7 +141,7 @@ function App() {
       console.error('Logout error:', error)
       // Continue with local logout even if server logout fails
     }
-    
+
     setAccessToken(null)
     setUser(null)
     setIsAuthenticated(false)
@@ -160,6 +161,7 @@ function App() {
   if (!isAuthenticated || !accessToken) {
     return (
       <ThemeProvider>
+        <Toaster />
         <LoginForm onLoginSuccess={handleLoginSuccess} />
       </ThemeProvider>
     )
@@ -168,6 +170,7 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
+        <Toaster />
         <TypeColorsProvider accessToken={accessToken}>
           <SimpleFavoritesProvider accessToken={accessToken}>
             <div className="min-h-screen bg-background">
