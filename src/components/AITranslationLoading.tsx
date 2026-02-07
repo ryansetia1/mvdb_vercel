@@ -9,10 +9,10 @@ interface AITranslationLoadingProps {
   isVisible?: boolean
 }
 
-export function AITranslationLoading({ 
-  text = "Menerjemahkan dengan AI...", 
+export function AITranslationLoading({
+  text = "Menerjemahkan dengan AI...",
   type = 'translation',
-  isVisible = true 
+  isVisible = true
 }: AITranslationLoadingProps) {
   if (!isVisible) return null
 
@@ -54,22 +54,22 @@ export function AITranslationLoading({
             {getIcon()}
             <Zap className="h-3 w-3 animate-bounce text-yellow-500" />
           </div>
-          
+
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="secondary" className="text-xs">
-                DeepSeek R1
+                SumoPod AI
               </Badge>
               <span className="text-xs text-muted-foreground">
                 {getTypeLabel()}
               </span>
             </div>
-            
+
             <div className="text-sm font-medium text-foreground">
               {text}
             </div>
           </div>
-          
+
           {/* Animated dots */}
           <div className="flex items-center gap-1">
             <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
@@ -83,10 +83,10 @@ export function AITranslationLoading({
 }
 
 // Compact version for inline use
-export function AITranslationLoadingInline({ 
-  text = "AI translating...", 
+export function AITranslationLoadingInline({
+  text = "AI translating...",
   type = 'translation',
-  isVisible = true 
+  isVisible = true
 }: AITranslationLoadingProps) {
   if (!isVisible) return null
 
@@ -117,7 +117,7 @@ export function AITranslationLoadingInline({
 export function AITranslationSpinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
     sm: 'h-3 w-3',
-    md: 'h-4 w-4', 
+    md: 'h-4 w-4',
     lg: 'h-5 w-5'
   }
 

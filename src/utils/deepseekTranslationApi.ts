@@ -1,54 +1,26 @@
 /**
- * DeepSeek R1 Translation API Integration
- * Menggunakan OpenRouter untuk mengakses model DeepSeek R1 free
- * Support untuk environment variables dan Supabase secrets
+ * AI Translation API Integration (SumoPod)
+ * Replaces previous OpenRouter/DeepSeek implementation
+ * Uses SumoPod AI (Gemini 2.5 Flash) for Japanese-English translation and Romaji conversion
  */
 
 import { getApiKeyFromSupabaseSecrets } from './supabaseSecretsApi'
 
-// OpenRouter API Configuration
-const OPENROUTER_API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+// SumoPod API Configuration
+const SUMOPOD_API_KEY = 'sk--0kcvDqTWn7--TFN-AKP_g';
+const SUMOPOD_BASE_URL = 'https://ai.sumopod.com/v1';
+const MODEL = 'gemini/gemini-2.5-flash';
 
 // Check if API key is valid
 const isApiKeyValid = (key: string): boolean => {
-  return Boolean(key && key.length > 20)
+  return Boolean(key && key.length > 10)
 }
 
-// Get API key with fallback to Supabase secrets
-const getApiKeyWithFallback = async (accessToken?: string): Promise<string | null> => {
-  console.log('Getting API key with fallback...')
-  
-  // First try environment variable
-  console.log('Environment variable OPENROUTER_API_KEY:', OPENROUTER_API_KEY ? 'exists' : 'not found')
-  if (isApiKeyValid(OPENROUTER_API_KEY)) {
-    console.log('Using environment variable API key')
-    return OPENROUTER_API_KEY
-  }
-  
-  // Fallback to Supabase secrets if accessToken is provided
-  if (accessToken) {
-    console.log('Trying Supabase secrets with accessToken:', accessToken ? 'present' : 'missing')
-    try {
-      const secretApiKey = await getApiKeyFromSupabaseSecrets(accessToken, 'mvdb3')
-      console.log('Supabase secrets response:', secretApiKey ? 'found' : 'not found')
-      if (secretApiKey && isApiKeyValid(secretApiKey)) {
-        console.log('Using Supabase secrets API key')
-        return secretApiKey
-      } else {
-        console.log('Supabase secrets API key invalid or empty')
-      }
-    } catch (error) {
-      console.warn('Failed to get API key from Supabase secrets:', error)
-    }
-  } else {
-    console.log('No accessToken provided for Supabase secrets')
-  }
-  
-  console.log('No valid API key found')
-  return null
+// Get API key with fallback (Prioritize hardcoded SumoPod key for this session)
+const getApiKeyWithFallback = async (accessToken?: string): Promise<string> => {
+  // For this session, we strictly use the user-provided SumoPod key
+  return SUMOPOD_API_KEY;
 }
-
 
 // Get context description for better translation
 const getContextDescription = (context: string): string => {
@@ -72,34 +44,34 @@ const getContextDescription = (context: string): string => {
 // Build movie context information for better translation
 const buildMovieContextInfo = (movieContext?: TranslationRequest['movieContext']): string => {
   if (!movieContext) return ''
-  
+
   const contextParts: string[] = []
-  
+
   if (movieContext.actresses && movieContext.actresses.length > 0) {
     contextParts.push(`Actresses: ${movieContext.actresses.join(', ')}`)
   }
-  
+
   if (movieContext.actors && movieContext.actors.length > 0) {
     contextParts.push(`Actors: ${movieContext.actors.join(', ')}`)
   }
-  
+
   if (movieContext.directors && movieContext.directors.length > 0) {
     contextParts.push(`Directors: ${movieContext.directors.join(', ')}`)
   }
-  
+
   if (movieContext.studio) {
     contextParts.push(`Studio: ${movieContext.studio}`)
   }
-  
+
   if (movieContext.series) {
     contextParts.push(`Series: ${movieContext.series}`)
   }
-  
+
   if (movieContext.dmcode) {
     contextParts.push(`Code: ${movieContext.dmcode}`)
   }
-  
-  return contextParts.length > 0 
+
+  return contextParts.length > 0
     ? `\n\nContext: ${contextParts.join(', ')}\n\nNote: Do not translate person names, only translate descriptive words.`
     : ''
 }
@@ -125,8 +97,15 @@ export interface TranslationResult {
   translationMethod: 'ai' | 'fallback' | 'original'
 }
 
+export interface TranslationResponse {
+  translatedText: string
+  success: boolean
+  error?: string
+  translationMethod: 'ai' | 'fallback' | 'original'
+}
+
 /**
- * Translate text menggunakan DeepSeek R1 model melalui OpenRouter
+ * Translate text using SumoPod AI
  * @param request - Translation request object
  * @returns Promise<TranslationResponse>
  */
@@ -142,20 +121,11 @@ export async function translateWithDeepSeek(request: TranslationRequest): Promis
     }
   }
 
-  // Get API key with fallback to Supabase secrets
+  // Get API key
   const apiKey = await getApiKeyWithFallback(accessToken)
-  
-  if (!apiKey) {
-    return {
-      translatedText: '',
-      success: false,
-      error: 'API key tidak dikonfigurasi',
-      translationMethod: 'original'
-    }
-  }
 
   try {
-    // Prepare the prompt for DeepSeek R1
+    // Prepare the prompt
     const systemPrompt = `You are a professional Japanese-to-English translator specializing in entertainment industry content.
 
 TRANSLATION RULES:
@@ -172,16 +142,16 @@ Translate this Japanese text to English:`
 
     const userPrompt = `${text}`
 
-    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    console.log(`Sending translation request to SumoPod (${MODEL})...`);
+
+    const response = await fetch(`${SUMOPOD_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'MVDB Translation Service'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1:free',
+        model: MODEL,
         messages: [
           {
             role: 'system',
@@ -192,30 +162,32 @@ Translate this Japanese text to English:`
             content: userPrompt
           }
         ],
-        max_tokens: 500,
         temperature: 0.3,
-        top_p: 0.9,
-        stream: false
       })
     })
 
     if (!response.ok) {
       const errorData = await response.text()
-      console.error('OpenRouter API Error:', response.status, errorData)
+      console.error('SumoPod API Error:', response.status, errorData)
       return {
         translatedText: '',
         success: false,
-        error: `API Error: ${response.status} - ${errorData}`
+        error: `API Error: ${response.status} - ${errorData}`,
+        translationMethod: 'original'
       }
     }
 
     const data = await response.json()
-    
+
+    // Parse OpenAI-compatible response
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const translatedText = data.choices[0].message.content?.trim() || ''
-      
+
+      // Clean up potential quotes
+      const cleanText = translatedText.replace(/^["']|["']$/g, '');
+
       return {
-        translatedText,
+        translatedText: cleanText,
         success: true,
         translationMethod: 'ai'
       }
@@ -241,14 +213,10 @@ Translate this Japanese text to English:`
 }
 
 /**
- * Translate Japanese text to English dengan konteks spesifik dan movie data
- * @param japaneseText - Text dalam bahasa Jepang
- * @param context - Konteks konten (movie_title, actor_name, actress_name, dll)
- * @param movieContext - Konteks movie data (actors, actresses, directors, dll)
- * @returns Promise<TranslationResult> - Translation result dengan informasi metode terjemahan
+ * Translate Japanese text to English with context
  */
 export async function translateJapaneseToEnglishWithContext(
-  japaneseText: string, 
+  japaneseText: string,
   context: 'movie_title' | 'actor_name' | 'actress_name' | 'studio_name' | 'series_name' | 'general' = 'general',
   movieContext?: TranslationRequest['movieContext'],
   accessToken?: string
@@ -260,8 +228,8 @@ export async function translateJapaneseToEnglishWithContext(
     }
   }
 
-  // Try DeepSeek R1 first with context
-  const deepseekResult = await translateWithDeepSeek({
+  // Try SumoPod AI first
+  const aiResult = await translateWithDeepSeek({
     text: japaneseText,
     sourceLanguage: 'japanese',
     targetLanguage: 'english',
@@ -270,28 +238,25 @@ export async function translateJapaneseToEnglishWithContext(
     accessToken: accessToken
   })
 
-  if (deepseekResult.success && deepseekResult.translatedText) {
-    console.log(`DeepSeek R1 translation successful for ${context}:`, deepseekResult.translatedText)
+  if (aiResult.success && aiResult.translatedText) {
     return {
-      translatedText: deepseekResult.translatedText,
+      translatedText: aiResult.translatedText,
       translationMethod: 'ai'
     }
   }
 
   // Fallback to MyMemory API
-  console.log('DeepSeek R1 failed, falling back to MyMemory API:', deepseekResult.error)
+  console.log('AI translation failed, falling back to MyMemory API:', aiResult.error)
   try {
     const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(japaneseText)}&langpair=ja|en`)
     const data = await response.json()
-    
+
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      console.log('MyMemory fallback translation successful')
       return {
         translatedText: data.responseData.translatedText,
         translationMethod: 'fallback'
       }
     } else {
-      console.warn('MyMemory fallback also failed, returning original text')
       return {
         translatedText: japaneseText,
         translationMethod: 'original'
@@ -307,10 +272,7 @@ export async function translateJapaneseToEnglishWithContext(
 }
 
 /**
- * Translate movie title dengan konteks movie data untuk menghindari terjemahan literal nama orang
- * @param movieTitle - Movie title dalam bahasa Jepang
- * @param movieData - Data movie yang berisi actors, actresses, directors, dll
- * @returns Promise<TranslationResult> - Translation result dengan informasi metode terjemahan
+ * Translate movie title with context
  */
 export async function translateMovieTitleWithContext(
   movieTitle: string,
@@ -349,41 +311,32 @@ export async function translateMovieTitleWithContext(
 }
 
 /**
- * Translate Japanese text to English dengan fallback ke MyMemory API
- * @param japaneseText - Text dalam bahasa Jepang
- * @param accessToken - Supabase access token untuk mengakses secrets
- * @returns Promise<string> - Translated text dalam bahasa Inggris (untuk kompatibilitas)
+ * Translate Japanese text to English (general wrapper)
  */
 export async function translateJapaneseToEnglish(japaneseText: string, accessToken?: string): Promise<string> {
-  // Use the context-aware function with general context
   const result = await translateJapaneseToEnglishWithContext(japaneseText, 'general', undefined, accessToken)
   return result.translatedText
 }
 
 /**
  * Batch translate multiple Japanese texts
- * @param texts - Array of Japanese texts
- * @returns Promise<string[]> - Array of translated texts
  */
 export async function batchTranslateJapaneseToEnglish(texts: string[]): Promise<string[]> {
   const results: string[] = []
-  
+
   // Process translations sequentially to avoid rate limiting
   for (const text of texts) {
     const translated = await translateJapaneseToEnglish(text)
     results.push(translated)
-    
-    // Small delay between requests to be respectful to the API
+    // Small delay
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   return results
 }
 
 /**
- * Convert Japanese text to Romaji menggunakan DeepSeek R1
- * @param japaneseText - Text dalam bahasa Jepang
- * @returns Promise<TranslationResult> - Romaji conversion result dengan informasi metode
+ * Convert Japanese text to Romaji using SumoPod AI
  */
 export async function convertJapaneseToRomaji(japaneseText: string, accessToken?: string): Promise<TranslationResult> {
   if (!japaneseText || japaneseText.trim().length === 0) {
@@ -393,19 +346,9 @@ export async function convertJapaneseToRomaji(japaneseText: string, accessToken?
     }
   }
 
-  // Get API key with fallback to Supabase secrets
   const apiKey = await getApiKeyWithFallback(accessToken)
-  
-  if (!apiKey) {
-    console.warn('API key tidak dikonfigurasi, menggunakan fallback Romaji conversion')
-    return {
-      translatedText: basicJapaneseToRomaji(japaneseText),
-      translationMethod: 'fallback'
-    }
-  }
 
   try {
-    // Prepare the prompt for DeepSeek R1 untuk konversi romaji
     const systemPrompt = `You are a Japanese language expert specializing in converting Japanese text to Romaji.
 
 ROMANIZATION RULES:
@@ -419,16 +362,14 @@ Convert this Japanese text to Romaji:`
 
     const userPrompt = `${japaneseText}`
 
-    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${SUMOPOD_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'MVDB Romaji Conversion Service'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1:free',
+        model: MODEL,
         messages: [
           {
             role: 'system',
@@ -439,17 +380,12 @@ Convert this Japanese text to Romaji:`
             content: userPrompt
           }
         ],
-        max_tokens: 300,
         temperature: 0.1,
-        top_p: 0.9,
-        stream: false
       })
     })
 
     if (!response.ok) {
-      const errorData = await response.text()
-      console.error('OpenRouter API Error for Romaji:', response.status, errorData)
-      // Fallback to basic conversion
+      console.error('SumoPod API Error for Romaji:', response.status)
       return {
         translatedText: basicJapaneseToRomaji(japaneseText),
         translationMethod: 'fallback'
@@ -457,27 +393,21 @@ Convert this Japanese text to Romaji:`
     }
 
     const data = await response.json()
-    
+
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const romajiText = data.choices[0].message.content?.trim() || ''
-      
+
       if (romajiText && romajiText !== japaneseText) {
         return {
           translatedText: romajiText,
           translationMethod: 'ai'
         }
-      } else {
-        return {
-          translatedText: basicJapaneseToRomaji(japaneseText),
-          translationMethod: 'fallback'
-        }
       }
-    } else {
-      console.error('Unexpected API response structure for Romaji:', data)
-      return {
-        translatedText: basicJapaneseToRomaji(japaneseText),
-        translationMethod: 'fallback'
-      }
+    }
+
+    return {
+      translatedText: basicJapaneseToRomaji(japaneseText),
+      translationMethod: 'fallback'
     }
 
   } catch (error) {
@@ -489,23 +419,15 @@ Convert this Japanese text to Romaji:`
   }
 }
 
-/**
- * Convert Japanese text to Romaji (wrapper untuk kompatibilitas)
- * @param japaneseText - Text dalam bahasa Jepang
- * @returns Promise<string> - Romaji text (untuk kompatibilitas)
- */
 export async function convertJapaneseToRomajiLegacy(japaneseText: string, accessToken?: string): Promise<string> {
   const result = await convertJapaneseToRomaji(japaneseText, accessToken)
   return result.translatedText
 }
 
-/**
- * Basic Japanese to Romaji conversion (fallback)
- * @param japaneseText - Japanese text
- * @returns string - Basic romaji conversion
- */
+// Basic fallback
 function basicJapaneseToRomaji(japaneseText: string): string {
-  // Basic character mapping for common Japanese characters
+  // Basic character mapping for common Japanese characters (truncated for brevity in source replacement, typically full map needed)
+  // ... including the map from original file ...
   const romajiMap: { [key: string]: string } = {
     'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
     'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
@@ -534,16 +456,12 @@ function basicJapaneseToRomaji(japaneseText: string): string {
   for (const [japanese, romaji] of Object.entries(romajiMap)) {
     result = result.replace(new RegExp(japanese, 'g'), romaji)
   }
-  
+
   return result
 }
 
-/**
- * Test connection to OpenRouter API
- * @param accessToken - Supabase access token for secrets
- * @returns Promise<boolean> - True if connection successful
- */
 export async function testOpenRouterConnection(accessToken?: string): Promise<boolean> {
+  // Renamed logic to test SumoPod
   try {
     const testResult = await translateWithDeepSeek({
       text: 'テスト',
@@ -551,10 +469,10 @@ export async function testOpenRouterConnection(accessToken?: string): Promise<bo
       targetLanguage: 'english',
       accessToken: accessToken
     })
-    
+
     return testResult.success
   } catch (error) {
-    console.error('OpenRouter connection test failed:', error)
+    console.error('SumoPod connection test failed:', error)
     return false
   }
 }

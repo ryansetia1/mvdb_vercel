@@ -61,9 +61,9 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
       const isConnected = await testOpenRouterConnection(accessToken)
       setConnectionStatus(isConnected)
       if (isConnected) {
-        toast.success('Koneksi ke OpenRouter berhasil!')
+        toast.success('Koneksi ke SumoPod AI berhasil!')
       } else {
-        toast.error('Koneksi ke OpenRouter gagal!')
+        toast.error('Koneksi ke SumoPod AI gagal!')
       }
     } catch (error) {
       console.error('Connection test error:', error)
@@ -86,18 +86,18 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
     <div className="space-y-6 p-6">
       <Card>
         <CardHeader>
-          <CardTitle>DeepSeek R1 Translation Test</CardTitle>
+          <CardTitle>SumoPod AI Translation Test</CardTitle>
           <CardDescription>
-            Test integrasi DeepSeek R1 melalui OpenRouter untuk fungsi translate dan konversi Romaji
+            Test integrasi SumoPod AI (Gemini 2.5 Flash) untuk fungsi translate dan konversi Romaji
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Connection Test */}
           <div className="space-y-2">
-            <Label>Test Koneksi OpenRouter</Label>
+            <Label>Test Koneksi API</Label>
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={handleTestConnection} 
+              <Button
+                onClick={handleTestConnection}
                 disabled={testingConnection}
                 variant="outline"
               >
@@ -125,8 +125,8 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
           </div>
 
           <div className="flex gap-2">
-            <Button 
-              onClick={handleTranslate} 
+            <Button
+              onClick={handleTranslate}
               disabled={loading || !testText.trim()}
               className="flex items-center gap-2"
             >
@@ -142,8 +142,8 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
                 </>
               )}
             </Button>
-            <Button 
-              onClick={handleConvertRomaji} 
+            <Button
+              onClick={handleConvertRomaji}
               disabled={loading || !testText.trim()}
               variant="outline"
               className="flex items-center gap-2"
@@ -163,8 +163,8 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
           </div>
 
           {/* Loading Visual */}
-          <AITranslationLoading 
-            text="DeepSeek R1 sedang memproses..."
+          <AITranslationLoading
+            text="SumoPod AI sedang memproses..."
             type="translation"
             isVisible={loading}
           />
@@ -209,41 +209,29 @@ export function DeepSeekTranslationTest({ accessToken }: DeepSeekTranslationTest
         </CardContent>
       </Card>
 
-          {/* Information Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informasi Integrasi</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="text-sm text-muted-foreground">
-                <p><strong>Model:</strong> deepseek/deepseek-r1:free</p>
-                <p><strong>Provider:</strong> OpenRouter</p>
-                <p><strong>Status API Key:</strong> 
-                  {connectionStatus === null ? ' Belum ditest' : 
-                   connectionStatus ? ' ✅ Valid' : ' ❌ Invalid - Perlu API key baru'}
-                </p>
-                <p><strong>Features:</strong></p>
-                <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>Japanese to English translation</li>
-                  <li>Japanese to Romaji conversion</li>
-                  <li>Fallback to MyMemory API jika DeepSeek gagal</li>
-                  <li>Batch translation support</li>
-                </ul>
-                {connectionStatus === false && (
-                  <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-800">
-                    <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-                      <strong>⚠️ API Key Invalid:</strong> Silakan dapatkan API key baru dari{' '}
-                      <a href="https://openrouter.ai/" target="_blank" rel="noopener noreferrer" className="underline">
-                        OpenRouter
-                      </a>{' '}
-                      dan update konfigurasi. Lihat dokumentasi di{' '}
-                      <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">docs/OPENROUTER_API_KEY_SETUP.md</code>
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Information Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Informasi Integrasi</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="text-sm text-muted-foreground">
+            <p><strong>Model:</strong> gemini/gemini-2.5-flash</p>
+            <p><strong>Provider:</strong> SumoPod AI (via Gemini)</p>
+            <p><strong>Status API Key:</strong>
+              {connectionStatus === null ? ' Belum ditest' :
+                connectionStatus ? ' ✅ Valid' : ' ❌ Invalid'}
+            </p>
+            <p><strong>Features:</strong></p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li>Japanese to English translation</li>
+              <li>Japanese to Romaji conversion</li>
+              <li>Fallback to MyMemory API jika AI gagal</li>
+              <li>Batch translation support</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

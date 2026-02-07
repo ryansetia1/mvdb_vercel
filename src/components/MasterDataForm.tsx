@@ -120,16 +120,16 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
     setTranslating(true)
     try {
-      // Menggunakan DeepSeek R1 untuk translate dengan konteks series name
+      // Menggunakan SumoPod AI untuk translate dengan konteks series name
       const translationResult = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
-      
+
       if (translationResult.translatedText && translationResult.translatedText !== formData.titleJp) {
         setFormData({ ...formData, titleEn: translationResult.translatedText })
         setTranslationMethod(translationResult.translationMethod)
-        
+
         // Show appropriate success message based on translation method
         if (translationResult.translationMethod === 'ai') {
-          toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+          toast.success('Title berhasil diterjemahkan menggunakan SumoPod AI')
         } else if (translationResult.translationMethod === 'fallback') {
           toast.success('Title diterjemahkan menggunakan MyMemory API (fallback)')
         } else {
@@ -157,17 +157,17 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
     setTranslating(true)
     try {
-      // Menggunakan DeepSeek R1 untuk translate dengan konteks yang sesuai
+      // Menggunakan SumoPod AI untuk translate dengan konteks yang sesuai
       const context = type === 'actress' ? 'actress_name' : type === 'actor' ? 'actor_name' : 'general'
       const translationResult = await translateJapaneseToEnglishWithContext(formData.jpname, context, undefined, accessToken)
-      
+
       if (translationResult.translatedText && translationResult.translatedText !== formData.jpname) {
         setFormData({ ...formData, name: translationResult.translatedText })
         setTranslationMethod(translationResult.translationMethod)
-        
+
         // Show appropriate success message based on translation method
         if (translationResult.translationMethod === 'ai') {
-          toast.success('Nama berhasil diterjemahkan menggunakan DeepSeek R1')
+          toast.success('Nama berhasil diterjemahkan menggunakan SumoPod AI')
         } else if (translationResult.translationMethod === 'fallback') {
           toast.success('Nama diterjemahkan menggunakan MyMemory API (fallback)')
         } else {
@@ -195,16 +195,16 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
     setConvertingRomaji(true)
     try {
-      // Menggunakan DeepSeek R1 untuk konversi romaji dengan fallback
+      // Menggunakan SumoPod AI untuk konversi romaji dengan fallback
       const romajiResult = await convertJapaneseToRomaji(formData.jpname, accessToken)
-      
+
       if (romajiResult.translatedText && romajiResult.translatedText !== formData.jpname) {
         setFormData({ ...formData, name: romajiResult.translatedText })
         setRomajiMethod(romajiResult.translationMethod)
-        
+
         // Show appropriate success message based on conversion method
         if (romajiResult.translationMethod === 'ai') {
-          toast.success('Nama berhasil dikonversi ke Romaji menggunakan DeepSeek R1')
+          toast.success('Nama berhasil dikonversi ke Romaji menggunakan SumoPod AI')
         } else if (romajiResult.translationMethod === 'fallback') {
           toast.success('Nama dikonversi ke Romaji menggunakan fallback')
         } else {
@@ -274,12 +274,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Don't submit if there's a duplicate error
     if (duplicateError) {
       return
     }
-    
+
     setLoading(true)
     setError('')
 
@@ -386,7 +386,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
       console.log('Error message:', err.message)
       console.log('Error type:', typeof err)
       console.log('Error includes already exists:', err.message?.includes('already exists'))
-      
+
       // Check if it's a duplicate error - check multiple possible error messages
       const isDuplicateError = err.message && (
         err.message.includes('already exists') ||
@@ -394,22 +394,22 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
         err.message.includes('duplicate') ||
         err.message.includes('exists')
       )
-      
+
       console.log('Is duplicate error:', isDuplicateError)
-      
+
       if (isDuplicateError) {
         // Try to find the existing item
         try {
           console.log('Searching for existing items...')
           const existingItems = await masterDataApi.getByType(type, accessToken)
           console.log('Found existing items:', existingItems.length)
-          
-          const existingItem = existingItems.find(item => 
+
+          const existingItem = existingItems.find(item =>
             item.name?.toLowerCase() === formData.name?.toLowerCase()
           )
-          
+
           console.log('Found existing item:', existingItem)
-          
+
           if (existingItem) {
             setDuplicateError({
               message: err.message,
@@ -423,7 +423,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
           console.error('Error searching for existing item:', searchErr)
         }
       }
-      
+
       setError(err.message || 'Failed to create item')
     } finally {
       setLoading(false)
@@ -438,21 +438,21 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
 
   const handleUpdateExisting = async () => {
     if (!duplicateError?.existingItem) return
-    
+
     try {
       setLoading(true)
       setError('')
-      
+
       // Update the existing item with Japanese name if it's not already set
       const existingItem = duplicateError.existingItem
       const updateData = { ...existingItem }
-      
+
       // For studio, add Japanese name if not already present
       if (type === 'studio' && formData.jpname && !existingItem.jpname) {
         updateData.jpname = formData.jpname
         await masterDataApi.updateExtended('studio', existingItem.id, updateData, accessToken)
       }
-      
+
       onSave(updateData)
     } catch (err: any) {
       console.error('Error updating existing item:', err)
@@ -478,7 +478,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">{getTitle()}</h3>
-        
+
         {/* R18.dev Data Information */}
         {r18Data && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -492,7 +492,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                 Konfirmasi
               </button>
             </div>
-            
+
             {type === 'director' && r18Data.name_romaji && (
               <div className="text-sm text-blue-800 space-y-1">
                 <div><strong>Romaji:</strong> {r18Data.name_romaji}</div>
@@ -500,27 +500,27 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                 {r18Data.name_kana && <div><strong>Kana:</strong> {r18Data.name_kana}</div>}
               </div>
             )}
-            
+
             {type === 'series' && (r18Data.name_en || r18Data.name_ja) && (
               <div className="text-sm text-blue-800 space-y-1">
                 {r18Data.name_en && <div><strong>English:</strong> {r18Data.name_en}</div>}
                 {r18Data.name_ja && <div><strong>Japanese:</strong> {r18Data.name_ja}</div>}
               </div>
             )}
-            
+
             {type === 'label' && (r18Data.label_name_en || r18Data.label_name_ja) && (
               <div className="text-sm text-blue-800 space-y-1">
                 {r18Data.label_name_en && <div><strong>English:</strong> {r18Data.label_name_en}</div>}
                 {r18Data.label_name_ja && <div><strong>Japanese:</strong> {r18Data.label_name_ja}</div>}
               </div>
             )}
-            
+
             <div className="mt-2 text-xs text-blue-600">
               Data ini akan ditambahkan ke database dengan informasi lengkap.
             </div>
           </div>
         )}
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
@@ -540,7 +540,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                 </p>
               )}
             </div>
-            
+
             <div className="flex gap-2">
               <button
                 type="button"
@@ -550,7 +550,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
               >
                 Use Existing
               </button>
-              
+
               {type === 'studio' && formData.jpname && duplicateError.existingItem && !duplicateError.existingItem.jpname && (
                 <button
                   type="button"
@@ -561,7 +561,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   Update with Japanese Name
                 </button>
               )}
-              
+
               <button
                 type="button"
                 onClick={() => {
@@ -577,7 +577,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           {/* Series specific fields */}
           {type === 'series' && (
             <>
@@ -587,13 +587,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     Title English
                   </label>
                   {translationMethod && (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      translationMethod === 'ai' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
                         : translationMethod === 'fallback'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
                   )}
@@ -612,7 +611,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateToEnglish}
                     disabled={translating || !formData.titleJp}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English using DeepSeek R1"
+                    title="Translate to English using SumoPod AI"
                   >
                     {translating ? (
                       <>
@@ -663,13 +662,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     Nama Studio (English) *
                   </label>
                   {translationMethod && (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      translationMethod === 'ai' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
                         : translationMethod === 'fallback'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
                   )}
@@ -688,7 +686,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateNameToEnglish}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English using DeepSeek R1"
+                    title="Translate to English using SumoPod AI"
                   >
                     {translating ? (
                       <>
@@ -707,7 +705,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={convertToRomaji}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Convert to Romaji using DeepSeek R1"
+                    title="Convert to Romaji using SumoPod AI"
                   >
                     {convertingRomaji ? (
                       <>
@@ -794,13 +792,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     Nama
                   </label>
                   {translationMethod && (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      translationMethod === 'ai' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
                         : translationMethod === 'fallback'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
                   )}
@@ -819,7 +816,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateNameToEnglish}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English using DeepSeek R1"
+                    title="Translate to English using SumoPod AI"
                   >
                     {translating ? (
                       <>
@@ -838,7 +835,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={convertToRomaji}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Convert to Romaji using DeepSeek R1"
+                    title="Convert to Romaji using SumoPod AI"
                   >
                     {convertingRomaji ? (
                       <>
@@ -957,7 +954,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                       Cari Gambar dengan "{formData.name || 'Nama'}"
                     </button>
                   </div>
-                  
+
                   {/* Image Search Iframe */}
                   {showImageSearch && (
                     <div className="mb-4">
@@ -972,7 +969,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                       />
                     </div>
                   )}
-                  
+
                   <input
                     type="url"
                     value={formData.profilePicture}
@@ -994,13 +991,12 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     Nama Label (English) *
                   </label>
                   {translationMethod && (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      translationMethod === 'ai' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
                         : translationMethod === 'fallback'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
                   )}
@@ -1019,7 +1015,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={translateNameToEnglish}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Translate to English using DeepSeek R1"
+                    title="Translate to English using SumoPod AI"
                   >
                     {translating ? (
                       <>
@@ -1038,7 +1034,7 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                     onClick={convertToRomaji}
                     disabled={translating || convertingRomaji || !formData.jpname}
                     className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="Convert to Romaji using DeepSeek R1"
+                    title="Convert to Romaji using SumoPod AI"
                   >
                     {convertingRomaji ? (
                       <>

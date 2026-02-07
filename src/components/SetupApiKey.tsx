@@ -47,7 +47,7 @@ export function SetupApiKey({ accessToken }: SetupApiKeyProps) {
     setLoading(true)
     try {
       const success = await setupOpenRouterApiKey(accessToken, apiKey.trim())
-      
+
       if (success) {
         setKeyStatus('exists')
         setApiKey('')
@@ -90,13 +90,13 @@ export function SetupApiKey({ accessToken }: SetupApiKeyProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Key className="h-5 w-5" />
-          Setup OpenRouter API Key
+          Setup SumoPod API Key
         </CardTitle>
         <CardDescription>
-          Simpan API key OpenRouter ke Supabase secrets untuk keamanan yang lebih baik
+          Simpan API key SumoPod ke Supabase secrets untuk keamanan yang lebih baik
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Status Check */}
         <div className="space-y-4">
@@ -104,9 +104,9 @@ export function SetupApiKey({ accessToken }: SetupApiKeyProps) {
             {getStatusIcon()}
             <span className="font-medium">{getStatusText()}</span>
           </div>
-          
-          <Button 
-            onClick={handleCheckKey} 
+
+          <Button
+            onClick={handleCheckKey}
             disabled={checking || !accessToken}
             variant="outline"
             className="w-full"
@@ -118,19 +118,19 @@ export function SetupApiKey({ accessToken }: SetupApiKeyProps) {
         {/* API Key Input */}
         <div className="space-y-4">
           <div>
-            <Label htmlFor="apiKey">OpenRouter API Key</Label>
+            <Label htmlFor="apiKey">SumoPod API Key</Label>
             <Input
               id="apiKey"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Masukkan API key OpenRouter"
+              placeholder="Masukkan API key SumoPod (sk-...)"
               className="mt-1"
             />
           </div>
-          
-          <Button 
-            onClick={handleSaveKey} 
+
+          <Button
+            onClick={handleSaveKey}
             disabled={loading || !apiKey.trim() || !accessToken}
             className="w-full"
           >
@@ -142,7 +142,7 @@ export function SetupApiKey({ accessToken }: SetupApiKeyProps) {
         <Alert>
           <AlertDescription>
             <strong>Cara mendapatkan API key:</strong><br />
-            1. Kunjungi <a href="https://openrouter.ai/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">OpenRouter.ai</a><br />
+            1. Kunjungi <a href="https://ai.sumopod.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">SumoPod AI</a><br />
             2. Daftar atau login ke akun Anda<br />
             3. Navigate ke bagian API Keys<br />
             4. Buat API key baru<br />

@@ -54,19 +54,19 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
       toast.error('Title Japanese harus diisi terlebih dahulu')
       return
     }
-    
+
     setIsTranslating(true)
     try {
-      // Menggunakan DeepSeek R1 untuk translate dengan konteks series
+      // Menggunakan SumoPod AI untuk translate dengan konteks series
       const translationResult = await translateJapaneseToEnglishWithContext(formData.titleJp, 'series_name', undefined, accessToken)
-      
+
       if (translationResult.translatedText && translationResult.translatedText !== formData.titleJp) {
         setFormData(prev => ({ ...prev, titleEn: translationResult.translatedText }))
         setTranslationMethod(translationResult.translationMethod)
-        
+
         // Show appropriate success message based on translation method
         if (translationResult.translationMethod === 'ai') {
-          toast.success('Title berhasil diterjemahkan menggunakan DeepSeek R1')
+          toast.success('Title berhasil diterjemahkan menggunakan SumoPod AI')
         } else if (translationResult.translationMethod === 'fallback') {
           toast.success('Title diterjemahkan menggunakan MyMemory API (fallback)')
         } else {
@@ -85,7 +85,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.titleEn.trim() && !formData.titleJp.trim()) {
       setError('Minimal salah satu title (EN atau JP) harus diisi')
       return
@@ -165,13 +165,12 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
                 <div className="flex items-center gap-2 mb-1">
                   <Label htmlFor="titleEn">Title English</Label>
                   {translationMethod && (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      translationMethod === 'ai' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
                         : translationMethod === 'fallback'
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
                   )}
@@ -202,7 +201,7 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
                     variant="outline"
                     size="sm"
                     className="flex items-center gap-1"
-                    title="Translate Japanese title to English using DeepSeek R1"
+                    title="Translate Japanese title to English using SumoPod AI"
                   >
                     {isTranslating ? (
                       <>
@@ -232,18 +231,18 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
             </div>
 
             <div className="flex gap-2">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isLoading}
                 className="flex items-center gap-2"
               >
                 <Save className="h-4 w-4" />
                 {isLoading ? 'Menyimpan...' : editingId ? 'Update' : 'Simpan'}
               </Button>
-              
+
               {editingId && (
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   variant="outline"
                   onClick={resetForm}
                   className="flex items-center gap-2"
@@ -286,67 +285,67 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
                   return fields.some(f => f?.toLowerCase().includes(q))
                 })
                 .map((item) => (
-                <div key={item.id} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="space-y-1">
-                        {item.titleEn && (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">EN</Badge>
-                            <h4 className="font-medium">{item.titleEn}</h4>
-                          </div>
-                        )}
-                        {item.titleJp && (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">JP</Badge>
-                            <h4 className="font-medium">{item.titleJp}</h4>
+                  <div key={item.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="space-y-1">
+                          {item.titleEn && (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">EN</Badge>
+                              <h4 className="font-medium">{item.titleEn}</h4>
+                            </div>
+                          )}
+                          {item.titleJp && (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">JP</Badge>
+                              <h4 className="font-medium">{item.titleJp}</h4>
+                            </div>
+                          )}
+                        </div>
+
+                        {item.seriesLinks && (
+                          <div className="mt-2">
+                            <p className="text-sm font-medium mb-1">Links:</p>
+                            <div className="text-xs text-muted-foreground">
+                              {item.seriesLinks.split('\n').map((link, index) => (
+                                <div key={index} className="break-all">
+                                  {link.trim() && (
+                                    <a
+                                      href={link.trim()}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:text-primary underline"
+                                    >
+                                      {link.trim()}
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
-                      
-                      {item.seriesLinks && (
-                        <div className="mt-2">
-                          <p className="text-sm font-medium mb-1">Links:</p>
-                          <div className="text-xs text-muted-foreground">
-                            {item.seriesLinks.split('\n').map((link, index) => (
-                              <div key={index} className="break-all">
-                                {link.trim() && (
-                                  <a 
-                                    href={link.trim()} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="hover:text-primary underline"
-                                  >
-                                    {link.trim()}
-                                  </a>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEdit(item)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
         </CardContent>
