@@ -28,7 +28,7 @@ interface DashboardProps {
   editingSCMovie?: any
   editingProfile?: { type: 'actor' | 'actress' | 'director', name: string } | null
   onClearEditingMovie?: () => void
-  onClearEditingSCMovie?: () => void
+  onCancelSCMovieEdit?: () => void
   onClearEditingProfile?: () => void
   onDataChanged?: () => void
   parseMovie?: any
@@ -45,7 +45,7 @@ export function Dashboard({
   editingSCMovie: externalEditingSCMovie,
   editingProfile: externalEditingProfile,
   onClearEditingMovie,
-  onClearEditingSCMovie,
+  onCancelSCMovieEdit,
   onClearEditingProfile,
   onDataChanged,
   parseMovie: externalParseMovie,
@@ -165,8 +165,9 @@ export function Dashboard({
   const handleEditSCMovie = (scMovie: any) => {
     setEditingSCMovie(scMovie)
     setActiveTab('sc-movies')
-    if (onClearEditingSCMovie) {
-      onClearEditingSCMovie()
+    if (onCancelSCMovieEdit) {
+      // Note: This is intentionally left empty since handleEditSCMovie is for opening the form
+      // The cancel action is handled separately
     }
   }
 
@@ -304,8 +305,8 @@ export function Dashboard({
             editingSCMovie={editingSCMovie}
             onClearEditing={() => {
               setEditingSCMovie(null)
-              if (onClearEditingSCMovie) {
-                onClearEditingSCMovie()
+              if (onCancelSCMovieEdit) {
+                onCancelSCMovieEdit()
               }
             }}
             onSCMovieSelect={editingSCMovie ? onSCMovieSelect : undefined}

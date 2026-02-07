@@ -1559,7 +1559,10 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
             editingProfile={showEditProfile}
             parseMovie={showParseMovie}
             onClearEditingMovie={() => setShowEditMovie(null)}
-            onClearEditingSCMovie={() => setShowEditSCMovie(null)}
+            onCancelSCMovieEdit={() => {
+              setShowEditSCMovie(null)
+              handleBack()
+            }}
             onClearEditingProfile={() => setShowEditProfile(null)}
             onSwitchToFrontend={() => {
               setContentState({ mode: 'movies', title: 'Movies' })
