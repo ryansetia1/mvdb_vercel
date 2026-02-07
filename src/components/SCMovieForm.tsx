@@ -43,7 +43,12 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
 
   useEffect(() => {
     if (scMovie) {
-      setFormData(scMovie)
+      // Ensure streaming links are at least empty arrays if they are null in the database
+      setFormData({
+        ...scMovie,
+        scStreamingLinks: scMovie.scStreamingLinks || [],
+        hcStreamingLinks: scMovie.hcStreamingLinks || []
+      })
     }
   }, [scMovie])
 
@@ -56,7 +61,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
       // Load HC movies to get available codes
       const movies = await movieApi.getMovies(accessToken)
       const codes = movies
-        .map(movie => movie.code)
+        .map((movie: Movie) => movie.code)
         .filter(Boolean)
         .sort()
       setAvailableHCCodes(codes)
@@ -70,46 +75,46 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
     try {
       // Find HC movie by code
       const movies = await movieApi.getMovies(accessToken)
-      const hcMovie = movies.find(movie => 
+      const hcMovie = movies.find((movie: Movie) =>
         movie.code?.toLowerCase() === hcCode.toLowerCase()
       )
-      
+
       if (hcMovie) {
         // Extract cast data from HC movie
         const castData: string[] = []
-        
+
         // Add actresses
         if (hcMovie.actress) {
-          const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name)
+          const actresses = hcMovie.actress.split(',').map((name: string) => name.trim()).filter((name: string) => name)
           castData.push(...actresses)
         }
-        
+
         // Add actors
         if (hcMovie.actors) {
-          const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name)
+          const actors = hcMovie.actors.split(',').map((name: string) => name.trim()).filter((name: string) => name)
           castData.push(...actors)
         }
-        
+
         // Prepare update data
         const updateData: Partial<SCMovie> = {}
-        
+
         // Update cast data
         if (castData.length > 0) {
           updateData.cast = castData.join(', ')
         }
-        
+
         // Update HC release date
         if (hcMovie.releaseDate) {
           updateData.hcReleaseDate = hcMovie.releaseDate
         }
-        
+
         // Update form data with HC movie data
         if (Object.keys(updateData).length > 0) {
-          setFormData(prev => ({ 
-            ...prev, 
+          setFormData(prev => ({
+            ...prev,
             ...updateData
           }))
-          
+
           // Show success message
           const messages = []
           if (updateData.cast) {
@@ -118,7 +123,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
           if (updateData.hcReleaseDate) {
             messages.push(`Release Date: ${new Date(updateData.hcReleaseDate).toLocaleDateString('id-ID')}`)
           }
-          
+
           toast.success(`Data HC movie ${hcCode} otomatis dimuat: ${messages.join(', ')}`)
         } else {
           toast.info(`HC movie ${hcCode} ditemukan, tetapi tidak ada data yang tersedia`)
@@ -141,45 +146,45 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
 
   const handleSelectChange = async (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }))
-    
+
     // If HC code is selected, automatically fetch data from HC movie
     if (name === 'hcCode' && value) {
       await fetchHCMovieData(value)
     }
   }
-  
+
   // New function to handle adding HC movie to the list
   const addHCMovie = async (hcCode: string) => {
     if (!hcCode.trim()) return;
-    
+
     // Check if HC code already exists in the list
-    const existingHCMovie = formData.hcMovies?.find(hc => hc.hcCode === hcCode);
+    const existingHCMovie = formData.hcMovies?.find((hc: HCMovieReference) => hc.hcCode === hcCode);
     if (existingHCMovie) {
       toast.error(`HC movie dengan kode ${hcCode} sudah ada dalam daftar`);
       return;
     }
-    
+
     setIsLoadingCast(true);
     try {
       // Find HC movie by code
       const movies = await movieApi.getMovies(accessToken);
-      const hcMovie = movies.find(movie => 
-        movie.code?.toLowerCase() === hcCode.toLowerCase()
+      const hcMovie = movies.find((m: Movie) =>
+        m.code?.toLowerCase() === hcCode.toLowerCase()
       );
-      
+
       if (hcMovie) {
         // Create new HC movie reference
         const newHCMovie: HCMovieReference = {
           hcCode: hcCode,
           hcReleaseDate: hcMovie.releaseDate
         };
-        
+
         // Add to hcMovies array
         setFormData(prev => ({
           ...prev,
           hcMovies: [...(prev.hcMovies || []), newHCMovie]
         }));
-        
+
         // For backward compatibility, if this is the first HC movie, also set hcCode and hcReleaseDate
         if (!formData.hcCode) {
           setFormData(prev => ({
@@ -188,36 +193,36 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
             hcReleaseDate: hcMovie.releaseDate
           }));
         }
-        
+
         // Extract cast data from HC movie and merge with existing cast
         const newCastData: string[] = [];
-        
+
         // Add actresses
         if (hcMovie.actress) {
-          const actresses = hcMovie.actress.split(',').map(name => name.trim()).filter(name => name);
+          const actresses = hcMovie.actress.split(',').map((name: string) => name.trim()).filter((name: string) => name);
           newCastData.push(...actresses);
         }
-        
+
         // Add actors
         if (hcMovie.actors) {
-          const actors = hcMovie.actors.split(',').map(name => name.trim()).filter(name => name);
+          const actors = hcMovie.actors.split(',').map((name: string) => name.trim()).filter((name: string) => name);
           newCastData.push(...actors);
         }
-        
+
         if (newCastData.length > 0) {
           // Get existing cast and merge with new cast, removing duplicates
           const existingCast = formData.cast ? formData.cast.split(',').map(name => name.trim()).filter(name => name) : [];
           const combinedCast = [...existingCast, ...newCastData];
-          
+
           // Remove duplicates by converting to Set and back to array
           const uniqueCast = [...new Set(combinedCast)];
-          
-          setFormData(prev => ({ 
-            ...prev, 
+
+          setFormData(prev => ({
+            ...prev,
             cast: uniqueCast.join(', ')
           }));
         }
-        
+
         toast.success(`HC movie ${hcCode} berhasil ditambahkan`);
       } else {
         toast.warning(`HC movie dengan code ${hcCode} tidak ditemukan di database`);
@@ -229,17 +234,17 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
       setIsLoadingCast(false);
     }
   }
-  
+
   // Remove HC movie from the list
   const removeHCMovie = (hcCode: string) => {
     setFormData(prev => ({
       ...prev,
-      hcMovies: prev.hcMovies?.filter(hc => hc.hcCode !== hcCode) || []
+      hcMovies: prev.hcMovies?.filter((hc: HCMovieReference) => hc.hcCode !== hcCode) || []
     }));
-    
+
     // If we're removing the HC movie that's set as the main hcCode, clear it
     if (formData.hcCode === hcCode) {
-      const remainingHCMovies = formData.hcMovies?.filter(hc => hc.hcCode !== hcCode) || [];
+      const remainingHCMovies = formData.hcMovies?.filter((hc: HCMovieReference) => hc.hcCode !== hcCode) || [];
       setFormData(prev => ({
         ...prev,
         hcCode: remainingHCMovies.length > 0 ? remainingHCMovies[0].hcCode : '',
@@ -285,7 +290,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validation
     if (!formData.titleEn?.trim()) {
       setError('Judul English wajib diisi')
@@ -398,7 +403,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
               <Label htmlFor="scType">Type</Label>
               <Select
                 value={formData.scType || 'regular_censorship'}
-                onValueChange={(value) => handleSelectChange('scType', value)}
+                onValueChange={(value: string) => handleSelectChange('scType', value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -462,10 +467,11 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
               <div className="flex gap-2 mb-2">
                 <SearchableSelect
                   value={''}
-                  onValueChange={(value) => addHCMovie(value)}
+                  onValueChange={async (value: string) => {
+                    await addHCMovie(value)
+                  }}
                   options={availableHCCodes.map(code => ({ value: code, label: code }))}
                   placeholder="Pilih atau ketik HC Code..."
-                  allowCustomValue={true}
                   className="flex-1"
                 />
                 <Button
@@ -473,10 +479,10 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const inputValue = document.querySelector('[role="combobox"]') as HTMLInputElement;
-                    if (inputValue && inputValue.value) {
-                      addHCMovie(inputValue.value);
-                      inputValue.value = '';
+                    const inputElement = document.querySelector('[role="combobox"]') as HTMLInputElement;
+                    if (inputElement && inputElement.value) {
+                      addHCMovie(inputElement.value);
+                      inputElement.value = '';
                     }
                   }}
                   disabled={isLoadingCast}
@@ -489,18 +495,18 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
                   )}
                 </Button>
               </div>
-              
+
               {/* Display HC Movies as badges */}
               <div className="flex flex-wrap gap-2 mt-2">
                 {(formData.hcMovies || []).map((hcMovie) => (
-                  <Badge 
-                    key={hcMovie.hcCode} 
+                  <Badge
+                    key={hcMovie.hcCode}
                     variant="secondary"
                     className="flex items-center gap-1 px-3 py-1"
                   >
                     <span>HC: {hcMovie.hcCode}</span>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="ml-1 text-gray-500 hover:text-red-500"
                       onClick={() => removeHCMovie(hcMovie.hcCode)}
                     >
@@ -520,7 +526,7 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
               <Switch
                 id="hasEnglishSubs"
                 checked={formData.hasEnglishSubs || false}
-                onCheckedChange={(checked) => handleSwitchChange('hasEnglishSubs', checked)}
+                onCheckedChange={(checked: boolean) => setFormData(prev => ({ ...prev, hasEnglishSubs: !!checked }))}
               />
               <Label htmlFor="hasEnglishSubs">Sudah ada English Subs</Label>
             </div>
@@ -601,16 +607,16 @@ export function SCMovieForm({ scMovie, onSave, onCancel, accessToken }: SCMovieF
             </div>
 
             <div className="flex gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={onCancel}
                 disabled={isLoading}
               >
                 Batal
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isLoading}
               >
                 {isLoading ? 'Menyimpan...' : scMovie?.id ? 'Update' : 'Simpan'}

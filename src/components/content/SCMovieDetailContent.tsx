@@ -70,7 +70,7 @@ export function SCMovieDetailContent({ scMovie, onBack, onEdit, accessToken, onM
 
     try {
       setIsLoading(true)
-      const updatedSCMovie = await scMovieApi.getSCMovie(scMovie.id)
+      const updatedSCMovie = await scMovieApi.getSCMovie(scMovie.id, accessToken)
       setCurrentSCMovie(updatedSCMovie)
     } catch (error) {
       console.error('Failed to reload SC movie:', error)

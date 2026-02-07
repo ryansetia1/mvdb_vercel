@@ -1382,7 +1382,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
           const additionalAliases = uniqueNamesToMove.map(name => {
             // Deteksi jenis karakter
             const characterType = detectCharacterType(name)
-            if (characterType === 'english' || characterType === 'latin' || characterType === 'romaji') {
+            if (characterType === 'romaji' || characterType === 'mixed') {
               return name
             } else if (characterType === 'kanji') {
               return name
@@ -1431,7 +1431,7 @@ export function ActorForm({ type, accessToken, onClose, initialData, onSaved }: 
             const subParts = part.split(',').map(subPart => subPart.trim()).filter(subPart => subPart.length > 0)
             subParts.forEach(subPart => {
               const characterType = detectCharacterType(subPart)
-              if (characterType === 'english' || characterType === 'latin' || characterType === 'romaji') {
+              if (characterType === 'romaji' || characterType === 'mixed') {
                 englishNames.push(subPart)
               } else if (characterType === 'kanji' || characterType === 'kana') {
                 kanjiNames.push(subPart)

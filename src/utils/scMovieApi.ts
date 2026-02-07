@@ -42,19 +42,19 @@ const getAuthHeader = (accessToken?: string): Record<string, string> => ({
 })
 
 export const scMovieApi = {
-  // Main function used by components (uses public anon key for GET)
+  // Main function used by components (uses auth token if provided)
   async getSCMovies(accessToken: string) {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
-        headers: getAuthHeader(),
+        headers: getAuthHeader(accessToken),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Get SC movies API error:', result)
         throw new Error(result.error || 'Failed to fetch SC movies')
       }
-      
+
       return result.scMovies || []
     } catch (error) {
       console.log('Get SC movies exception:', error)
@@ -68,13 +68,13 @@ export const scMovieApi = {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
         headers: getAuthHeader(),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Get all SC movies API error:', result)
         throw new Error(result.error || 'Failed to fetch SC movies')
       }
-      
+
       return result.scMovies || []
     } catch (error) {
       console.log('Get all SC movies exception:', error)
@@ -82,18 +82,18 @@ export const scMovieApi = {
     }
   },
 
-  async getSCMovie(id: string) {
+  async getSCMovie(id: string, accessToken?: string) {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/${id}`, {
-        headers: getAuthHeader(),
+        headers: getAuthHeader(accessToken),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Get SC movie API error:', result)
         throw new Error(result.error || 'Failed to fetch SC movie')
       }
-      
+
       return result.scMovie
     } catch (error) {
       console.log('Get SC movie exception:', error)
@@ -104,34 +104,19 @@ export const scMovieApi = {
   async createSCMovie(scMovie: SCMovie, accessToken: string) {
     try {
       console.log('Creating SC movie with data:', scMovie)
-      console.log('Using URL:', `https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`)
-      
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies`, {
         method: 'POST',
         headers: getAuthHeader(accessToken),
         body: JSON.stringify(scMovie),
       })
-      
-      console.log('Response status:', response.status)
-      console.log('Response headers:', response.headers)
-      
-      const responseText = await response.text()
-      console.log('Raw response:', responseText)
-      
-      let result
-      try {
-        result = JSON.parse(responseText)
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError)
-        console.error('Response text:', responseText)
-        throw new Error(`Invalid JSON response: ${responseText}`)
-      }
-      
+
+      const result = await response.json()
       if (!response.ok) {
         console.log('Create SC movie API error:', result)
         throw new Error(result.error || 'Failed to create SC movie')
       }
-      
+
       return result.scMovie
     } catch (error) {
       console.log('Create SC movie exception:', error)
@@ -141,18 +126,24 @@ export const scMovieApi = {
 
   async updateSCMovie(id: string, scMovie: Partial<SCMovie>, accessToken: string) {
     try {
+      // Clean up scMovie to remove id and metadata fields before sending to API
+      // as they should be passed in the URL and updated on the server respectively
+      const { id: _, createdAt: __, updatedAt: ___, ...updateData } = scMovie as any
+
+      console.log(`Updating SC movie ${id} with data:`, updateData)
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/${id}`, {
         method: 'PUT',
         headers: getAuthHeader(accessToken),
-        body: JSON.stringify(scMovie),
+        body: JSON.stringify(updateData),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Update SC movie API error:', result)
         throw new Error(result.error || 'Failed to update SC movie')
       }
-      
+
       return result.scMovie
     } catch (error) {
       console.log('Update SC movie exception:', error)
@@ -166,13 +157,13 @@ export const scMovieApi = {
         method: 'DELETE',
         headers: getAuthHeader(accessToken),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Delete SC movie API error:', result)
         throw new Error(result.error || 'Failed to delete SC movie')
       }
-      
+
       return result
     } catch (error) {
       console.log('Delete SC movie exception:', error)
@@ -183,15 +174,15 @@ export const scMovieApi = {
   async searchSCMovies(query: string, accessToken?: string) {
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e0516fcf/sc-movies/search/${encodeURIComponent(query)}`, {
-        headers: getAuthHeader(),
+        headers: getAuthHeader(accessToken),
       })
-      
+
       const result = await response.json()
       if (!response.ok) {
         console.log('Search SC movies API error:', result)
         throw new Error(result.error || 'Failed to search SC movies')
       }
-      
+
       return result.scMovies || []
     } catch (error) {
       console.log('Search SC movies exception:', error)

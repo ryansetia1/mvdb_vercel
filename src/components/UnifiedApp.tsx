@@ -279,7 +279,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       if (contentState.mode === 'scMovieDetail' && contentState.data?.code && !contentState.data?.titleEn) {
         // We have only code/id, need to fetch full SC movie data
         try {
-          const scMovie = await scMovieApi.getSCMovie(contentState.data.code)
+          const scMovie = await scMovieApi.getSCMovie(contentState.data.code, accessToken)
           setContentState({
             mode: 'scMovieDetail',
             title: scMovie.titleEn || scMovie.titleJp || 'SC Movie Details',
@@ -832,15 +832,25 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
       console.log('Movie object:', movie)
 
       // Save current state to history before navigating to movie detail
-      // Don't save admin mode to history - always go back to movies
-      const stateToSave = contentState.mode === 'admin'
-        ? { mode: 'movies' as ContentMode, title: 'Movies' }
-        : contentState
+      const lastHistory = navigationHistory[navigationHistory.length - 1]
+      const isReturningFromEdit = contentState.mode === 'admin' && lastHistory?.mode === 'movieDetail' &&
+        (lastHistory?.data?.id === movie.id || lastHistory?.data?.code === movie.code)
 
-      setNavigationHistory(prev => [...prev, {
-        ...stateToSave,
-        moviesFilters: moviesFilters // Include current pagination state
-      }])
+      if (isReturningFromEdit) {
+        // Replace the old detail state: pop it, and don't push the admin state
+        setNavigationHistory(prev => prev.slice(0, -1))
+      } else {
+        // Regular navigation: save current state to history
+        // Don't save admin mode to history if it's not a return - instead save back to list
+        const stateToSave = contentState.mode === 'admin'
+          ? { mode: 'movies' as ContentMode, title: 'Movies' }
+          : contentState
+
+        setNavigationHistory(prev => [...prev, {
+          ...stateToSave,
+          moviesFilters: moviesFilters // Include current pagination state
+        }])
+      }
 
       const newContentState = {
         mode: 'movieDetail' as const,
@@ -878,7 +888,7 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     if (typeof scMovieInput === 'string') {
       // Fetch SC movie by ID
       try {
-        scMovie = await scMovieApi.getSCMovie(scMovieInput)
+        scMovie = await scMovieApi.getSCMovie(scMovieInput, accessToken)
       } catch (error) {
         console.error('Failed to fetch SC movie:', error)
         return
@@ -889,10 +899,26 @@ function UnifiedAppInner({ accessToken, user, onLogout }: UnifiedAppProps) {
     }
 
     // Save current state to history before navigating to SC movie detail
-    setNavigationHistory(prev => [...prev, {
-      ...contentState,
-      softContentFilters
-    }])
+    const scMovieId = typeof scMovieInput === 'string' ? scMovieInput : scMovieInput.id
+    const lastHistory = navigationHistory[navigationHistory.length - 1]
+    const isReturningFromEdit = contentState.mode === 'admin' && lastHistory?.mode === 'scMovieDetail' &&
+      (lastHistory?.data?.id === scMovieId || lastHistory?.data?.code === scMovieId)
+
+    if (isReturningFromEdit) {
+      // Replace the old detail state: pop it, and don't push the admin state
+      setNavigationHistory(prev => prev.slice(0, -1))
+    } else {
+      // Regular navigation: save current state to history
+      // Don't save admin mode to history if it's not a return - instead save back to soft content list
+      const stateToSave = contentState.mode === 'admin'
+        ? { mode: 'soft' as ContentMode, title: 'Soft Content' }
+        : contentState
+
+      setNavigationHistory(prev => [...prev, {
+        ...stateToSave,
+        softContentFilters
+      }])
+    }
 
     setContentState({
       mode: 'scMovieDetail',
