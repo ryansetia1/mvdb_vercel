@@ -451,13 +451,13 @@ export function SoftContent({
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="h-8 w-8 rounded-full bg-primary/90 hover:bg-primary text-primary-foreground shadow-lg border-none"
+                        className="h-10 w-10 rounded-full bg-white dark:bg-white hover:bg-white text-zinc-900 border border-white/40 shadow-[0_4px_15px_rgba(0,0,0,0.4)] backdrop-blur-md"
                         onClick={(e: React.MouseEvent) => {
                           e.stopPropagation();
                           window.open(movie.scStreamingLinks[0], '_blank');
                         }}
                       >
-                        <Play className="h-4 w-4 fill-current ml-0.5" />
+                        <Play className="h-5 w-5 fill-zinc-900 ml-0.5" />
                       </Button>
                     </div>
                   )}
