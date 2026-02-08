@@ -7,7 +7,7 @@ import { Label } from './ui/label'
 import { Badge } from './ui/badge'
 import { Plus, Trash2, Edit, Save, X, Globe, Brain } from 'lucide-react'
 import { MasterDataItem, masterDataApi } from '../utils/masterDataApi'
-import { translateJapaneseToEnglishWithContext } from '../utils/deepseekTranslationApi'
+import { translateJapaneseToEnglishWithContext } from '../utils/aiTranslationApi'
 import { AITranslationSpinner } from './AITranslationLoading'
 import { ShimmerInput } from './ShimmerInput'
 import { toast } from 'sonner'
@@ -166,10 +166,10 @@ export function SeriesForm({ accessToken, data, onDataChange }: SeriesFormProps)
                   <Label htmlFor="titleEn">Title English</Label>
                   {translationMethod && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : translationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>

@@ -11,7 +11,7 @@ import { BulkLinksManagerContent } from './content/BulkLinksManagerContent'
 import { MovieDataParser } from './MovieDataParser'
 import { StatsContent } from './content/StatsContent'
 import { BackupRestoreContent } from './content/BackupRestoreContent'
-import { DeepSeekTranslationTest } from './DeepSeekTranslationTest'
+import { AITranslationTest } from './AITranslationTest'
 import { SetupApiKey } from './SetupApiKey'
 import { CacheManager } from './CacheManager'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
@@ -262,11 +262,11 @@ export function Dashboard({
               <span>Backup & Restore</span>
             </TabsTrigger>
             <TabsTrigger
-              value="deepseek-test"
+              value="ai-translation-test"
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 dark:data-[state=active]:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 whitespace-nowrap"
             >
               <Settings className="h-4 w-4" />
-              <span>DeepSeek Test</span>
+              <span>AI Translation Test</span>
             </TabsTrigger>
             <TabsTrigger
               value="setup-api-key"
@@ -389,8 +389,8 @@ export function Dashboard({
           <BackupRestoreContent accessToken={accessToken} />
         </TabsContent>
 
-        <TabsContent value="deepseek-test" className="mt-6">
-          <DeepSeekTranslationTest accessToken={accessToken} />
+        <TabsContent value="ai-translation-test" className="mt-6">
+          <AITranslationTest accessToken={accessToken} />
         </TabsContent>
 
         <TabsContent value="setup-api-key" className="mt-6">

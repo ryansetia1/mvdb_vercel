@@ -6,8 +6,7 @@ interface GeminiDobResponse {
 
 const SUMOPOD_API_KEY = 'sk--0kcvDqTWn7--TFN-AKP_g';
 const SUMOPOD_BASE_URL = 'https://ai.sumopod.com/v1';
-// Using 'gemini/gemini-2.5-flash' from the user's available models list.
-const MODEL = 'gemini/gemini-2.5-flash';
+import { getSelectedModel } from './aiSettings';
 
 export const getDobFromGemini = async (
     englishName: string,
@@ -37,7 +36,7 @@ Jangan memberikan teks penjelasan apapun di luar JSON.`;
                 'Authorization': `Bearer ${SUMOPOD_API_KEY}`,
             },
             body: JSON.stringify({
-                model: MODEL,
+                model: getSelectedModel(),
                 messages: [
                     {
                         role: 'system',

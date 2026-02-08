@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MasterDataItem } from '../utils/masterDataApi'
 import { masterDataApi } from '../utils/masterDataApi'
-import { translateJapaneseToEnglishWithContext, convertJapaneseToRomaji } from '../utils/deepseekTranslationApi'
+import { translateJapaneseToEnglishWithContext, convertJapaneseToRomaji } from '../utils/aiTranslationApi'
 import { AITranslationSpinner } from './AITranslationLoading'
 import { ShimmerInput } from './ShimmerInput'
 import { Languages, Type, Search, Brain, Sparkles } from 'lucide-react'
@@ -588,10 +588,10 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   </label>
                   {translationMethod && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : translationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
@@ -663,10 +663,10 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   </label>
                   {translationMethod && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : translationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
@@ -793,10 +793,10 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   </label>
                   {translationMethod && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : translationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
@@ -992,10 +992,10 @@ export function MasterDataForm({ type, initialName, accessToken, onSave, onCance
                   </label>
                   {translationMethod && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${translationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : translationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : translationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {translationMethod === 'ai' ? 'AI' : translationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>

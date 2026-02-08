@@ -11,7 +11,7 @@ import { MovieTitleMatcher } from './MovieTitleMatcher'
 import { DuplicateMovieWarning } from './DuplicateMovieWarning'
 import { useTemplateAutoApply } from './useTemplateAutoApply'
 import { mergeMovieData as mergeMovieApi } from '../utils/movieMergeApi'
-import { translateJapaneseToEnglishWithContext, translateMovieTitleWithContext } from '../utils/deepseekTranslationApi'
+import { translateJapaneseToEnglishWithContext, translateMovieTitleWithContext } from '../utils/aiTranslationApi'
 import { AITranslationLoading, AITranslationSpinner } from './AITranslationLoading'
 import { ShimmerInput } from './ShimmerInput'
 import { Brain, Clipboard } from 'lucide-react'
@@ -2237,16 +2237,16 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
         {rawData.trim() && detectedSource !== 'unknown' && (
           <div className="mb-2">
             <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${detectedSource === 'javdb'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                : detectedSource === 'r18'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+              : detectedSource === 'r18'
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
               }`}>
               <div className={`w-2 h-2 rounded-full mr-2 ${detectedSource === 'javdb'
-                  ? 'bg-blue-500'
-                  : detectedSource === 'r18'
-                    ? 'bg-green-500'
-                    : 'bg-gray-500'
+                ? 'bg-blue-500'
+                : detectedSource === 'r18'
+                  ? 'bg-green-500'
+                  : 'bg-gray-500'
                 }`}></div>
               {detectedSource === 'javdb'
                 ? '📋 JavDB Format (Simple Parser)'
@@ -2286,12 +2286,12 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             onClick={handlePasteFromClipboard}
             disabled={pasteStatus === 'pasting'}
             className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 font-medium shadow-sm border ${pasteStatus === 'success'
-                ? 'bg-green-500 text-white border-green-600 hover:bg-green-600'
-                : pasteStatus === 'error'
-                  ? 'bg-red-500 text-white border-red-600 hover:bg-red-600'
-                  : pasteStatus === 'pasting'
-                    ? 'bg-yellow-500 text-white border-yellow-600 opacity-75 cursor-not-allowed'
-                    : 'bg-blue-500 text-white border-blue-600 hover:bg-blue-600 hover:shadow-md'
+              ? 'bg-green-500 text-white border-green-600 hover:bg-green-600'
+              : pasteStatus === 'error'
+                ? 'bg-red-500 text-white border-red-600 hover:bg-red-600'
+                : pasteStatus === 'pasting'
+                  ? 'bg-yellow-500 text-white border-yellow-600 opacity-75 cursor-not-allowed'
+                  : 'bg-blue-500 text-white border-blue-600 hover:bg-blue-600 hover:shadow-md'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Clipboard size={16} />
@@ -2505,10 +2505,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                   <strong>Title (EN):</strong>
                   {titleTranslationMethod && !mergeMode?.isActive && (
                     <span className={`text-xs font-medium px-2 py-1 rounded ${titleTranslationMethod === 'ai'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : titleTranslationMethod === 'fallback'
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : titleTranslationMethod === 'fallback'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
                       {titleTranslationMethod === 'ai' ? 'AI' : titleTranslationMethod === 'fallback' ? 'Fallback' : 'Original'}
                     </span>
@@ -2522,8 +2522,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     placeholder="English title (auto-translated or manual)"
                     isShimmering={translatingTitle}
                     className={`text-sm ${mergeMode?.isActive && mergeMode.existingMovie.titleEn && titleEn === mergeMode.existingMovie.titleEn
-                        ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
-                        : 'border-gray-300'
+                      ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
+                      : 'border-gray-300'
                       }`}
                   />
                   {mergeMode?.isActive && mergeMode.existingMovie.titleEn && titleEn === mergeMode.existingMovie.titleEn && (
@@ -2583,8 +2583,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     value={movieType}
                     onChange={(e) => handleMovieTypeChange(e.target.value)}
                     className={`px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${mergeMode?.isActive && movieType && movieType !== mergeMode.existingMovie.type
-                        ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20'
-                        : 'border-gray-300'
+                      ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20'
+                      : 'border-gray-300'
                       }`}
                     disabled={availableTypes.length === 0}
                   >
@@ -2610,11 +2610,11 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
             {/* Cover and Gallery Templates */}
             {(cover || gallery) && (
               <div className={`mt-4 p-3 border rounded-lg ${mergeMode?.isActive && (
-                  (cover && cover !== mergeMode.existingMovie.cover) ||
-                  (gallery && gallery !== mergeMode.existingMovie.gallery)
-                )
-                  ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'
-                  : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                (cover && cover !== mergeMode.existingMovie.cover) ||
+                (gallery && gallery !== mergeMode.existingMovie.gallery)
+              )
+                ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'
+                : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
                 }`}>
                 <div className="flex items-center gap-2 mb-2">
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">Template Applied</h4>
@@ -2725,10 +2725,10 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     onChange={(e) => setDmcode(e.target.value)}
                     placeholder="Auto-generated dmcode"
                     className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${dmcodeFromR18
-                        ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20'
-                        : mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode
-                          ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
-                          : 'border-gray-300'
+                      ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20'
+                      : mergeMode?.isActive && mergeMode.existingMovie.dmcode && dmcode === mergeMode.existingMovie.dmcode
+                        ? 'border-green-300 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-300'
                       }`}
                   />
                   {dmcodeFromR18 && (
@@ -2754,8 +2754,8 @@ export function MovieDataParser({ accessToken, onSave, onCancel, existingMovie }
                     setDmcodeFromR18(false)
                   }}
                   className={`px-2 py-1 text-white text-xs rounded ${dmcodeFromR18
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-500 hover:bg-blue-600'
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600'
                     }`}
                   title={dmcodeFromR18 ? "DM code dari R18 tidak bisa di-regenerate" : "Regenerate dmcode"}
                   disabled={dmcodeFromR18}
